@@ -1,0 +1,125 @@
+---Editor---
+require 'window'
+
+g_recorder = Recorder()
+
+t0 = Timer()
+t1 = Timer()
+
+local ui1 = nil
+
+function t0:Func()
+	Print('.........t0 ', self.window.time - self.prev)
+end
+
+function t1:Func()
+	Print('.............t1 ', self.window.time - self.prev)
+	ui1:Move(1, 1)
+end
+
+function WindowRecord(w, redo, o)
+	if (redo) then
+		w:AddChild(o)
+	else
+		w:RemoveChild(o)
+	end
+end
+
+function WindowOnLeftDown(w, e, x, y)
+	local tt = UiTextInput(x, y, 300, uiFont.fontSize)
+	w:AddChild(tt)
+	g_recorder:Record(w, WindowRecord, tt)
+end
+
+function GridLayoutTest(w)
+	local layout = BoxLayout(true)
+	w:AddChild(layout)
+	
+	layout:AddChild(UiTextInput(0, 0, 0, uiFont.fontSize), 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 20, 20, 20, 10)
+	
+	-- local sb = UiSlideBar(nil, false, 0, 0, 0, 20)
+	-- sb:SetScale(5, 1)
+	-- layout:AddChild(sb, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 20, 20, 20, 10)
+	
+	
+	local grid = GridLayout()
+	local scrollPanel = UiScrollPanel(grid)
+	layout:AddChild(scrollPanel, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
+	for i = 1, 100 do
+		local ww = UiWidget(0, 0, 150, 150)
+		ww.color:set(100, 100, 100, 100)
+		grid:AddChild(ww, 5, 5, 10, 10)
+		--ww.gpuClip = true
+		
+		local layout = BoxLayout(true)
+		ww:AddChild(layout)
+		
+		ww = UiWidget(0, 0, 150, 130)
+		ww.color:set(90, 90, 90, 100)
+		layout:AddChild(ww, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 5, 5, 5, 5)
+		local t = UiText(0, 0, 'abcdef')
+		layout:AddChild(t)
+	end
+	layout:AddChild(UiButton(0, 0, 100, 30, _('Load')), 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 10, 10, 10)
+end
+
+function NewWindow_LoadProj()
+	local w = Window()
+	
+	t0:bind_event(EVT.TIMER, t0, t0.Func)
+	t1:bind_event(EVT.TIMER, t1, t1.Func)
+	--t0:Start(w, 300, true)
+	--t1:Start(w, 10, true)
+	
+	--VLayoutTest(w)
+	--HLayoutTest(w)
+	GridLayoutTest(w)
+	
+	w.OnLeftDown = WindowOnLeftDown
+	--w:bind_event(EVT.LEFT_DOWN, w, w.OnLeftDown)
+	
+	return w
+end
+
+function LoadEntrance()
+	cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
+	cEntrance:AddPageWindow('new_proj', 'New Project', Window())
+end
+
+function LoadMainFrame()
+	cMainFrame:AddPageWindow('page0', 'page0', Window())
+	cMainFrame:AddPageWindow('page1', 'page1', Window())
+	cMainFrame:AddPageWindow('page2', 'page2', Window())
+	cMainFrame:AddPageWindow('panel', 'page3', Window())
+end
+
+function AppCleanUp()
+	cGI:DeviceWaitIdle()
+end
+
+-- fo = {pass = {}}
+-- fo.pass[0] = {w = 0, h = 0, ia_to = {}}
+-- fo.pass[0][0] = rtv0
+-- fo.pass[0][1] = rtv1
+-- fo.pass[0].dsv = dsv0
+
+-- fo.pass[1] = {w = 0, h = 0, ia_to = {}}
+-- fo.pass[1][0] = rtv2
+-- fo.pass[1][1] = rtv3
+-- fo.pass[1].dsv = dsv1
+
+-- fo[rtv0] = 0
+-- fo[rtv1] = 0
+-- fo[rtv2] = 1
+-- fo[rtv3] = 1
+-- fo.rel = {}
+			
+
+
+
+
+
+
+
+
+	

@@ -1,0 +1,126 @@
+#define INTERFACE_IMPLEMENT
+#include "EngineInterface.h"
+#include "Generic/LuaWrapper/LuaGlobalCollect.h"
+#include <fstream>
+
+namespace Engine
+{
+	class StreamInput
+	{
+	public:
+		virtual ~StreamInput() {};
+
+		virtual bool IsValid() = 0;
+
+		virtual int64_t GetSize() = 0;
+
+		virtual int64_t GetOffset() = 0;
+
+		virtual void* GetData() = 0;
+
+		virtual int64_t Seek(int64_t offset, SeekPos start = CUR) = 0;
+		virtual int64_t Read(void* buff, int64_t size) = 0;
+
+		Lua_wrap_cpp_class(StreamInput, Lua_abstract, Lua_mf(IsValid), Lua_mf(GetSize), Lua_mf(GetOffset), Lua_mf(GetData));
+	};
+	Lua_global_add_cpp_class(StreamInput);
+
+	class FileInput : public StreamInput
+	{
+	public:
+		~FileInput()
+		{
+			Close();
+		}
+
+		bool Open(const char* fileName, bool isBinary)
+		{
+			m_size = 0;
+			m_data.clear();
+			if (m_ifs.is_open())
+				m_ifs.close();
+			m_ifs.open(fileName, isBinary ? std::ios::binary : 1);
+			return m_ifs.is_open();
+		}
+
+		void Close()
+		{
+			if (m_ifs.is_open())
+				m_ifs.close();
+		}
+
+		bool IsValid() override
+		{
+			return m_ifs.is_open();
+		}
+		int64_t GetSize() override
+		{
+			if (m_size > 0)
+				return m_size;
+			int64_t begin = m_ifs.tellg();
+			m_ifs.seekg(0, std::ios::end);
+			m_size = m_ifs.tellg();
+			m_ifs.seekg(begin, std::ios::beg);
+			return m_size;
+		}
+		int64_t GetOffset() override
+		{
+			return m_ifs.tellg();
+		}
+		int64_t Seek(int64_t offset, SeekPos start = CUR) override
+		{
+			static std::ios_base::seekdir type[] = { std::ios::cur, std::ios::beg,  std::ios::end };
+			return m_ifs.seekg(offset, type[start]).tellg();
+		}
+		int64_t Read(void* buff, int64_t len) override
+		{
+			return m_ifs.read((char*)buff, len).gcount();
+		}
+		void* GetData() override
+		{
+			if (m_data.size() > 0)
+				return m_data.data();
+			m_data.resize(GetSize());
+			int64_t offset = m_ifs.tellg();
+			m_ifs.seekg(0, std::ios::beg);
+			m_ifs.read((char*)m_data.data(), m_size);
+			m_ifs.seekg(offset, std::ios::beg);
+			return m_data.data();
+		}
+
+		Lua_wrap_cpp_class_derived(StreamInput, FileInput, Lua_abstract, Lua_mf(Open), Lua_mf(Close));
+	private:
+		std::vector<char> m_data;
+		int64_t m_size{};
+		std::ifstream m_ifs;
+	};
+	Lua_global_add_cpp_class(FileInput);
+
+#ifdef ANDROID
+	class AssetReader : public StreamReader
+	{
+	public:
+		AssetReader(const char* fileName, bool isBinary)
+		{
+
+		}
+		Lua_cpp_class_derived(StreamReader, AssetReader, Lua_abstract, Open, Close);
+
+		AAsset* asset{};
+		static AAssetManager* assetManager;
+	};
+#endif
+
+	void CNewFileInput(LuaIdx outIdx, bool isAsset)
+	{
+#ifdef ANDROID
+		if (isAsset)
+		{
+			LuaSetCppObject(outIdx, new CAssetReader(fileName, isBinary));
+			return;
+		}
+#endif
+		LuaSetCppObjRegistered(outIdx.state, new FileInput, outIdx);
+	}
+	Lua_global_add_cfunc(CNewFileInput);
+};

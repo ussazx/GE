@@ -1,0 +1,104 @@
+---object---
+require 'class'
+
+local global_delisted = setmetatable({}, {__mode = 'kv'})
+
+local function weak_table_pairs(t)
+	local k, v
+	return function()
+		k, v = next(t, k)
+		while (global_delisted[k] or global_delisted[v]) do
+			t[k] = nil
+			k, v = next(t, k)
+		end
+		return k, v
+	end
+end
+
+local global_objects = setmetatable({}, {__mode = 'v'})
+local global_recycled_id = {}
+
+local function new_object_id()
+	id = id or 0
+	local i, tid = next(global_recycled_id)
+	if (tid) then
+		global_recycled_id[i] = nil
+	else
+		tid = id
+		id = id + 1
+	end
+	return tid
+end
+
+function get_object(id)
+	return global_objects[id]
+end
+
+Object = class()
+
+function Object:ctor()
+	self.id = new_object_id()
+	global_objects[self.id] = self
+	self.event_table = {}
+	self.delisted = false
+end
+
+function Object:dtor()
+	delist()
+end
+
+function Object:delist()
+	if (self.delisted == false) then
+		global_objects[self.id] = nil
+		global_delisted[self] = self
+		global_recycled_id[self.id] = self.id
+		self.delisted = true
+		self:process_event(EVT.DELISTED, self)
+	end
+end
+
+function Object:is_delisted()
+	return self.delisted
+end
+
+function Object:auto_del(obj)
+	self:bind_event(EVT.DELISTED, obj, Object.on_auto_delist)
+	return obj
+end
+
+function Object:on_auto_delist()
+	self:delist()
+end
+
+function Object:bind_event(e, obj, func)
+	self:unbind_event(e, obj, func)
+	self.event_table[e] = self.event_table[e] or setmetatable({}, {__mode = 'k'})
+	self.event_table[e][obj] = self.event_table[e][obj] or {}
+	table.insert(self.event_table[e][obj], func)
+end
+
+function Object:unbind_event(e, obj, func)
+	local t = self.event_table[e]
+	if (t) then
+		t = self.event_table[e][obj]
+		if (t) then
+			for k, v in pairs(t) do
+				if (v == func) then
+					table.remove(t, k)
+					break
+				end
+			end
+		end
+	end
+end
+
+function Object:process_event(e, ...)
+	local t = self.event_table[e]
+	if (t) then
+		for k, v in pairs(t) do
+			for _, f in pairs(v) do
+				f(k, e, ...)
+			end
+		end
+	end
+end

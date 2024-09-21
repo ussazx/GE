@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{31c1c932-b10a-4ae8-afa4-c1d826e75e8e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\Graphic">
+      <UniqueIdentifier>{0f2ac603-f121-4bf7-b70c-c2670fb3249f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include">
+      <UniqueIdentifier>{af13ea51-30aa-4745-98fe-f5f8f5a2fba7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\source\Foundation.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\Graphic\GraphicVulkan.cpp">
+      <Filter>源文件\Graphic</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ThirdParty\vulkan\Source\vulkan_wrapper\vulkan_wrapper.cpp">
+      <Filter>源文件\Graphic</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\source\Functional.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Service.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\Foundation.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Graphic\Graphic.h">
+      <Filter>源文件\Graphic</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Graphic\GraphicVulkan.h">
+      <Filter>源文件\Graphic</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

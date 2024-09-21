@@ -1,0 +1,36 @@
+#include "TestFrame.h"
+
+wxBEGIN_EVENT_TABLE(wxSizeReportCtrl, wxControl)
+EVT_PAINT(wxSizeReportCtrl::OnPaint)
+EVT_SIZE(wxSizeReportCtrl::OnSize)
+EVT_ERASE_BACKGROUND(wxSizeReportCtrl::OnEraseBackground)
+wxEND_EVENT_TABLE()
+
+wxBEGIN_EVENT_TABLE(SceneWindow, wxWindow)
+EVT_IDLE(SceneWindow::OnIdle)
+EVT_SIZE(SceneWindow::OnSize)
+EVT_PAINT(SceneWindow::OnPaint)
+wxEND_EVENT_TABLE()
+
+wxBEGIN_EVENT_TABLE(TestFrame, wxFrame)
+EVT_MENU(TestFrame::ID_Save, TestFrame::OnMenuPerspective)
+EVT_MENU(TestFrame::ID_Load, TestFrame::OnMenuPerspective)
+EVT_MENU(TestFrame::ID_LoadDefault, TestFrame::OnMenuPerspective)
+EVT_MENU(TestFrame::ID_ShowP0, TestFrame::OnMenuShowPage)
+EVT_MENU(TestFrame::ID_ShowP1, TestFrame::OnMenuShowPage)
+EVT_MENU(TestFrame::ID_ShowP2, TestFrame::OnMenuShowPage)
+EVT_MENU(TestFrame::ID_ShowP3, TestFrame::OnMenuShowPage)
+EVT_MENU(TestFrame::DockLiveResize, TestFrame::OnMenuLayout)
+EVT_MENU(TestFrame::EntirelyLayoutResize, TestFrame::OnMenuLayout)
+EVT_MENU(TestFrame::DockContiguousResize, TestFrame::OnMenuLayout)
+EVT_MENU(TestFrame::EntirelyLayoutResize + 1, TestFrame::OnMenuLayout)
+
+EVT_UPDATE_UI(ID_ShowP0, TestFrame::OnUpdateUI)
+EVT_UPDATE_UI(ID_ShowP1, TestFrame::OnUpdateUI)
+EVT_UPDATE_UI(ID_ShowP2, TestFrame::OnUpdateUI)
+EVT_UPDATE_UI(ID_ShowP3, TestFrame::OnUpdateUI)
+EVT_UPDATE_UI(DockLiveResize, TestFrame::OnUpdateUI)
+EVT_UPDATE_UI(DockContiguousResize, TestFrame::OnUpdateUI)
+EVT_UPDATE_UI(EntirelyLayoutResize, TestFrame::OnUpdateUI)
+
+wxEND_EVENT_TABLE()

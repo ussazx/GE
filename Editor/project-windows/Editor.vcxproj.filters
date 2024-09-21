@@ -1,0 +1,127 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="源文件\EditorUI">
+      <UniqueIdentifier>{5c31074b-24d3-41e4-bbef-7463b97f6209}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\EditorUI\common">
+      <UniqueIdentifier>{53f14fb6-ec51-412d-9b18-59e56ad3afc3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="源文件\EditorUI\common\wxModified">
+      <UniqueIdentifier>{9c165ec0-56f6-402b-b51d-c195d9bcc97e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Editor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\common\wxModified\auibook2.h">
+      <Filter>源文件\EditorUI\common\wxModified</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\common\button.h">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\common\floatablenotebook.h">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\common\handlelessctrl.h">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\common\handlelessevent.h">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\common\imagectrl.h">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\common\quicktextentry.h">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\common\selectionpanel.h">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\common\uimanager.h">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\common\uiutils.h">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\Entrance.h">
+      <Filter>源文件\EditorUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\EntranceDlg.h">
+      <Filter>源文件\EditorUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\TestDlg.h">
+      <Filter>源文件\EditorUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\TestFrame.h">
+      <Filter>源文件\EditorUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\Global.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\MainFrame.h">
+      <Filter>源文件\EditorUI</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\EditorUI\vmWindow.h">
+      <Filter>源文件\EditorUI</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\source\Editor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\EditorUI\common\wxModified\auibook2.cpp">
+      <Filter>源文件\EditorUI\common\wxModified</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\EditorUI\common\floatablenotebook.cpp">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\EditorUI\common\handlelessctrl.cpp">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\EditorUI\common\handlelessevent.cpp">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\EditorUI\common\uimanager.cpp">
+      <Filter>源文件\EditorUI\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\EditorUI\TestFrame.cpp">
+      <Filter>源文件\EditorUI</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\Global.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\EditorUI\vmWindow.cpp">
+      <Filter>源文件\EditorUI</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Editor.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="small.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="Editor.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+  </ItemGroup>
+</Project>
