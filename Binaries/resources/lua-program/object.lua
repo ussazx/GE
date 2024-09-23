@@ -1,5 +1,6 @@
 ---object---
 require 'class'
+require 'event'
 
 local global_delisted = setmetatable({}, {__mode = 'kv'})
 

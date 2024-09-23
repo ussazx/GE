@@ -142,8 +142,7 @@ inline int LuaPushRetValue(lua_State *L, LuacObjNew<T>& t)
 	if (t.object)
 	{
 		LuaIdx idxOut(L, lua_gettop(L));
-		idxOut.state.SetValue(idxOut, 0, t.object);
-		idxOut.state.GetValue(T::LuaGetName(), LuaMeta(), "class", LuaSetTo(idxOut, LuaMeta()));
+		LuaSetCppObjRegistered(t.object, idxOut.state, idxOut);
 	}
 	return 1;
 }
@@ -240,7 +239,7 @@ static C* LuaCallConstructor(lua_State *L, int t, std::index_sequence<I...>)
 }
 
 template<typename T0, class ...T1>
-inline void LuaSetCppObjRegistered(const LuaState& lua, T0* c, const T1& ...t)
+inline void LuaSetCppObjRegistered(T0* c, const LuaState& lua, const T1& ...t)
 {
 	lua.SetValue(t..., 0, c);
 	lua.SetValue(t..., 1, typeid(T0).hash_code());

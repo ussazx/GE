@@ -120,7 +120,7 @@ namespace Engine
 			return;
 		}
 #endif
-		LuaSetCppObjRegistered(outIdx.state, new FileInput, outIdx);
+		LuaSetCppObjRegistered(new FileInput, outIdx.state, outIdx);
 	}
 	Lua_global_add_cfunc(CNewFileInput);
 };

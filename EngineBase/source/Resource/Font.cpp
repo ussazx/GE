@@ -274,12 +274,12 @@ void CLoadFontAtlas(LuaIdx tableOut, LuacObj<Engine::StreamInput> input, uint32_
 	else
 		input->Read(atlasView->GetPtr(), atlas.numPixels * 4);
 
-	LuaSetCppObjRegistered(tableOut.state, table.get(), tableOut);
+	LuaSetCppObjRegistered(table.get(), tableOut.state, tableOut);
 	tableOut.state.SetValue(tableOut, "fontSize", atlas.font.fontSize);
 	tableOut.state.SetValue(tableOut, "ascender", atlas.font.ascender);
 	tableOut.state.SetValue(tableOut, "descender", atlas.font.descender);
 	tableOut.state.SetValue(tableOut, "pixels", atlas.numPixels);
-	LuaSetCppObjRegistered(tableOut.state, atlasView, tableOut, "view");
+	LuaSetCppObjRegistered(atlasView, tableOut.state, tableOut, "view");
 	table.release();
 }
 Lua_global_add_cfunc(CLoadFontAtlas);
