@@ -115,7 +115,7 @@ inline typename std::enable_if<std::_Is_nonbool_integral<T>::value, T>::type Lua
 }
 
 template<typename T>
-inline typename std::enable_if<std::is_same<T, lua_Number>::value || std::is_same<T, Lua_float_type2>::value, T>::type LuaGetValue(lua_State* lua, int i)
+inline typename std::enable_if<std::is_floating_point<T>::value, T>::type LuaGetValue(lua_State* lua, int i)
 {
 	Assert(abs(i) <= lua_gettop(lua));
 	Assert(lua_type(lua, i) == LUA_TNUMBER);
