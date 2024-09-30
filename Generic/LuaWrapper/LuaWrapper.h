@@ -6,6 +6,8 @@
 
 #define Lua_set_cobj(obj) LuaSub(0, (obj)->LuaClassObj(obj)), (obj)->LuaGetMemberFuncs()
 
+#define Lua_set_cobj_reg(obj) 
+
 struct LuaIdx : public lua_Idx
 {
 	LuaIdx(const LuaState& s, int idx) : lua_Idx(idx), state(s.Lua()) {}
@@ -65,8 +67,7 @@ static int LuaObjectCtor(lua_State *L) \
 	class_type* c = LuaCallConstructor<class_type, __VA_ARGS__>(L, t, std::make_index_sequence<size>()); \
 	lua_pushnil(L); \
 	lua_Idx idxOut(lua.GetTop()); \
-	lua.SetValue(idxOut, 0, c); \
-	lua.GetValue(idxIn, LuaMeta(), "class", 0, LuaSetTo(idxOut, 1)); \
+	lua.SetValue(idxOut, LuaSub(0, c), LuaSub(1, typeid(class_type).hash_code())); \
 	lua.GetValue(idxIn, LuaMeta(), "class", LuaSetTo(idxOut, LuaMeta())); \
 	return 1; \
 }
@@ -241,8 +242,7 @@ static C* LuaCallConstructor(lua_State *L, int t, std::index_sequence<I...>)
 template<typename T0, class ...T1>
 inline void LuaSetCppObjRegistered(T0* c, const LuaState& lua, const T1& ...t)
 {
-	lua.SetValue(t..., 0, c);
-	lua.SetValue(t..., 1, typeid(T0).hash_code());
+	lua.SetValue(t..., LuaSub(0, c), LuaSub(1, typeid(T0).hash_code()));
 	lua.GetValue(T0::LuaGetName(), LuaMeta(), "class", LuaSetTo(t..., LuaMeta()));
 }
 
