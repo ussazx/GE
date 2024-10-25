@@ -25,7 +25,7 @@ function Window:ctor()
 	
 	self.cbWnd = ResBuffer(SIZE_FLOAT2)
 	self.res_set = g_rl0:NewResourceSet()
-	self.res_set:BindBuffer(self.cbWnd[0], 0, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
+	self.res_set:BindBuffer(self.cbWnd[0], 0, cGI.WHOLE_SIZE, 0, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
 	
 	self.cmd = cGI:NewCommand(false)
 	--self.cmdList = CmdList()

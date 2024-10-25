@@ -167,16 +167,25 @@ public:
 	std::vector<VkDescriptorPoolSize> m_dps;
 };
 
-class VKResourceSet : public ResourceSet
+class VKBuffer;
+class VKBufferHolder
+{
+public:
+	virtual void OnBufferResized(VKBuffer*) = 0;
+};
+
+class VKResourceSet : public ResourceSet, public VKBufferHolder
 {
 public:
 	~VKResourceSet();
-	void BindBuffer(LuacObj<CBuffer> buffer, uint32_t binding, uint32_t bufferType) override;
+	void BindBuffer(LuacObj<CBuffer> buffer, uint64_t offset, uint64_t range, uint32_t binding, uint32_t bufferType) override;
 	void BindImageWithSampler(LuacObj<Texture> image, LuacObj<Sampler> sampler, uint32_t binding) override;
 	void BindInputAttachment(LuacObj<Texture> image, uint32_t binding) override;
+	void OnBufferResized(VKBuffer* buffer) override;
 
 	VkDescriptorPool m_pool{};
 	VkDescriptorSet m_set{};
+	std::unordered_map<VKBuffer*, std::unordered_map<uint32_t, std::tuple<VkDescriptorBufferInfo, VkWriteDescriptorSet>>> m_bufferInfo;
 };
 
 class VKShaderModule : public ShaderModule
@@ -200,7 +209,6 @@ public:
 	uint32_t m_resCount{};
 };
 
-class VKBufferSet;
 class VKBuffer : public CBuffer
 {
 public:
@@ -223,30 +231,32 @@ public:
 	VkDeviceMemory m_mem{};
 	byte* m_ptr{};
 
-	uint32_t m_setIdx{};
-	VKBufferSet* m_set{};
+	std::unordered_set<VKBufferHolder*> m_holders;
 
 	VkBufferCreateInfo m_bci;
 	static VkMemoryRequirements m_mem_reqs;
 	static VkMemoryAllocateInfo m_mem_alloc;
 };
 
-class VKBufferSet : public BufferSet
+class VKBufferSet : public BufferSet, public VKBufferHolder
 {
 public:
+	void OnBufferResized(VKBuffer* b) override
+	{
+		m_set[m_buffers[b]] = b->m_buffer;
+	}
 	void Add(LuacObj<CBuffer> buffer) override
 	{
 		VKBuffer* b = (VKBuffer*)buffer;
-		b->m_set = this;
-		b->m_setIdx = m_buffers.size();
-		m_buffers.push_back(b);
+		b->m_holders.insert(this);
+		m_buffers[buffer] = m_set.size();
 		m_set.push_back(b->m_buffer);
 		m_offsets.resize(m_set.size());
 	}
 	void SetWritePos(uint32_t pos) override
 	{
-		for (auto i : m_buffers)
-			i->SetWritePos(pos);
+		for (auto& i : m_buffers)
+			i.first->SetWritePos(pos);
 	}
 	void SetDrawOffset(uint32_t offset) override
 	{
@@ -263,7 +273,7 @@ public:
 				m_offsets[b.binding] += b.stride * offset;
 		}
 	}
-	std::vector<VKBuffer*> m_buffers;
+	std::unordered_map<VKBuffer*, size_t> m_buffers;
 	std::vector<VkBuffer> m_set;
 	std::vector<VkDeviceSize> m_offsets;
 };

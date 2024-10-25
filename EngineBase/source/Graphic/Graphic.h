@@ -97,7 +97,7 @@ class ResourceSet
 public:
 	virtual ~ResourceSet() {}
 
-	virtual void BindBuffer(LuacObj<CBuffer> buffer, uint32_t binding, uint32_t bufferType) = 0;
+	virtual void BindBuffer(LuacObj<CBuffer> buffer, uint64_t offset, uint64_t range, uint32_t binding, uint32_t bufferType) = 0;
 	
 	virtual void BindImageWithSampler(LuacObj<Texture> image, LuacObj<Sampler> sampler, uint32_t binding) = 0;
 	

@@ -419,25 +419,39 @@ VKResourceSet::~VKResourceSet()
 	vkDestroyDescriptorPool(g->device, m_pool, {});
 }
 
-void VKResourceSet::BindBuffer(LuacObj<CBuffer> buffer, uint32_t binding, uint32_t bufferType)
+void VKResourceSet::BindBuffer(LuacObj<CBuffer> buffer, uint64_t offset, uint64_t range, uint32_t binding, uint32_t bufferType)
 {
 	VKBuffer* b = (VKBuffer*)buffer;
-	VkDescriptorBufferInfo dbi{};
-	dbi.range = VK_WHOLE_SIZE;
-	dbi.buffer = b->m_buffer;
+	auto& info = m_bufferInfo[b][binding];
 
-	VkWriteDescriptorSet wds[1]{};
-	wds[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	wds[0].descriptorType = (VkDescriptorType)bufferType;
-	wds[0].dstBinding = binding;
-	wds[0].pBufferInfo = &dbi;
-	wds[0].descriptorCount = 1;
-	wds[0].dstSet = m_set;
-	wds[0].dstBinding = 0;
-	if (wds[0].descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER ||
-		wds[0].descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER)
-		wds[0].pTexelBufferView = &b->m_view;
-	vkUpdateDescriptorSets(g->device, 1, wds, 0, NULL);
+	VkDescriptorBufferInfo& dbi = std::get<0>(info);
+	dbi = {};
+	dbi.offset = offset;
+	dbi.range = range;
+	dbi.buffer = b->m_buffer;
+	VkWriteDescriptorSet& wds = std::get<1>(info);
+	wds = {};
+	wds.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	wds.descriptorType = (VkDescriptorType)bufferType;
+	wds.dstBinding = binding;
+	wds.pBufferInfo = &dbi;
+	wds.descriptorCount = 1;
+	wds.dstSet = m_set;
+	if (wds.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER ||
+		wds.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER)
+		wds.pTexelBufferView = &b->m_view;
+	vkUpdateDescriptorSets(g->device, 1, &wds, 0, NULL);
+
+	b->m_holders.insert(this);
+}
+
+void VKResourceSet::OnBufferResized(VKBuffer* b)
+{
+	for (auto& i : m_bufferInfo[b])
+	{
+		std::get<0>(i.second).buffer = b->m_buffer;
+		vkUpdateDescriptorSets(g->device, 1, &std::get<1>(i.second), 0, NULL);
+	}
 }
 
 void VKResourceSet::BindImageWithSampler(LuacObj<Texture> image, LuacObj<Sampler> sampler, uint32_t binding)
@@ -451,7 +465,6 @@ void VKResourceSet::BindImageWithSampler(LuacObj<Texture> image, LuacObj<Sampler
 	wds[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	wds[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	wds[0].dstBinding = binding;
-	wds[0].dstBinding = 1;
 	wds[0].descriptorCount = 1;
 	wds[0].pImageInfo = &dii;
 	wds[0].dstSet = m_set;
@@ -468,7 +481,6 @@ void VKResourceSet::BindInputAttachment(LuacObj<Texture> image, uint32_t binding
 	wds[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	wds[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 	wds[0].dstBinding = binding;
-	wds[0].dstBinding = 1;
 	wds[0].descriptorCount = 1;
 	wds[0].pImageInfo = &dii;
 	wds[0].dstSet = m_set;
@@ -1135,8 +1147,8 @@ bool VKBuffer::Resize(uint32_t size)
 		vkCreateBufferView(g->device, &bvci, {}, &m_view);
 	}
 
-	if (m_set)
-		m_set->m_set[m_setIdx] = m_buffer;
+	for (auto i : m_holders)
+		i->OnBufferResized(this);
 
 	return true;
 }
@@ -1158,6 +1170,8 @@ void Graphic::RegisterVulkanDefines(LuaState& lua)
 
 	SET_DEFINE("SHADER_STAGE_VERTEX_BIT", VK_SHADER_STAGE_VERTEX_BIT);
 	SET_DEFINE("SHADER_STAGE_FRAGMENT_BIT", VK_SHADER_STAGE_FRAGMENT_BIT);
+
+	SET_DEFINE("WHOLE_SIZE", VK_WHOLE_SIZE);
 
 	SET_DEFINE("VERTEX_BUFFER", VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	SET_DEFINE("INDEX_BUFFER", VK_BUFFER_USAGE_INDEX_BUFFER_BIT);

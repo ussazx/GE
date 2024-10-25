@@ -96,7 +96,7 @@ cParamPipeline:SetVertexInputRate(3, true)
 g_plId2D = cGI:NewPipeline(g_rp0, 1, 1, id_ui_vs, 'main', id_ui_ps, 'main', cParamPipeline)
 
 uiFont.res = g_rl1:NewResourceSet()
-uiFont.res:BindBuffer(uiFont.view, 0, cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER)
+uiFont.res:BindBuffer(uiFont.view, 0, cGI.WHOLE_SIZE, 0, cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER)
 
 -- cParamResourceLayout:Reset()
 -- cParamResourceLayout:Add(RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, SHADER_STAGE_VERTEX_BIT)
