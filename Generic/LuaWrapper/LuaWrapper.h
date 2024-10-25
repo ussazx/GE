@@ -6,7 +6,7 @@
 
 #define Lua_set_cobj(obj) LuaSub(0, (obj)->LuaClassObj(obj)), (obj)->LuaGetMemberFuncs()
 
-#define Lua_set_cobj_reg(obj) 
+#define Lua_set_cobj_reg(obj)
 
 struct LuaIdx : public lua_Idx
 {
@@ -28,18 +28,28 @@ struct LuacObj
 	typedef T* cObj;
 };
 
-template<class T>
+template<class C>
 struct LuacObjNew
 {
-	LuacObjNew(T* obj) : object(obj) {}
-	T* object;
+	LuacObjNew(C* obj) : object(obj)
+	{
+		if (obj)
+			set = LuaDataSet(LuaSub(0, obj), LuaSub(1, typeid(C).hash_code()), LuaSub(LuaMeta(), LuaGet(C::LuaGetName(), LuaMeta(), "class")));
+	}
+	template<typename ...T>
+	LuacObjNew(C* obj, const T&... t) : object(obj)
+	{
+		if (obj)
+			set = LuaDataSet(LuaSub(0, obj), LuaSub(1, typeid(C).hash_code()), LuaSub(LuaMeta(), LuaGet(C::LuaGetName(), LuaMeta(), "class")), LuaSub(t...));
+	}
+	C* operator -> () { return object; }
+	C* object;
+	LuaDataSet set;
 };
 
-#define Lua_cf(func) [](lua_State* L){ return LuaCallCFunc(L, &func);}
+#define Lua_cf(func) [](lua_State* L){ return LuaCallCFunc(L, func);}
 
 #define Lua_mf(func) {#func, [](lua_State* L){ return LuaCallCFunc(L, &func);}}
-
-#define Lua_smf(func) {#func, [](lua_State* L){ return LuaCallCFunc(L, func);}}
 
 #define Lua_cpp_class_base_def(cpp_class) \
 typedef cpp_class class_type; \
@@ -136,28 +146,17 @@ inline T* LuaGetCppObj(lua_State* lua, int i)
 	return (T*)p;
 }
 
-template<typename T>
-inline int LuaPushRetValue(lua_State *L, LuacObjNew<T>& t)
+template<class C>
+inline int LuaPushRetValue(lua_State *L, const LuacObjNew<C>& ds)
 {
-	lua_pushnil(L);
-	if (t.object)
-	{
-		LuaIdx idxOut(L, lua_gettop(L));
-		LuaSetCppObjRegistered(t.object, idxOut.state, idxOut);
-	}
-	return 1;
+	return LuaPushRetValue(L, ds.set);
 }
 
-template<typename T>
-inline int LuaPushRetValue(lua_State *L, const LuacObjNew<T>& t)
+inline int LuaPushRetValue(lua_State *L, const LuaDataSet& ds)
 {
 	lua_pushnil(L);
-	if (t.object)
-	{
-		LuaIdx idxOut(L, lua_gettop(L));
-		idxOut.state.SetValue(idxOut, 0, t.object);
-		idxOut.state.GetValue(T::LuaGetName(), LuaMeta(), "class", LuaSetTo(idxOut, LuaMeta()));
-	}
+	if (ds.data)
+		ds.data->SetValue(L, lua_Idx(lua_gettop(L)));
 	return 1;
 }
 

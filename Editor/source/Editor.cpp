@@ -52,7 +52,17 @@ wxIMPLEMENT_APP(MyApp);
 
 struct AA
 {
-	Lua_wrap_cpp_class(AA, Lua_ctor())
+	AA() {}
+	AA(AA&&)
+	{
+		int a = 5;
+	}
+	AA(const AA&)
+	{
+		int a = 5;
+	}
+	void f() {}
+	Lua_wrap_cpp_class(AA, Lua_ctor(), Lua_mf(f))
 };
 Lua_global_add_cpp_class(AA)
 
@@ -67,7 +77,7 @@ struct BB : public AA
 		n = 1;
 	}
 
-	Lua_wrap_cpp_class_derived(AA, BB, Lua_ctor(int, bool), Lua_mf(f), Lua_smf(ff));
+	Lua_wrap_cpp_class_derived(AA, BB, Lua_ctor(int, bool), Lua_mf(f), Lua_mf(ff));
 };
 Lua_global_add_cpp_class(BB)
 
@@ -129,6 +139,8 @@ bool MyApp::OnInit()
 
 	LuaRegGlobalCollected(g_vm);
 
+	g_vm->Run("BB.ff(nil, 1)");
+
 	auto t = GetTickCount();
 	g_vm->Run("for i = 1, 100000 do ff(1, 2) end");
 	DebugLog(L"%d", GetTickCount() - t);
@@ -152,7 +164,7 @@ bool MyApp::OnInit()
 	wchar_t s[256]{};
 	GetCurrentDirectory(256, s);
 	//FileData fd("../../Resources/lua-program/..Test.lua", true);
-	//FileData fd("../../Resources/lua-program/utility.lua", true);
+	//FileData fd("Resources/lua-program/utility.lua", true);
 	FileData fd("Resources/lua-program/editor.lua", true);
 	assert(fd.IsLoaded());
 	g_vm->Run((char*)fd.GetData(), fd.GetSize());

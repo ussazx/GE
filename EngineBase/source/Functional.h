@@ -307,7 +307,7 @@ inline size_t PrepareCopy(CBuffer& src, uint32_t src_pos, uint32_t stride, uint3
 	if (size == 0)
 		return 0;
 
-	if (dst_wp > 0)
+	if (dst_wp >= 0)
 		dst.m_writePos = dst_wp;
 	if (dst.GetSize() < dst.m_writePos + size)
 		dst.Resize(dst.m_writePos + size);

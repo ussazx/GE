@@ -13,7 +13,28 @@ function Window:ctor()
 	self.timers = ObjectArray()
 	self.sysCaptured = false
 	self.keyDowns = {}
-	self.vsInput2D = NewVSInput2D()
+	self.vsInput2D = {}
+	self.vsInput2D[0] = NewVSInput2D()
+	self.vsInput2D[1] = NewVSInput2D()
+	self.vsInput2dCur = self.vsInput2D[0]
+	self.idIndBuf2D = {}
+	self.idIndBuf2D[0] = cGI:NewDrawIndirectCmd(1)
+	self.idIndBuf2D[1] = cGI:NewDrawIndirectCmd(1)
+	self.idIndBuf2dCur = self.idIndBuf2D[0]
+	self.rIdx = 0
+	
+	self.cbWnd = ResBuffer(SIZE_FLOAT2)
+	self.res_set = g_rl0:NewResourceSet()
+	self.res_set:BindBuffer(self.cbWnd[0], 0, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
+	
+	self.cmd = cGI:NewCommand(false)
+	--self.cmdList = CmdList()
+	
+	self.drawCmdMgr = DrawCmdMgr()
+	
+	if (EVT.focus_id == nil) then
+		EVT.focus_id = self.id
+	end
 end
 
 function Window:OnAddChild(w)
@@ -65,45 +86,29 @@ function Window:init(t, hwnd, w, h)
 	self.sizegroup = SizeGroup(w, h)
 	self.swapchain = cGI:NewSwapchain(hwnd, 0, w, h)
 	
-	self.scTargetView = cGI:NewTargetView(cGI.IMAGE_TYPE_2D, cGI.FORMAT_SWAPCHAIN, cGI.SAMPLE_COUNT_4_BIT, w, h)
+	--self.scTargetView = cGI:NewTargetView(cGI.IMAGE_TYPE_2D, cGI.FORMAT_SWAPCHAIN, cGI.SAMPLE_COUNT_4_BIT, w, h)
 	self.idTargetView = cGI:NewTargetView(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PICK_ID, cGI.SAMPLE_COUNT_1_BIT, w, h)
 	self.idTexture = cGI:NewTexture(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PICK_ID, w, h)
 	
 	cParamFrameBuffer:Reset()
 	cParamFrameBuffer:SetSwapchain(self.swapchain)
-	cParamFrameBuffer:AddView(self.scTargetView, 0)
+	--cParamFrameBuffer:AddView(self.scTargetView, 0)
 	cParamFrameBuffer:AddView(self.idTargetView, 0)
 	self.frameBuffer = cGI:NewFrameBuffer(g_rp0, cParamFrameBuffer, w, h)
 	
-	--self.frameBuffer:ClearSwapchain(0.15, 0.15, 0.15, 0.2)
-	--self.frameBuffer:ClearViewUint4(0, self.id, 0, 0, 0)
-	
-	self.frameBuffer:ClearViewFloat4(0, 0.15, 0.15, 0.15, 0.2)
-	self.frameBuffer:ClearViewUint4(1, self.id, 0, 0, 0)
+	self.frameBuffer:ClearSwapchain(0.15, 0.15, 0.15, 0.2)
+	self.frameBuffer:ClearViewUint4(0, self.id, 0, 0, 0)
+	-- self.frameBuffer:ClearViewFloat4(0, 0.15, 0.15, 0.15, 0.2)
+	-- self.frameBuffer:ClearViewUint4(1, self.id, 0, 0, 0)
 	
 	self.frameBuffer.vp = self.rect
 	self.frameBuffer.cr = self.rect
 	
-	self.sizegroup:add_rtv(self.scTargetView)
+	--self.sizegroup:add_rtv(self.scTargetView)
 	self.sizegroup:add_rtv(self.swapchain)
 	self.sizegroup:add_fb(self.frameBuffer)
 	self.sizegroup:add_rtv(self.idTargetView, true)
 	self.sizegroup:add_rtv(self.idTexture, true)
-	
-	self.cb = cGI:NewBuffer(SIZE_FLOAT2)
-	self.res_set = g_rl0:NewResourceSet()
-	self.res_set:BindBuffer(self.cb, 0, cGI.RESOURCE_UNIFORM_BUFFER)
-	
-	self.cmd = cGI:NewCommand(false)
-	--self.cmdList = CmdList()
-	
-	self.idIndBuf2D = cGI:NewDrawIndirectCmd(1)
-	
-	self.drawCmdMgr = DrawCmdMgr()
-	
-	if (EVT.focus_id == nil) then
-		EVT.focus_id = self.id
-	end
 	
 	self.update = true
 	
@@ -117,15 +122,65 @@ function Window:on_idle(t, onTimer, show)
 		
 	if(show and (self.update or self.sized)) then
 		ui_resourceSet = self.res_set
-		ResetVSInput2D(self.vsInput2D)
-		self.idIndBuf2D:Reset()
-		self.drawCmdMgr:Reset(g_plUi, self.frameBuffer.vp, self.frameBuffer.cr, self.idIndBuf2D)
+		
+		self.vsInput2dCur = self.vsInput2D[self.rIdx]
+		self.idIndBuf2dCur = self.idIndBuf2D[self.rIdx]
+		self.rIdx = ~self.rIdx & 1
+		
+		ResetVSInput2D(self.vsInput2dCur)
+		self.idIndBuf2dCur:Reset()
+		self.drawCmdMgr:Reset(g_plUi, self.frameBuffer.vp, self.frameBuffer.cr, self.idIndBuf2dCur)
 		g_drawCmdMgr = self.drawCmdMgr
 		self:UpdateUI()
 		self:render()
 	end
 
 	return self:TimerPeriod()
+end
+
+function Window:resize(w, h)
+	local render = w <= self.rect.w and h <= self.rect.h
+
+	self:SetSize(w, h)
+	
+	cGI:DeviceWaitIdle()
+	g_drawCmdMgr = self.drawCmdMgr
+	self.cbWnd:Set(0, CAddFloat2, self.rect.w, self.rect.h)
+	self.sizegroup:resize(w, h)
+	
+	if (render) then
+		self:render()
+	end
+end
+
+function Window:render()
+	--Print('---render---')
+	while (self.swapchain:Acquire() == false) do
+		self.sizegroup:resize(self.rect.w, self.rect.h)
+	end
+	
+	self.cmd:Wait()
+
+	self.cmd:RenderBegin(self.frameBuffer, false)
+	
+	self.drawCmdMgr:SetupDrawcalls(self.vsInput2dCur, self.cmd)
+	
+	self.cmd:NextSubpass(false)
+	
+	self.vsInput2dCur.vbSet:SetDrawOffset(0)
+	self.drawCmdMgr:SetupIdDrawcalls(g_plId2D, self.vsInput2dCur, self.cmd)
+	
+	self.cmd:RenderEnd()
+	
+	self.cmd:CopyImage(self.idTargetView, 0, 0, 0, self.idTexture, 0, 0, 0, 1, self.rect.w, self.rect.h)
+	
+	self.cmd:Execute()
+end
+	
+function Window:UpdateUI()
+	self.update = false
+	self:Update(self.vsInput2dCur, nil)
+	self.sized = false
 end
 
 function Window:CaptureMouse(w)
@@ -257,50 +312,6 @@ function Window:on_key_up(t, k)
 	end
 	
 	return self:TimerPeriod()
-end	
-
-function Window:resize(w, h)
-	local render = w <= self.rect.w and h <= self.rect.h
-
-	self:SetSize(w, h)
-	
-	cGI:DeviceWaitIdle()
-	CAddFloat2(self.cb, 0, 1, self.rect.w, self.rect.h)
-	self.sizegroup:resize(w, h)
-	
-	if (render) then
-		self:render()
-	end
-end
-
-function Window:render()
-	--Print('---render---')
-	while (self.swapchain:Acquire() == false) do
-		self.sizegroup:resize(self.rect.w, self.rect.h)
-	end
-
-	self.cmd:RenderBegin(self.frameBuffer, false)
-	
-	self.drawCmdMgr:SetupDrawcalls(self.vsInput2D, self.cmd)
-	
-	self.cmd:NextSubpass(false)
-	
-	self.vsInput2D.vbSet:SetDrawOffset(0)
-	self.drawCmdMgr:SetupIdDrawcalls(g_plId2D, self.vsInput2D, self.cmd)
-	
-	self.cmd:RenderEnd()
-	
-	self.cmd:CopyImage(self.idTargetView, 0, 0, 0, self.idTexture, 0, 0, 0, 1, self.rect.w, self.rect.h)
-	
-	self.cmd:Execute()
-	
-	self.cmd:Wait()
-end
-	
-function Window:UpdateUI()
-	self.update = false
-	self:Update(self.vsInput2D, nil)
-	self.sized = false
 end
 
 function Window:HandleTimer(onTimer, t)

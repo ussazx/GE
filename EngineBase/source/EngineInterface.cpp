@@ -97,30 +97,27 @@ namespace Engine
 	Lua_global_add_cpp_class(FileInput);
 
 #ifdef ANDROID
-	class AssetReader : public StreamReader
+	class AssetReader : public FileInput
 	{
 	public:
 		AssetReader(const char* fileName, bool isBinary)
 		{
 
 		}
-		Lua_cpp_class_derived(StreamReader, AssetReader, Lua_abstract, Open, Close);
+		Lua_cpp_class_derived(StreamReader, AssetReader, Lua_abstract);
 
 		AAsset* asset{};
 		static AAssetManager* assetManager;
 	};
 #endif
 
-	void CNewFileInput(LuaIdx outIdx, bool isAsset)
+	LuacObjNew<FileInput> CNewFileInput(bool isAsset)
 	{
 #ifdef ANDROID
 		if (isAsset)
-		{
-			LuaSetCppObject(outIdx, new CAssetReader(fileName, isBinary));
-			return;
-		}
+			return new CAssetReader(fileName, isBinary);
 #endif
-		LuaSetCppObjRegistered(new FileInput, outIdx.state, outIdx);
+		return new FileInput;
 	}
 	Lua_global_add_cfunc(CNewFileInput);
 };

@@ -10,7 +10,7 @@ if (!p->Init(__VA_ARGS__)) delete p, p = {}; \
 return p;
 
 #define New(p, class_type, ...) \
-p = new class_type; \
+class_type* p = new class_type; \
 p->Init(__VA_ARGS__)
 
 struct VKParamFrameBuffer;

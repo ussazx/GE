@@ -3,9 +3,9 @@ d:\vs\ge\enginebase\include\engineinterface.h(39): warning C4091: “extern __de
 d:\vs\ge\enginebase\include\engineinterface.h(74): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::CallStack”的左侧
 d:\vs\ge\enginebase\include\engineinterface.h(81): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Registry”的左侧
 d:\vs\ge\enginebase\include\engineinterface.h(117): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Font”的左侧
-d:\vs\ge\generic\luawrapper\luastate.h(304): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(312): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(328): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(423): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(431): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(455): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
 d:\vs\ge\enginebase\source\functional.h(288): warning C4267: “=”: 从“size_t”转换到“T”，可能丢失数据
           with
           [
@@ -59,17 +59,17 @@ d:\vs\ge\generic\luawrapper\luautils.h(122): warning C4244: “return”: 从“
 d:\vs\ge\enginebase\include\engineinterface.h(74): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::CallStack”的左侧
 d:\vs\ge\enginebase\include\engineinterface.h(81): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Registry”的左侧
 d:\vs\ge\enginebase\include\engineinterface.h(117): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Font”的左侧
-d:\vs\ge\generic\luawrapper\luastate.h(304): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(312): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(328): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(423): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(431): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(455): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
   GraphicVulkan.cpp
 d:\vs\ge\enginebase\include\engineinterface.h(39): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::StreamInput”的左侧
 d:\vs\ge\enginebase\include\engineinterface.h(74): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::CallStack”的左侧
 d:\vs\ge\enginebase\include\engineinterface.h(81): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Registry”的左侧
 d:\vs\ge\enginebase\include\engineinterface.h(117): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Font”的左侧
-d:\vs\ge\generic\luawrapper\luastate.h(304): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(312): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(328): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(423): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(431): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(455): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
 d:\vs\ge\enginebase\source\functional.h(288): warning C4267: “=”: 从“size_t”转换到“T”，可能丢失数据
           with
           [
@@ -140,9 +140,9 @@ d:\vs\ge\enginebase\include\engineinterface.h(39): warning C4091: “extern __de
 d:\vs\ge\enginebase\include\engineinterface.h(74): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::CallStack”的左侧
 d:\vs\ge\enginebase\include\engineinterface.h(81): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Registry”的左侧
 d:\vs\ge\enginebase\include\engineinterface.h(117): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Font”的左侧
-d:\vs\ge\generic\luawrapper\luastate.h(304): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(312): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(328): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(423): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(431): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(455): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
 d:\vs\ge\enginebase\source\functional.h(288): warning C4267: “=”: 从“size_t”转换到“T”，可能丢失数据
           with
           [
@@ -199,9 +199,9 @@ d:\vs\ge\enginebase\include\engineinterface.h(39): warning C4091: “extern __de
 d:\vs\ge\enginebase\include\engineinterface.h(74): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::CallStack”的左侧
 d:\vs\ge\enginebase\include\engineinterface.h(81): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Registry”的左侧
 d:\vs\ge\enginebase\include\engineinterface.h(117): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Font”的左侧
-d:\vs\ge\generic\luawrapper\luastate.h(304): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(312): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(328): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(423): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(431): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(455): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
 d:\vs\ge\enginebase\source\functional.h(288): warning C4267: “=”: 从“size_t”转换到“T”，可能丢失数据
           with
           [

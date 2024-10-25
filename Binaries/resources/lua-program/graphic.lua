@@ -2,6 +2,59 @@
 require 'defines'
 require 'class'
 
+function NewVSInput2D(n)
+	n = n or 1024
+	local o = {}
+	o[VB_ELEM_FLOAT2_0] = cGI:NewBuffer(n * SIZE_FLOAT2)
+	o[VB_ELEM_FLOAT3_0] = cGI:NewBuffer(n * SIZE_FLOAT3)
+	o[VB_ELEM_FLOAT4_0] = cGI:NewBuffer(n * SIZE_UINT1)
+	o[VB_ELEM_ID] = g_idVb
+	o.vbSet = cGI:NewBufferSet(nil, 0)
+	o.vbSet:Add(o[VB_ELEM_FLOAT2_0])
+	o.vbSet:Add(o[VB_ELEM_FLOAT3_0])
+	o.vbSet:Add(o[VB_ELEM_FLOAT4_0])
+	o.vbSet:Add(o[VB_ELEM_ID])
+	o.ib = cGI:NewBuffer(n * SIZE_UINT1)
+	ResetVSInput2D(o)
+	return o
+end
+
+function ResetVSInput2D(o)
+	o.vbSet:SetWritePos(0)
+	o.vbSet:SetDrawOffset(0)
+	o.ib:SetWritePos(0)
+end
+
+---ResBuffer---
+ResBuffer = class()
+
+function ResBuffer:ctor(n)
+	self.mb = CMBuffer(n)
+	self[0] = cGI:NewBuffer(n)
+	self.size = n
+end
+
+function ResBuffer:Set(offset, func, ...)
+	func(self.mb, offset, 1, ...)
+	g_drawCmdMgr.rbList[self] = self
+end
+
+function ResBuffer:Update()
+	CBufferCopy(self.mb, 0, self.size, self[0], 0)
+end	
+
+---ResourceSet---
+ResSet = class()
+
+function ResSet:BindUniformBuffer(b, binding)
+	self.buffers[binding] = b
+	self[0]:BindBuffer(b[0], binding, cGI.RESOURCE_UNIFORM_BUFFER)
+end
+
+function ResSet:BindTexelView(v, binding)
+	self[0]:BindBuffer(v, binding, cGI.RESOURCE_UNIFORM_TEXEL_BUFFER)
+end
+
 ---DrawCmdMgr---
 DrawCmdMgr = class()
 
@@ -14,6 +67,7 @@ function DrawCmdMgr:ctor()
 	self.dcCap = 0
 	self.idDcList = {}
 	self.idDcCap = 0
+	self.rbList = {}
 	self:Reset()
 end
 
@@ -102,6 +156,10 @@ end
 
 function DrawCmdMgr:SetupDrawcalls(vsInput, cmd)
 	self:CommitCurrent(true)
+	for k, rb in pairs(self.rbList) do
+		rb:Update()
+		self.rbList[k] = nil
+	end
 	for i = 1, self.dcCount do
 		local dc = self.dcList[i]
 		if (dc.vp) then

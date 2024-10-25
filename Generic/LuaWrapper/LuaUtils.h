@@ -28,7 +28,7 @@ struct LuaMeta {};
 #define Lua_int_type2 int
 #endif
 
-#define Lua_I(idx, n) ((idx) - (n) * ((0x80000000 & (idx)) >> 31))
+#define Lua_I(idx, n) ((idx) - ((0x80000000 & (idx)) >> 31) * (n))
 #define Lua_T(idx, top) ((idx) >= 0 ? (idx) : (top) + (idx) + 1)
 
 struct lua_Idx

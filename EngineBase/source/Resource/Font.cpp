@@ -212,16 +212,16 @@ std::tuple<int, int> CAddTextClip(LuacObj<CBuffer> vb_pos, LuacObj<CBuffer> vb_u
 }
 Lua_global_add_cfunc(CAddTextClip);
 
-void CLoadFontAtlas(LuaIdx tableOut, LuacObj<Engine::StreamInput> input, uint32_t extraWidth)
+LuacObjNew<GlyphTable> CLoadFontAtlas(LuacObj<Engine::StreamInput> input, uint32_t extraWidth)
 {
 	char c[] = ATLAS_HEADER_MARK;
 	input->Read(c, strlen(c));
 	if (strcmp(c, ATLAS_HEADER_MARK) != 0)
-		return;
+		return nullptr;
 
 	AtlasInfo atlas{};
 	if (!input->Load(atlas))
-		return;
+		return nullptr;
 
 	std::unique_ptr<GlyphTable> table(new GlyphTable);
 	table->xAdvance = atlas.font.xAdvance;
@@ -229,7 +229,7 @@ void CLoadFontAtlas(LuaIdx tableOut, LuacObj<Engine::StreamInput> input, uint32_
 	{
 		CodeRange range{};
 		if (!input->Load(range))
-			return;
+			return nullptr;
 
 		size_t n = range.lastCode + 1;
 		if (table->indices.size() < n)
@@ -244,13 +244,13 @@ void CLoadFontAtlas(LuaIdx tableOut, LuacObj<Engine::StreamInput> input, uint32_
 	{
 		auto& g = table->glyphs[i];
 		if (!input->Load(g))
-			return;
+			return nullptr;
 	}
 
 	uint32_t totalWidth = atlas.numPixels + extraWidth;
-	CBuffer* atlasView = g_graphic->NewTexelBuffer(totalWidth * 4, g_graphic->GetDefined("FORMAT_R8G8B8A8_UNORM")).object;
-	if (!atlasView)
-		return;
+	auto atlasView = g_graphic->NewTexelBuffer(totalWidth * 4, g_graphic->GetDefined("FORMAT_R8G8B8A8_UNORM"));
+	if (!atlasView.object)
+		return nullptr;
 
 	memset(atlasView->GetPtr(), 255, totalWidth * 4);
 
@@ -274,13 +274,12 @@ void CLoadFontAtlas(LuaIdx tableOut, LuacObj<Engine::StreamInput> input, uint32_
 	else
 		input->Read(atlasView->GetPtr(), atlas.numPixels * 4);
 
-	LuaSetCppObjRegistered(table.get(), tableOut.state, tableOut);
-	tableOut.state.SetValue(tableOut, "fontSize", atlas.font.fontSize);
-	tableOut.state.SetValue(tableOut, "ascender", atlas.font.ascender);
-	tableOut.state.SetValue(tableOut, "descender", atlas.font.descender);
-	tableOut.state.SetValue(tableOut, "pixels", atlas.numPixels);
-	LuaSetCppObjRegistered(atlasView, tableOut.state, tableOut, "view");
-	table.release();
+	return LuacObjNew<GlyphTable>(table.release(),
+		LuaSub("fontSize", atlas.font.fontSize),
+		LuaSub("ascender", atlas.font.ascender),
+		LuaSub("descender", atlas.font.descender),
+		LuaSub("pixels", atlas.numPixels),
+		LuaSub("view", atlasView.set));
 }
 Lua_global_add_cfunc(CLoadFontAtlas);
 
