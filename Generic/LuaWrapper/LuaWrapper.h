@@ -2,11 +2,8 @@
 #include "LuaState.h"
 #include <vector>
 #include <typeinfo>
-#include <array>
 
 #define Lua_set_cobj(obj) LuaSub(0, (obj)->LuaClassObj(obj)), LuaSub(1, typeid(decltype(obj)).hash_code()), (obj)->LuaGetMemberFuncs()
-
-#define Lua_set_cobj_reg(obj)
 
 struct LuaIdx : public lua_Idx
 {
