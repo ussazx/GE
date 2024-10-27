@@ -1,14 +1,14 @@
 #pragma once
 #include "LuaUtils.h"
 #include <vector>
-#include <memory>
+#include <functional>
 
 #define LuaMultiArg(name) \
 template<typename ...T> \
 struct name##Arg \
 { \
 	name##Arg(T&&... tt) : t(std::forward<T>(tt)...) {} \
-	std::tuple<T...> t; \
+	std::tuple<std::_Unrefwrap_t<T>...> t; \
 }; \
 template<typename ...T> \
 name##Arg<T...> name(T&&... args) \
@@ -41,33 +41,7 @@ struct LuaLoad
 
 class LuaState;
 
-struct LuaDataSetBase
-{
-	virtual ~LuaDataSetBase() {}
-	virtual void SetValue(const LuaState&, const lua_Idx&) const = 0;
-};
-
-template<typename T>
-struct LuaDataSetArg : public LuaDataSetBase
-{
-	template<typename ...T1>
-	LuaDataSetArg(const T1&... t) : value(t...) {}
-	void SetValue(const LuaState& s, const lua_Idx& idx) const override
-	{
-		s.SetValue(idx, value);
-	}
-	T value;
-};
-
-struct LuaDataSet
-{
-	LuaDataSet() : data(nullptr) {}
-	template<typename T>
-	explicit LuaDataSet(const T& t) : data(new LuaDataSetArg<T>(t)) {}
-	template<typename ...T>
-	explicit LuaDataSet(const T&... t) : data(new LuaDataSetArg<std::tuple<T...>>(t...)) {}
-	std::shared_ptr<LuaDataSetBase> data;
-};
+typedef std::function<void(const LuaState&, const lua_Idx&)> LuaCustomSet;
 
 class LuaState
 {
@@ -134,30 +108,25 @@ public:
 		lua_pop(m_lua, 1);
 	}
 
-	void SetValue(const char* k, LuaDataSet ds) const
+	void SetValue(const char* k, const LuaCustomSet& cs) const
 	{
-		if (!ds.data)
-			return;
 		lua_pushnil(m_lua);
-		ds.data->SetValue(*this, lua_Idx(GetTop()));
+		cs(*this, lua_Idx(GetTop()));
 		lua_setglobal(m_lua, k);
 	}
 
-	void SetValue(const lua_Idx& idx, LuaDataSet ds) const
+	void SetValue(const lua_Idx& idx, const LuaCustomSet& cs) const
 	{
-		if (ds.data)
-			ds.data->SetValue(*this, lua_Idx(Lua_T(idx.idx, GetTop())));
+			cs(*this, lua_Idx(Lua_T(idx.idx, GetTop())));
 	}
 
 	template<typename T>
-	void SetValue(const lua_Idx& idx, const T& k, const LuaDataSet& ds) const
+	void SetValue(const lua_Idx& idx, const T& k, const LuaCustomSet& cs) const
 	{
-		if (!ds.data)
-			return;
 		int i = idx.idx;
 		LuaGetTable(m_lua, i);
 		LuaGetTableTable(m_lua, i, k);
-		ds.data->SetValue(*this, lua_Idx(GetTop()));
+		cs(*this, lua_Idx(GetTop()));
 		lua_pop(m_lua, 1);
 	}
 
@@ -242,12 +211,10 @@ public:
 			lua_pop(m_lua, 1);
 	}
 
-	void SetValue(const lua_Idx& dst, const LuaMeta&, const LuaDataSet& get) const
+	void SetValue(const lua_Idx& dst, const LuaMeta&, const LuaCustomSet& cs) const
 	{
-		if (!get.data)
-			return;
 		lua_pushnil(m_lua);
-		get.data->SetValue(*this, lua_Idx(GetTop()));
+		cs(*this, lua_Idx(GetTop()));
 		if (lua_type(m_lua, -1) == LUA_TTABLE)
 		{
 			int dsti = Lua_I(dst.idx, 1);

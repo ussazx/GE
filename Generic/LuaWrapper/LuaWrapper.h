@@ -4,7 +4,7 @@
 #include <typeinfo>
 #include <array>
 
-#define Lua_set_cobj(obj) LuaSub(0, (obj)->LuaClassObj(obj)), (obj)->LuaGetMemberFuncs()
+#define Lua_set_cobj(obj) LuaSub(0, (obj)->LuaClassObj(obj)), LuaSub(1, typeid(decltype(obj)).hash_code()), (obj)->LuaGetMemberFuncs()
 
 #define Lua_set_cobj_reg(obj)
 
@@ -16,6 +16,15 @@ struct LuaIdx : public lua_Idx
 	LuaState state;
 };
 
+template<typename ...T>
+inline LuaCustomSet LuaDataSet(T&& ...t)
+{
+	return[t...](const LuaState& state, const lua_Idx& idx)
+	{
+		state.SetValue(idx, t...);
+	};
+}
+
 template<typename T>
 struct LuacObj
 {
@@ -25,7 +34,7 @@ struct LuacObj
 	operator T1 () { return (T1)ptr; }
 	T* operator -> () { return ptr; }
 	T* ptr;
-	typedef T* cObj;
+	typedef T cObj;
 };
 
 template<class C>
@@ -34,17 +43,21 @@ struct LuacObjNew
 	LuacObjNew(C* obj) : object(obj)
 	{
 		if (obj)
-			set = LuaDataSet(LuaSub(0, obj), LuaSub(1, typeid(C).hash_code()), LuaSub(LuaMeta(), LuaGet(C::LuaGetName(), LuaMeta(), "class")));
+			set = LuaDataSet(LuaSub(0, obj), LuaSub(1, typeid(C*).hash_code()), LuaSub(LuaMeta(), LuaGet(C::LuaGetName(), LuaMeta(), "class")));
+		else
+			set = LuaDataSet(nullptr);
 	}
 	template<typename ...T>
-	LuacObjNew(C* obj, const T&... t) : object(obj)
+	LuacObjNew(C* obj, T&&... t) : object(obj)
 	{
 		if (obj)
-			set = LuaDataSet(LuaSub(0, obj), LuaSub(1, typeid(C).hash_code()), LuaSub(LuaMeta(), LuaGet(C::LuaGetName(), LuaMeta(), "class")), LuaSub(t...));
+			set = LuaDataSet(LuaSub(0, obj), LuaSub(1, typeid(C*).hash_code()), LuaSub(LuaMeta(), LuaGet(C::LuaGetName(), LuaMeta(), "class")), LuaSub(std::forward<T>(t)...));
+		else
+			set = LuaDataSet(nullptr);
 	}
 	C* operator -> () { return object; }
 	C* object;
-	LuaDataSet set;
+	LuaCustomSet set;
 };
 
 #define Lua_cf(func) [](lua_State* L){ return LuaCallCFunc(L, func);}
@@ -134,12 +147,11 @@ inline T* LuaGetCppObj(lua_State* lua, int i)
 {
 	int n = lua_gettop(lua);
 	Assert(abs(i) <= lua_gettop(lua));
-	Assert(lua_type(lua, i) == LUA_TTABLE);
 	
 	lua_pushinteger(lua, 0);
 	lua_gettable(lua, i);
 	Assert(lua_type(lua, -1) == LUA_TLIGHTUSERDATA);
-	
+
 	void* p{};
 	p = lua_touserdata(lua, -1);
 	lua_pop(lua, 1);
@@ -147,16 +159,15 @@ inline T* LuaGetCppObj(lua_State* lua, int i)
 }
 
 template<class C>
-inline int LuaPushRetValue(lua_State *L, const LuacObjNew<C>& ds)
+inline int LuaPushRetValue(lua_State *L, const LuacObjNew<C>& obj)
 {
-	return LuaPushRetValue(L, ds.set);
+	return LuaPushRetValue(L, obj.set);
 }
 
-inline int LuaPushRetValue(lua_State *L, const LuaDataSet& ds)
+inline int LuaPushRetValue(lua_State *L, const LuaCustomSet& cs)
 {
 	lua_pushnil(L);
-	if (ds.data)
-		ds.data->SetValue(L, lua_Idx(lua_gettop(L)));
+	cs(L, lua_Idx(lua_gettop(L)));
 	return 1;
 }
 
@@ -184,9 +195,9 @@ inline typename std::enable_if<std::is_same<LuaIdx, T>::value, T>::type LuaGetVa
 }
 
 template<class T>
-inline typename T::cObj LuaGetValue(lua_State* L, int i)
+inline typename T::cObj* LuaGetValue(lua_State* L, int i)
 {
-	return (typename T::cObj)LuaGetCppObj(L, i);
+	return LuaGetCppObj<T::cObj>(L, i);
 }
 
 template<typename ...T, size_t... I>
@@ -236,13 +247,6 @@ template<class C, typename ...T, size_t... I>
 static C* LuaCallConstructor(lua_State *L, int t, std::index_sequence<I...>)
 {
 	return new C(LuaGetValue<T>(L, t + I)...);
-}
-
-template<typename T0, class ...T1>
-inline void LuaSetCppObjRegistered(T0* c, const LuaState& lua, const T1& ...t)
-{
-	lua.SetValue(t..., LuaSub(0, c), LuaSub(1, typeid(T0).hash_code()));
-	lua.GetValue(T0::LuaGetName(), LuaMeta(), "class", LuaSetTo(t..., LuaMeta()));
 }
 
 template<class T>
