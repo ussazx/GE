@@ -13,15 +13,6 @@ struct LuaIdx : public lua_Idx
 	LuaState state;
 };
 
-template<typename ...T>
-inline LuaCustomSet LuaDataSet(T&& ...t)
-{
-	return[t...](const LuaState& state, const lua_Idx& idx)
-	{
-		state.SetValue(idx, t...);
-	};
-}
-
 template<typename T>
 struct LuacObj
 {

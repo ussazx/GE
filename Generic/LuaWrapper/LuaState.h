@@ -43,6 +43,15 @@ class LuaState;
 
 typedef std::function<void(const LuaState&, const lua_Idx&)> LuaCustomSet;
 
+template<typename ...T>
+inline LuaCustomSet LuaDataSet(T&& ...t)
+{
+	return[t...](const LuaState& state, const lua_Idx& idx)
+	{
+		state.SetValue(idx, t...);
+	};
+}
+
 class LuaState
 {
 public:
