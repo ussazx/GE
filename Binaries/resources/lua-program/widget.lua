@@ -249,10 +249,10 @@ local function InitGridLayoutProp(o, gapLeft, gapRight, gapTop, gapBottom)
 end
 
 local function CaculateLayoutProp(prop)
-	prop.left = prop.gapLeft * (prop.align & Layout.ALIGN_LEFT) / Layout.ALIGN_LEFT
-	prop.top = prop.gapTop * (prop.align & Layout.ALIGN_TOP) / Layout.ALIGN_TOP
-	prop.right = prop.gapRight * (prop.align & Layout.ALIGN_RIGHT) / Layout.ALIGN_RIGHT
-	prop.bottom = prop.gapBottom * (prop.align & Layout.ALIGN_BOTTOM) / Layout.ALIGN_BOTTOM
+	prop.left = prop.gapLeft * (prop.align & Layout.ALIGN_LEFT) // Layout.ALIGN_LEFT
+	prop.top = prop.gapTop * (prop.align & Layout.ALIGN_TOP) // Layout.ALIGN_TOP
+	prop.right = prop.gapRight * (prop.align & Layout.ALIGN_RIGHT) // Layout.ALIGN_RIGHT
+	prop.bottom = prop.gapBottom * (prop.align & Layout.ALIGN_BOTTOM) // Layout.ALIGN_BOTTOM
 	prop.h_expand = prop.align & (Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT) == Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT
 	prop.v_expand = prop.align & (Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM) == Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM
 end
@@ -493,6 +493,10 @@ function UiWidget:ctor(x, y, w, h)
 		self.vb.uvw = CMBuffer(SIZE_FLOAT3 * self.bakeCount)
 		self.vb.color = CMBuffer(SIZE_UINT1 * self.bakeCount)
 		self.ib = CMBuffer(SIZE_UINT1 * self.bakeCount)
+		
+		self.vb[0] = self.vb.pos
+		self.vb[1] = self.vb.uvw
+		self.vb[2] = self.vb.color
 	end
 end
 
@@ -522,7 +526,7 @@ function UiWidget:FillDrawInput(vbPos, vbUVW, vbColor, ib, ib_start, wp)
 	return 4, CAddConvexPolyIndex(ib, wp, 1, ib_start, 4)
 end
 
-function UiWidget:DoUpdate(vsInput, clipRect)
+function UiWidget:DoUpdate(clipRect)
 	local clipRectNew
 	if (self.doClip or clipRect) then
 		clipRectNew = Rect(self.location.x, self.location.y, self.rect.w, self.rect.h)
@@ -534,7 +538,8 @@ function UiWidget:DoUpdate(vsInput, clipRect)
 			end
 		end
 		if (self.gpuClip) then
-			g_drawCmdMgr:SetClipRect(clipRectNew)
+			g_dcListUI:SetClipRect(clipRectNew)
+			--g_dcListId:SetClipRect(clipRectNew)
 		end
 		if (self.doClip) then
 			clipRect = clipRectNew
@@ -550,19 +555,18 @@ function UiWidget:DoUpdate(vsInput, clipRect)
 	end
 	self.clipRect = clipRectNew
 	
-	g_drawCmdMgr:AddResourceSet(ui_resourceSet)
-	g_drawCmdMgr:AddResourceSet(self.font.res)
-	g_drawCmdMgr:SetPipeline(self.pipeline)
-	g_drawCmdMgr:CommitStates()
+	g_dcListUI:AddResourceSet(ui_resourceSet)
+	g_dcListUI:AddResourceSet(self.font.res)
+	g_dcListUI:SetPipeline(self.pipeline)
+	g_dcListUI:CommitStates()
 	
-	local n_vtxCr = 0
-	local n_idxCr = 0
+	local slot = g_plUi.slot
 	if (self.doClip and self.drawClipRect) then
-		CAddRectFloat2(vsInput[VB_ELEM_FLOAT2_0], APPEND, clipRectNew.x, clipRectNew.y, clipRectNew.w, clipRectNew.h)
-		CAddFloat3(vsInput[VB_ELEM_FLOAT3_0], APPEND, 4, self.font.pixels, 0, 0)
-		CAddUByte4(vsInput[VB_ELEM_FLOAT4_0], APPEND, 4, self.crColor.r, self.crColor.g, self.crColor.b, self.crColor.a)
-		n_idxCr = CAddConvexPolyIndex(vsInput.ib, APPEND, 1, g_drawCmdMgr.vtxOffset, 4)
-		n_vtxCr = 4
+		CAddRectFloat2(g_vsInput[slot[0]], APPEND, clipRectNew.x, clipRectNew.y, clipRectNew.w, clipRectNew.h)
+		CAddFloat3(g_vsInput[slot[1]], APPEND, 4, self.font.pixels, 0, 0)
+		CAddUByte4(g_vsInput[slot[2]], APPEND, 4, self.crColor.r, self.crColor.g, self.crColor.b, self.crColor.a)
+		local n_idx = CAddConvexPolyIndex(g_dcListUI.ib, APPEND, 1, g_dcListUI.idxAddOn, 4)
+		g_dcListUI:Draw(4, n_idx, 0, 1)
 	end
 	
 	--draw self
@@ -571,21 +575,21 @@ function UiWidget:DoUpdate(vsInput, clipRect)
 			self.n_vtx, self.n_idx = self:FillDrawInput(self.vb.pos, self.vb.uvw, self.vb.color, self.ib, 0, 0)
 			self.fill = false
 		end
-		CBufferCopy(self.vb.pos, 0, self.n_vtx * SIZE_FLOAT2, vsInput[VB_ELEM_FLOAT2_0], APPEND)
-		CBufferCopy(self.vb.uvw, 0, self.n_vtx * SIZE_FLOAT3, vsInput[VB_ELEM_FLOAT3_0], APPEND)
-		CBufferCopy(self.vb.color, 0, self.n_vtx * SIZE_UINT1, vsInput[VB_ELEM_FLOAT4_0], APPEND)
-		CCopyIndexBuffer(self.ib, 0, self.n_idx, g_drawCmdMgr.vtxOffset + n_vtxCr, vsInput.ib, APPEND)
+		CBufferCopy(self.vb.pos, 0, self.n_vtx * SIZE_FLOAT2, g_vsInput[slot[0]], APPEND)
+		CBufferCopy(self.vb.uvw, 0, self.n_vtx * SIZE_FLOAT3, g_vsInput[slot[1]], APPEND)
+		CBufferCopy(self.vb.color, 0, self.n_vtx * SIZE_UINT1, g_vsInput[slot[2]], APPEND)
+		CCopyIndexBuffer(self.ib, 0, self.n_idx, g_dcListUI.idxAddOn, g_dcListUI.ib, APPEND)
 	else
-		self.n_vtx, self.n_idx = self:FillDrawInput(vsInput[VB_ELEM_FLOAT2_0], vsInput[VB_ELEM_FLOAT3_0], vsInput[VB_ELEM_FLOAT4_0], vsInput.ib, g_drawCmdMgr.vtxOffset + n_vtxCr, APPEND)
+		self.n_vtx, self.n_idx = self:FillDrawInput(g_vsInput[slot[0]], g_vsInput[slot[1]], g_vsInput[slot[2]], g_dcListUI.ib, g_dcListUI.idxAddOn, APPEND)
 	end
 	
 	if (self.writeId) then
-		g_drawCmdMgr:Draw(n_vtxCr + self.n_vtx, n_idxCr + self.n_idx, self.id)
+		g_dcListUI:Draw(self.n_vtx, self.n_idx, 0, 1)
 	else
-		g_drawCmdMgr:Draw(n_vtxCr + self.n_vtx, n_idxCr + self.n_idx)
+		g_dcListUI:Draw(self.n_vtx, self.n_idx, 0, 1)
 	end
 	
-	return vsInput, clipRect
+	return clipRect
 end
 
 -----Button-----

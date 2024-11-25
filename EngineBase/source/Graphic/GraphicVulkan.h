@@ -251,31 +251,14 @@ public:
 		b->m_holders.insert(this);
 		m_buffers[buffer] = m_set.size();
 		m_set.push_back(b->m_buffer);
-		m_offsets.resize(m_set.size());
 	}
 	void SetWritePos(uint32_t pos) override
 	{
 		for (auto& i : m_buffers)
 			i.first->SetWritePos(pos);
 	}
-	void SetDrawOffset(uint32_t offset) override
-	{
-		for (auto& i : m_offsets)
-			i = offset;
-	}
-	void AddDrawOffset(LuacObj<Pipeline> pipeline, uint32_t offset) override
-	{
-		VKPipeline* p = (VKPipeline*)pipeline;
-		for (size_t i = 0; i < p->m_vibd.size(); i++)
-		{
-			VkVertexInputBindingDescription& b = p->m_vibd[i];
-			if (b.inputRate == VK_VERTEX_INPUT_RATE_VERTEX)
-				m_offsets[b.binding] += b.stride * offset;
-		}
-	}
 	std::unordered_map<VKBuffer*, size_t> m_buffers;
 	std::vector<VkBuffer> m_set;
-	std::vector<VkDeviceSize> m_offsets;
 };
 
 class VKDrawIndirectCmd : public DrawIndirectCmd
@@ -318,9 +301,9 @@ public:
 
 	void SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx) override;
 
-	void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t doneOffset) override;
+	void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t n, LuaIdx offsets) override;
 
-	void DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count) override;
+	void DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count, uint32_t n, LuaIdx offsets) override;
 
 	void CopyImage(LuacObj<Texture> src, int src_base_layer, int src_x, int src_y,
 		LuacObj<Texture> dst, int dst_base_layer, int dst_x, int dst_y, int num_layers, uint32_t w, uint32_t h) override;

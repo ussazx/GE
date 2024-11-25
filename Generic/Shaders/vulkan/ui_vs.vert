@@ -1,8 +1,8 @@
 #version 450 core
 
-layout(location = 4) in vec2 pos;
-layout(location = 8) in vec3 uvw;
-layout(location = 12) in vec4 color;
+layout(location = 0) in vec2 pos;
+layout(location = 1) in vec3 uvw;
+layout(location = 2) in vec4 color;
 
 layout(binding = 0) uniform cb {
     float wd;

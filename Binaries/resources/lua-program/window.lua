@@ -13,14 +13,6 @@ function Window:ctor()
 	self.timers = ObjectArray()
 	self.sysCaptured = false
 	self.keyDowns = {}
-	self.vsInput2D = {}
-	self.vsInput2D[0] = NewVSInput2D()
-	self.vsInput2D[1] = NewVSInput2D()
-	self.vsInput2dCur = self.vsInput2D[0]
-	self.idIndBuf2D = {}
-	self.idIndBuf2D[0] = cGI:NewDrawIndirectCmd(1)
-	self.idIndBuf2D[1] = cGI:NewDrawIndirectCmd(1)
-	self.idIndBuf2dCur = self.idIndBuf2D[0]
 	self.rIdx = 0
 	
 	self.cbWnd = ResBuffer(SIZE_FLOAT2)
@@ -30,7 +22,8 @@ function Window:ctor()
 	self.cmd = cGI:NewCommand(false)
 	--self.cmdList = CmdList()
 	
-	self.drawCmdMgr = DrawCmdMgr()
+	self.dcListUI = DrawcallList()
+	self.dcListId = DrawcallList()
 	
 	if (EVT.focus_id == nil) then
 		EVT.focus_id = self.id
@@ -123,15 +116,17 @@ function Window:on_idle(t, onTimer, show)
 	if(show and (self.update or self.sized)) then
 		ui_resourceSet = self.res_set
 		
-		self.vsInput2dCur = self.vsInput2D[self.rIdx]
-		self.idIndBuf2dCur = self.idIndBuf2D[self.rIdx]
 		self.rIdx = ~self.rIdx & 1
 		
-		ResetVSInput2D(self.vsInput2dCur)
-		self.idIndBuf2dCur:Reset()
-		self.drawCmdMgr:Reset(g_plUi, self.frameBuffer.vp, self.frameBuffer.cr, self.idIndBuf2dCur)
-		g_drawCmdMgr = self.drawCmdMgr
+		g_dcListUI = self.dcListUI
+		g_dcListId = self.dcListId
+		g_dcListUI:Reset(self.frameBuffer.vp, self.frameBuffer.cr, self.rIdx)
+		g_dcListId:Reset(self.frameBuffer.vp, self.frameBuffer.cr, self.rIdx)
+		g_vsInput = g_vsInput2[self.rIdx]
+		g_vsInput.vbSet:SetWritePos(0)
+		Print('begin')
 		self:UpdateUI()
+		Print('end\n')
 		self:render()
 	end
 
@@ -144,7 +139,7 @@ function Window:resize(w, h)
 	self:SetSize(w, h)
 	
 	cGI:DeviceWaitIdle()
-	g_drawCmdMgr = self.drawCmdMgr
+	g_dcList = self.dcListUI
 	self.cbWnd:Set(0, CAddFloat2, self.rect.w, self.rect.h)
 	self.sizegroup:resize(w, h)
 	
@@ -163,12 +158,11 @@ function Window:render()
 
 	self.cmd:RenderBegin(self.frameBuffer, false)
 	
-	self.drawCmdMgr:SetupDrawcalls(self.vsInput2dCur, self.cmd)
+	self.dcListUI:SetupDrawcalls(self.cmd)
 	
 	self.cmd:NextSubpass(false)
 	
-	self.vsInput2dCur.vbSet:SetDrawOffset(0)
-	self.drawCmdMgr:SetupIdDrawcalls(g_plId2D, self.vsInput2dCur, self.cmd)
+	self.dcListId:SetupDrawcalls(self.cmd)
 	
 	self.cmd:RenderEnd()
 	
@@ -179,7 +173,7 @@ end
 	
 function Window:UpdateUI()
 	self.update = false
-	self:Update(self.vsInput2dCur, nil)
+	self:Update()
 	self.sized = false
 end
 

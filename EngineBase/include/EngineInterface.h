@@ -9,6 +9,12 @@
 #define DECLSPEC_C extern "C" __declspec(dllimport)
 #endif
 
+#ifdef WIN32
+#define DEBUG_PRINT OutputDebugStringA
+#else
+#define DEBUG_PRINT
+#endif
+
 namespace Engine
 {
 	enum SeekPos

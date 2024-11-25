@@ -1,7 +1,7 @@
 #version 450 core
 
-layout(location = 4) in vec2 pos;
-layout(location = 20) in uint id;
+layout(location = 0) in vec2 pos;
+layout(location = 1) in uint id;
 
 layout(binding = 0) uniform cb {
     float wd;

@@ -49,7 +49,7 @@ function GridLayoutTest(w)
 		local ww = UiWidget(0, 0, 150, 150)
 		ww.color:set(100, 100, 100, 100)
 		grid:AddChild(ww, 5, 5, 10, 10)
-		--ww.gpuClip = true
+		ww.gpuClip = true
 		
 		local layout = BoxLayout(true)
 		ww:AddChild(layout)
@@ -61,6 +61,10 @@ function GridLayoutTest(w)
 		layout:AddChild(t)
 	end
 	layout:AddChild(UiButton(0, 0, 100, 30, _('Load')), 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 10, 10, 10)
+end
+
+function NewCommonWindow()
+	local w = Window()
 end
 
 function NewWindow_LoadProj()

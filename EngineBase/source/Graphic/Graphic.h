@@ -138,11 +138,7 @@ public:
 
 	virtual void SetWritePos(uint32_t pos) = 0;
 
-	virtual void SetDrawOffset(uint32_t offset) = 0;
-
-	virtual void AddDrawOffset(LuacObj<Pipeline> pipeline, uint32_t offset) = 0;
-
-	Lua_wrap_cpp_class(BufferSet, Lua_abstract, Lua_mf(Add), Lua_mf(SetWritePos), Lua_mf(SetDrawOffset));
+	Lua_wrap_cpp_class(BufferSet, Lua_abstract, Lua_mf(Add), Lua_mf(SetWritePos));
 };
 Lua_global_add_cpp_class(BufferSet);
 
@@ -182,9 +178,9 @@ public:
 
 	virtual void SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx) = 0;
 
-	virtual void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t doneOffset) = 0;
+	virtual void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t n, LuaIdx offsets) = 0;
 
-	virtual void DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count) = 0;
+	virtual void DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count, uint32_t n, LuaIdx offsets) = 0;
 
 	virtual void CopyImage(LuacObj<Texture> src, int src_base_layer, int src_x, int src_y,
 		LuacObj<Texture> dst, int dst_base_layer, int dst_x, int dst_y, int num_layers, uint32_t w, uint32_t h) = 0;

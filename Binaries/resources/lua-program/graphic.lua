@@ -2,27 +2,24 @@
 require 'defines'
 require 'class'
 
-function NewVSInput2D(n)
-	n = n or 1024
-	local o = {}
-	o[VB_ELEM_FLOAT2_0] = cGI:NewBuffer(n * SIZE_FLOAT2)
-	o[VB_ELEM_FLOAT3_0] = cGI:NewBuffer(n * SIZE_FLOAT3)
-	o[VB_ELEM_FLOAT4_0] = cGI:NewBuffer(n * SIZE_UINT1)
-	o[VB_ELEM_ID] = g_idVb
-	o.vbSet = cGI:NewBufferSet(nil, 0)
-	o.vbSet:Add(o[VB_ELEM_FLOAT2_0])
-	o.vbSet:Add(o[VB_ELEM_FLOAT3_0])
-	o.vbSet:Add(o[VB_ELEM_FLOAT4_0])
-	o.vbSet:Add(o[VB_ELEM_ID])
-	o.ib = cGI:NewBuffer(n * SIZE_UINT1)
-	ResetVSInput2D(o)
-	return o
+function NewVSInput()
+	return {vbSet = cGI:NewBufferSet(nil, 0), nElems = 0}
 end
 
-function ResetVSInput2D(o)
-	o.vbSet:SetWritePos(0)
-	o.vbSet:SetDrawOffset(0)
-	o.ib:SetWritePos(0)
+function NewVSInput2()
+	return {[0] = NewVSInput(), [1] = NewVSInput()}
+end	
+
+function ResizeVbSet(vsInput, nElems)
+	if (vsInput.nElems < nElems) then
+		local b
+		for i = 1, nElems - vsInput.nElems do
+			b = cGI:NewBuffer(1)
+			vsInput.vbSet:Add(b)
+			vsInput[vsInput.nElems] = b
+			vsInput.nElems = vsInput.nElems + 1
+		end
+	end
 end
 
 ---ResBuffer---
@@ -36,7 +33,7 @@ end
 
 function ResBuffer:Set(offset, func, ...)
 	func(self.mb, offset, 1, ...)
-	g_drawCmdMgr.rbList[self] = self
+	g_dcList.rbList[self] = self
 end
 
 function ResBuffer:Update()
@@ -55,52 +52,54 @@ function ResSet:BindTexelView(v, binding)
 	self[0]:BindBuffer(v, binding, cGI.RESOURCE_UNIFORM_TEXEL_BUFFER)
 end
 
----DrawCmdMgr---
-DrawCmdMgr = class()
+---DrawcallList---
+DrawcallList = class()
 
-function DrawCmdMgr:ctor()
+function DrawcallList:ctor()
 	self.d = {}
 	self.c = {}
 	self.p = {}
 	self.res = {}
 	self.dcList = {}
 	self.dcCap = 0
-	self.idDcList = {}
-	self.idDcCap = 0
 	self.rbList = {}
-	self:Reset()
+	self.indBuf2 = {}
+	self.indBuf2[0] = cGI:NewDrawIndirectCmd(1)
+	self.indBuf2[1] = cGI:NewDrawIndirectCmd(1)
+	self.ib2 = {}
+	self.ib2[0] = cGI:NewBuffer(SIZE_INDEX)
+	self.ib2[1] = cGI:NewBuffer(SIZE_INDEX)
+	self.vtxOffsets = {}
+	self:Reset(nil, nil, 0)
 end
 
-function DrawCmdMgr:Reset(pl, vp, cr, idIndBuf)
+function DrawcallList:Reset(vp, cr, rIdx)
+	self.rIdx = rIdx
 	self.dcIdx = 0
 	self.dcCount = 0
+	self.dc = nil
 	self.dc = self:NewDrawcall()
+	self.IdxStart = 0
+	self.indBuf = self.indBuf2[rIdx]
+	self.ib = self.ib2[rIdx]
+	self.indBuf:Reset()
+	self.ib:SetWritePos(0)
 	self.idxCount = 0
-	self.vtxOffset = 0
-	self.vtxOffsetAcc = 0
-	self.idxPos = 0
 	self.resIdx = 0
-	self.idDcIdx = 0
-	self.idDcCount = 0
-	self.idIndBuf = idIndBuf
-	self.indInstCount = 0
-	self.indIdxPos = 0
-	self.indIdxCount = 0
-	self.indVtxOffset = 0
-	self.idDc = self:NewIdDrawcall()
-	self.d.pl = pl
 	self.d.vp = vp
 	self.d.cr = cr
 	self.c.vp = vp
 	self.c.cr = cr
-	self.p.cr = nil
 	self.p.vp = nil
+	self.p.cr = nil
 	self.p.pl = nil
-	self.c_id = nil
-	--self.drawCall = 0
+	self.p.pl = nil
+	for k, _ in pairs(self.vtxOffsets) do
+		self.vtxOffsets[k] = 0
+	end
 end
 
-function DrawCmdMgr:NewDrawcall()
+function DrawcallList:NewDrawcall()
 	self.dcIdx = self.dcIdx + 1
 	local dc
 	if (self.dcIdx <= self.dcCap) then
@@ -109,53 +108,37 @@ function DrawCmdMgr:NewDrawcall()
 		dc.cr = nil
 		dc.pl = nil
 	else
-		dc = {resList = {}, resIdx = {}}
+		dc = {resList = {}, resIdx = {}, vtxOffsets = {}}
 		self.dcCap = self.dcCap + 1
 		self.dcList[self.dcCap] = dc
 	end
+	
+	dc.nOffsets = 0
+	if (self.dcIdx > 1) then
+		local stride = self.p.pl.stride
+		local n
+		for i = 0, self.p.pl.nElems - 1 do
+			n = self.vtxOffsets[i] or 0
+			n = n + stride[i] * self.idxAddOn
+			self.vtxOffsets[i] = n
+			dc.vtxOffsets[i] = n
+		end
+		dc.nOffsets = self.p.pl.nElems
+	end
+	self.idxAddOn = 0
+	
+	if (self.dc) then
+		dc.instStart = self.dc.instStart + self.dc.instCount	
+	else
+		dc.instStart = 0
+	end
 	dc.resCount = 0
-	dc.pl = self.d.pl
+	dc.instCount = 0
 	return dc
 end
 
-function DrawCmdMgr:NewIdDrawcall()
-	self.idDcIdx = self.idDcIdx + 1
-	local idDc
-	if (self.idDcIdx <= self.idDcCap) then
-		idDc = self.idDcList[self.idDcIdx]
-	else
-		idDc = {}
-		self.idDcCap = self.idDcCap + 1
-		self.idDcList[self.idDcCap] = idDc
-	end
-	idDc.vp = nil
-	idDc.cr = nil
-	idDc.instStart = self.indInstCount
-	idDc.instCount = 0
-	return idDc
-end
-
-function DrawCmdMgr:CommitCurrent(isLast)
-	if (self.idxCount > 0) then
-		local dc = self.dc
-		dc.idxPos = self.idxPos
-		dc.idxCount = self.idxCount
-		dc.vtxOffset = self.vtxOffset
-		self.dcCount = self.dcCount + 1
-		
-		self.dc = self:NewDrawcall()
-		self.idxPos = self.idxPos + self.idxCount
-		if (isLast ~= true) then
-			self.vtxOffsetAcc = self.vtxOffsetAcc + self.vtxOffset
-		end
-		self.vtxOffset = 0
-		self.idxCount = 0
-		self.resIdx = 0
-	end
-end
-
-function DrawCmdMgr:SetupDrawcalls(vsInput, cmd)
-	self:CommitCurrent(true)
+function DrawcallList:SetupDrawcalls(cmd)
+	self:CommitCurrent()
 	for k, rb in pairs(self.rbList) do
 		rb:Update()
 		self.rbList[k] = nil
@@ -171,46 +154,24 @@ function DrawCmdMgr:SetupDrawcalls(vsInput, cmd)
 		for i = 1, dc.resCount do
 			cmd:SetResourceSet(dc.resList[i], dc.resIdx[i])
 		end
-		cmd:DrawIndexed(self.dc.pl, vsInput.vbSet, vsInput.ib, 0, dc.idxPos, dc.idxCount, dc.vtxOffset)
+		cmd:DrawIndexedIndirect(dc.pl.pl, g_vsInput.vbSet, self.ib, self.indBuf, dc.instStart, dc.instCount, dc.nOffsets, dc.vtxOffsets)
 	end
 	Print('---draw call---', self.dcCount)
 end
 
-function DrawCmdMgr:CommitIdCurrent()
-	self:AddIdIndBuffer()
-	if (self.idDc.instCount > 0) then
-		self.idDcCount = self.idDcCount + 1
-		self.idDc = self:NewIdDrawcall()
-	end
-end
-
-function DrawCmdMgr:SetupIdDrawcalls(plId, vsInput, cmd)
-	self:CommitIdCurrent()
-	for i = 1, self.idDcCount do
-		local idDc = self.idDcList[i]
-		if (idDc.vp) then
-			cmd:SetViewport(idDc.vp.x, idDc.vp.y, idDc.vp.w, idDc.vp.h, 0, 1)
-		end
-		if (idDc.cr) then
-			cmd:SetClipRect(idDc.cr.x, idDc.cr.y, idDc.cr.w, idDc.cr.h)
-		end
-		cmd:DrawIndexedIndirect(plId, vsInput.vbSet, vsInput.ib, self.idIndBuf, idDc.instStart, idDc.instCount)
-	end
-end
-
-function DrawCmdMgr:SetViewport(vp)
+function DrawcallList:SetViewport(vp)
 	self.c.vp = vp
 end
 
-function DrawCmdMgr:SetClipRect(cr)
+function DrawcallList:SetClipRect(cr)
 	self.c.cr = cr
 end
 
-function DrawCmdMgr:SetPipeline(pl)
-	self.dc.pl = pl
+function DrawcallList:SetPipeline(pl)
+	self.c.pl = pl
 end
 
-function DrawCmdMgr:AddResourceSet(res)
+function DrawcallList:AddResourceSet(res)
 	if (self.res[self.resIdx] ~= res) then
 		self:CommitCurrent()
 		--self.cmd:AddResourceSet(res)
@@ -223,58 +184,146 @@ function DrawCmdMgr:AddResourceSet(res)
 	self.resIdx = self.resIdx + 1
 end
 
-function DrawCmdMgr:CommitStates()
-	if (self.dc.pl ~= self.p.pl) then
+function DrawcallList:CommitStates()
+	if (self.c.pl ~= self.p.pl) then
 		self:CommitCurrent()
-		self.p.pl = self.dc.pl
+		self.p.pl = self.c.pl
 	end
 
 	if (self.c.vp ~= self.p.vp) then
-		self:CommitIdCurrent()
 		self:CommitCurrent()
 		self.dc.vp = self.c.vp
-		self.idDc.vp = self.c.vp
 		self.p.vp = self.c.vp
 		self.c.vp = self.d.vp
 	end
 	
 	if (self.c.cr ~= self.p.cr) then
-		self:CommitIdCurrent()
 		self:CommitCurrent()
 		self.dc.cr = self.c.cr
-		self.idDc.cr = self.c.cr
 		self.p.cr = self.c.cr
 		self.c.cr = self.d.cr
 	end
+	self.dc.pl = self.c.pl
+	
+	ResizeVbSet(g_vsInput, self.dc.pl.nElems)
 	
 	self.resIdx = 0
 end
 
-function DrawCmdMgr:AddIdIndBuffer()
-	if (self.indIdxCount > 0) then
-		self.idIndBuf:AddDrawIndexed(self.vtxOffsetAcc, self.indIdxPos, self.indIdxCount, self.c_id, 1)
-		self.idDc.instCount = self.idDc.instCount + 1
-		self.indInstCount = self.indInstCount + 1
-		self.indIdxPos = self.indIdxPos + self.indIdxCount
-		self.indIdxCount = 0
+function DrawcallList:CommitCurrent()
+	self:CommitIndBuffer()
+	if (self.dc.instCount > 0) then
+		self.dcCount = self.dcCount + 1
+		self.dc = self:NewDrawcall()
 	end
 end
 
-function DrawCmdMgr:Draw(vtxCount, idxCount, id)		
-	self.vtxOffset = self.vtxOffset + vtxCount
-	self.idxCount = self.idxCount + idxCount
-	
-	if (id == nil) then
-		self:AddIdIndBuffer()
-		self.indIdxPos = self.indIdxPos + idxCount
-		self.c_id = id
-		return 
+function DrawcallList:CommitIndBuffer()
+	if (self.idxCount > 0) then
+		self.indBuf:AddDrawIndexed(0, self.IdxStart, self.idxCount, self.instStart, self.instCount)
+		
+		self.IdxStart = self.IdxStart + self.idxCount
+		self.idxCount = 0
+		
+		self.dc.instCount = self.dc.instCount + 1
 	end
-	
-	id = id & ID_NUM_MAX
-	if (id ~= self.c_id) then
-		self:AddIdIndBuffer()
-		self.c_id = id
-	end
-	self.indIdxCount = self.indIdxCount + idxCount
 end
+
+function DrawcallList:Draw(vtxCount, idxCount, instStart, instCount)
+	self.idxAddOn = self.idxAddOn + vtxCount
+	
+	if (self.instStart ~= instStart or self.instCount ~= instCount) then
+		self:CommitIndBuffer()
+	end
+	self.instStart = instStart
+	self.instCount = instCount
+	self.idxCount = self.idxCount + idxCount
+end
+
+FramePipeline = class()
+
+function FramePipeline:ctor()
+	self.cmdList = {}
+	self.rIdx = 0
+	self.wIdx = 0
+end
+
+function FramePipeline:AddFrameOutput(fb, ...)
+	table.insert(p.cmdList, {type = 0, fb = fb, inputs = {...}})
+end
+
+function FramePipeline:AddCopyImage(params)
+	table.insert(p.cmdList, {type = 1, params = params})
+end
+
+RenderUnit = class()
+
+function RenderUnit:Render()
+	CopyVtx(self.vb, self.vtxCount)
+	for _, pass in g_pass do
+		if (self.res[pass]) then
+			g_dcList[pass]:draw(self.vtxCount)
+		else
+			g_dcList[pass]:Skip(self.vtxCount)
+		end
+	end
+end
+
+function FramePipeline:UpdateLayouts()
+	local layout
+	local draw
+	for input, param in pairs(self.fpParams) do
+		layout = input.layout
+		g_pass = data.pass
+		for k, v in g_pass do
+			g_pass[k] = layout[k]
+			draw = true
+			--g_drawMgr[k]:Reset(
+		end
+		if (draw) then
+			g_drawMgr = data.drawMgr
+			layout:Update()
+		end
+		draw = false
+	end
+end
+
+function FramePipeline:FillCommand(cmd)
+	self.cmd = cmd
+	self.code()
+end
+
+function FramePipeline:Bake()
+	self.fpParams = {}
+
+	local code = ''
+	for i = 1, #self.cmdList do
+		local o = cmdList[i]
+		
+		code = code .. 'local o = cmdList[' .. i .. '] '
+		if (o.type == 0) then
+			code = code .. 'cmd:RenderBegin(o.fb, false) '
+			for j = 1, #o.inputs do
+				local fpParam = self.fpParams[o.inputs[j]] or {}
+				fpParam.dcList = fpParam.dcList or {}
+				fpParam.dcList[o.fb[j]] = DrawcallList()
+				fpParam.pass = fpParam.pass or {}
+				fpParam.pass[o.fb[j]] = o.fb[j]
+				self.fpParams[o.inputs[j]] = fpParam
+
+				code = code..'local layout = o.inputs['..j..'].layout local vsInput = layout.vsInput[rIdx] '
+				code = code..'vsInput.vbSet:SetDrawOffset(0) '
+				code = code..'layout.dcList[o.fb]['..j..']:SetupDrawcalls(vsInput, cmd) '
+				if (j ~= #o.refLayouts) then
+					code = code..'cmd:NextSubpass(false) '
+				else
+					code = code..'cmd:RenderEnd() '
+				end
+			end
+		elseif (type == 1) then
+			code = code..'o = o.params cmd:CopyImage(o.srcView, o.srcLayer, o.src_x, o.src_y, o.dstView, o.dstLayer, o.dst_x, o.dst_y, o.numLayers, w, h) '  
+		end
+	end
+	self.code = load(code, '', self)
+end
+			
