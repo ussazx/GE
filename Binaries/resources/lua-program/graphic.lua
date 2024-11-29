@@ -2,13 +2,15 @@
 require 'defines'
 require 'class'
 
-function NewVSInput()
-	return {vbSet = cGI:NewBufferSet(nil, 0), nElems = 0}
+function NewVSInput(n)
+	local o = {vbSet = cGI:NewBufferSet(nil, 0), nElems = 0}
+	ResizeVbSet(o, n)
+	return o
 end
 
-function NewVSInput2()
-	return {[0] = NewVSInput(), [1] = NewVSInput()}
-end	
+function NewVSInput2(n)
+	return {[0] = NewVSInput(n), [1] = NewVSInput(n)}
+end
 
 function ResizeVbSet(vsInput, nElems)
 	if (vsInput.nElems < nElems) then
@@ -85,6 +87,7 @@ function DrawcallList:Reset(vp, cr, rIdx)
 	self.indBuf:Reset()
 	self.ib:SetWritePos(0)
 	self.idxCount = 0
+	self.idxAddOn = 0
 	self.resIdx = 0
 	self.d.vp = vp
 	self.d.cr = cr
@@ -114,26 +117,25 @@ function DrawcallList:NewDrawcall()
 	end
 	
 	dc.nOffsets = 0
-	if (self.dcIdx > 1) then
-		local stride = self.p.pl.stride
-		local n
-		for i = 0, self.p.pl.nElems - 1 do
-			n = self.vtxOffsets[i] or 0
-			n = n + stride[i] * self.idxAddOn
-			self.vtxOffsets[i] = n
-			dc.vtxOffsets[i] = n
-		end
-		dc.nOffsets = self.p.pl.nElems
-	end
-	self.idxAddOn = 0
-	
-	if (self.dc) then
-		dc.instStart = self.dc.instStart + self.dc.instCount	
-	else
-		dc.instStart = 0
-	end
 	dc.resCount = 0
-	dc.instCount = 0
+	dc.indCount = 0
+	if (self.dc) then
+		dc.indStart = self.dc.indStart + self.dc.indCount
+		if (self.p.pl ~= self.c.pl) then
+			local stride = self.p.pl.stride
+			local n
+			for i = 0, self.p.pl.nElems - 1 do
+				n = self.vtxOffsets[i] or 0
+				n = n + stride[i] * self.idxAddOn
+				self.vtxOffsets[i] = n
+				dc.vtxOffsets[i] = n
+			end
+			dc.nOffsets = self.c.pl.nElems
+			self.idxAddOn = 0
+		end
+	else
+		dc.indStart = 0
+	end
 	return dc
 end
 
@@ -154,7 +156,7 @@ function DrawcallList:SetupDrawcalls(cmd)
 		for i = 1, dc.resCount do
 			cmd:SetResourceSet(dc.resList[i], dc.resIdx[i])
 		end
-		cmd:DrawIndexedIndirect(dc.pl.pl, g_vsInput.vbSet, self.ib, self.indBuf, dc.instStart, dc.instCount, dc.nOffsets, dc.vtxOffsets)
+		cmd:DrawIndexedIndirect(dc.pl.pl, g_vsInput.vbSet, self.ib, self.indBuf, dc.indStart, dc.indCount, dc.nOffsets, dc.vtxOffsets)
 	end
 	Print('---draw call---', self.dcCount)
 end
@@ -212,7 +214,7 @@ end
 
 function DrawcallList:CommitCurrent()
 	self:CommitIndBuffer()
-	if (self.dc.instCount > 0) then
+	if (self.dc.indCount > 0) then
 		self.dcCount = self.dcCount + 1
 		self.dc = self:NewDrawcall()
 	end
@@ -225,7 +227,7 @@ function DrawcallList:CommitIndBuffer()
 		self.IdxStart = self.IdxStart + self.idxCount
 		self.idxCount = 0
 		
-		self.dc.instCount = self.dc.instCount + 1
+		self.dc.indCount = self.dc.indCount + 1
 	end
 end
 
@@ -238,6 +240,11 @@ function DrawcallList:Draw(vtxCount, idxCount, instStart, instCount)
 	self.instStart = instStart
 	self.instCount = instCount
 	self.idxCount = self.idxCount + idxCount
+end
+
+function DrawcallList:Skip(vtxCount)
+	self.idxAddOn = self.idxAddOn + vtxCount
+	self:CommitIndBuffer()
 end
 
 FramePipeline = class()
@@ -321,7 +328,8 @@ function FramePipeline:Bake()
 				end
 			end
 		elseif (type == 1) then
-			code = code..'o = o.params cmd:CopyImage(o.srcView, o.srcLayer, o.src_x, o.src_y, o.dstView, o.dstLayer, o.dst_x, o.dst_y, o.numLayers, w, h) '  
+			code = code..[[o = 
+			o.params cmd:CopyImage(o.srcView, o.srcLayer, o.src_x, o.src_y, o.dstView, o.dstLayer, o.dst_x, o.dst_y, o.numLayers, w, h) ]]
 		end
 	end
 	self.code = load(code, '', self)

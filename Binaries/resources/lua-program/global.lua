@@ -79,21 +79,23 @@ cParamPipeline:AddResourceLayout(g_rl0)
 cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_BACK_BIT, true, false, false, false)
 cParamPipeline:SetDethStencilStates(true, true, true, cGI.COMPARE_OP_LESS_OR_EQUAL, false)
 cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT2)
-cParamPipeline:AddVertexElement(1, 1, cGI.FORMAT_WRITE_ID, SIZE_WRITE_ID)
-cParamPipeline:SetVertexInputRate(1, true)
+cParamPipeline:AddVertexElement(3, 1, cGI.FORMAT_WRITE_ID, SIZE_WRITE_ID)
+cParamPipeline:SetVertexInputRate(3, true)
 g_plId2D.pl = cGI:NewPipeline(g_rp0, 1, 1, id_ui_vs, 'main', id_ui_ps, 'main', cParamPipeline)
-g_plId2D.nElems = 2
+g_plId2D.nElems = 1
 g_plId2D.slot = {}
 g_plId2D.slot[0] = 0
-g_plId2D.slot[1] = 1
 g_plId2D.stride = {}
 g_plId2D.stride[0] = SIZE_FLOAT2
-g_plId2D.stride[1] = SIZE_WRITE_ID
 
 uiFont.res = g_rl1:NewResourceSet()
 uiFont.res:BindBuffer(uiFont.view, 0, cGI.WHOLE_SIZE, 0, cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER)
 
-g_vsInput2 = NewVSInput2()
+g_vsInput2 = NewVSInput2(3)
+g_vsInput2[0][3] = g_idVb
+g_vsInput2[0].vbSet:Add(g_idVb)
+g_vsInput2[1][3] = g_idVb
+g_vsInput2[1].vbSet:Add(g_idVb)
 
 -- cParamResourceLayout:Reset()
 -- cParamResourceLayout:Add(RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, SHADER_STAGE_VERTEX_BIT)

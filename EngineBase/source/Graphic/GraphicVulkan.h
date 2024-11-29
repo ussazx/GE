@@ -272,6 +272,7 @@ public:
 
 	void AddDrawIndexed(int32_t vertexOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t firstInstance, uint32_t instanceCount) override;
 
+	bool b{};
 	VKBuffer m_buffer;
 	uint32_t m_pos{};
 	uint32_t m_capacity{};

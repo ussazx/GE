@@ -623,8 +623,6 @@ void VKCommand::Wait()
 
 void VKCommand::RenderBegin(LuacObj<FrameBuffer> fb, bool secondary)
 {
-	Wait();
-
 	VKFrameBuffer* vfb = (VKFrameBuffer*)fb;
 
 	if (vfb->m_swapchain)
@@ -708,12 +706,12 @@ void VKCommand::DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<BufferSe
 	vkCmdBindPipeline(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->m_pipeline);
 	if (p->m_resCount > 0 && m_resources.size() > 0)
 		vkCmdBindDescriptorSets(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->m_layout, 0, min(p->m_resCount, m_resources.size()), m_resources.data(), 0, NULL);
-
-	std::vector<VkDeviceSize> o(p->m_vibd.size(), 0);
+	
+	VKBufferSet* s = (VKBufferSet*)vbSet;
+	std::vector<VkDeviceSize> o(s->m_set.size(), 0);
 	for (size_t i = 0; i < n && i < o.size(); i++)
 		offsets.state.GetValue(offsets, i, &o[i]);
 
-	VKBufferSet* s = (VKBufferSet*)vbSet;
 	VKDrawIndirectCmd* d = (VKDrawIndirectCmd*)indirect;
 
 	vkCmdBindVertexBuffers(m_cmd, 0, s->m_set.size(), s->m_set.data(), o.data());
@@ -724,8 +722,6 @@ void VKCommand::DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<BufferSe
 void VKCommand::CopyImage(LuacObj<Texture> src, int src_base_layer, int src_x, int src_y,
 	LuacObj<Texture> dst, int dst_base_layer, int dst_x, int dst_y, int num_layers, uint32_t w, uint32_t h)
 {
-	Wait();
-
 	VKTexture* s = (VKTexture*)src;
 	VKTexture* d = (VKTexture*)dst;
 	m_imb[0].oldLayout = m_imb[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -774,7 +770,6 @@ void VKCommand::CopyImage(LuacObj<Texture> src, int src_base_layer, int src_x, i
 
 void VKCommand::Execute()
 {
-	Wait();
 	vkEndCommandBuffer(m_cmd);
 	m_executing = true;
 
@@ -806,8 +801,6 @@ void VKCommand::Execute()
 		si.pSignalSemaphores = &m_completeSema;
 		si.signalSemaphoreCount = 1;
 		vkQueueSubmit(g->queueG, 1, &si, m_fence);
-
-		auto xx = m_fb;
 
 		VkPresentInfoKHR pi{};
 		pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

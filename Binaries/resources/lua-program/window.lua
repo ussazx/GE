@@ -124,9 +124,7 @@ function Window:on_idle(t, onTimer, show)
 		g_dcListId:Reset(self.frameBuffer.vp, self.frameBuffer.cr, self.rIdx)
 		g_vsInput = g_vsInput2[self.rIdx]
 		g_vsInput.vbSet:SetWritePos(0)
-		Print('begin')
 		self:UpdateUI()
-		Print('end\n')
 		self:render()
 	end
 
