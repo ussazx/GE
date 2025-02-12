@@ -19,14 +19,14 @@ end
 local global_objects = setmetatable({}, {__mode = 'v'})
 local global_recycled_id = {}
 
+local g_id = 0
 local function new_object_id()
-	id = id or 0
 	local i, tid = next(global_recycled_id)
 	if (tid) then
 		global_recycled_id[i] = nil
 	else
-		tid = id
-		id = id + 1
+		tid = g_id
+		g_id = g_id + 1
 	end
 	return tid
 end

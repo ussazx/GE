@@ -135,7 +135,7 @@ std::tuple<uint32_t, uint32_t> CMeasureText(const char* utf8text, int maxIndex, 
 }
 Lua_global_add_cfunc(CMeasureText);
 
-std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, LuacObj<CBuffer> vb_uv, int wp, LuacObj<GlyphTable> table, int x, int y, const char* utf8text)
+std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, int x, int y, const char* utf8text)
 {
 	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
 	std::wstring s = conv.from_bytes(utf8text);
@@ -143,8 +143,8 @@ std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, LuacObj<CBuffer> vb_uv, i
 	if (s.length() == 0)
 		return { 0, x };
 
-	BufferWriter<float2> pos(*vb_pos, s.length(), wp);
-	BufferWriter<float3> uvw(*vb_uv, s.length(), wp);
+	BufferWriter<float2> pos(*vb_pos, s.length(), wp_pos);
+	BufferWriter<float3> uvw(*vb_uv, s.length(), wp_uv);
 
 	int n = 0;
 	for (auto it = s.begin(); it != s.end(); it++)
@@ -172,7 +172,7 @@ std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, LuacObj<CBuffer> vb_uv, i
 }
 Lua_global_add_cfunc(CAddText);
 
-std::tuple<int, int> CAddTextClip(LuacObj<CBuffer> vb_pos, LuacObj<CBuffer> vb_uv, int wp, LuacObj<GlyphTable> table, int offset_x, int offset_y, int rect_x, int rect_y, int rect_w, int rect_h, const char* utf8text)
+std::tuple<int, int> CAddTextClip(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, int offset_x, int offset_y, int rect_x, int rect_y, int rect_w, int rect_h, const char* utf8text)
 {
 	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
 	std::wstring s = conv.from_bytes(utf8text);
@@ -180,8 +180,8 @@ std::tuple<int, int> CAddTextClip(LuacObj<CBuffer> vb_pos, LuacObj<CBuffer> vb_u
 	if (s.length() == 0)
 		return { 0, offset_x };
 
-	BufferWriter<float2> pos(*vb_pos, s.length(), wp);
-	BufferWriter<float3> uvw(*vb_uv, s.length(), wp);
+	BufferWriter<float2> pos(*vb_pos, s.length(), wp_pos);
+	BufferWriter<float3> uvw(*vb_uv, s.length(), wp_uv);
 
 	int n = 0, x = 0;
 	for (auto it = s.begin(); it != s.end() && x + offset_x < rect_w; it++)

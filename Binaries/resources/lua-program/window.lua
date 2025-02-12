@@ -6,6 +6,7 @@ require 'global'
 Window = class(Widget2D)
 Window.acceptFocus = true
 Window.cursor = SYS.CURSOR_ARROW
+Window.recycle = true
 
 function Window:ctor()
 	self.window = self
@@ -13,20 +14,25 @@ function Window:ctor()
 	self.timers = ObjectArray()
 	self.sysCaptured = false
 	self.keyDowns = {}
-	self.rIdx = 0
 	
-	self.cbWnd = ResBuffer(SIZE_FLOAT2)
+	self.cmd = Command.New()
+	 
+	self.cbWnd = ResBuffer(self.cmd, CAddFloat2)
 	self.res_set = g_rl0:NewResourceSet()
-	self.res_set:BindBuffer(self.cbWnd[0], 0, cGI.WHOLE_SIZE, 0, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
+	self.res_set:ResBuffer(self.cbWnd, 0)
 	
-	self.cmd = cGI:NewCommand(false)
 	--self.cmdList = CmdList()
 	
-	self.dcListUI = DrawcallList()
-	self.dcListId = DrawcallList()
+	self.dcLists = {[SubpassId(g_rp0, 0)] = DrawcallList(), [SubpassId(g_rp0, 1)] = DrawcallList()}
 	
 	if (EVT.focus_id == nil) then
 		EVT.focus_id = self.id
+	end
+end
+
+function Window:dtor()
+	if (Window.recycle) then
+		Command.Recycle(self.cmd)
 	end
 end
 
@@ -114,16 +120,18 @@ function Window:on_idle(t, onTimer, show)
 	self:HandleTimer(onTimer, t)
 		
 	if(show and (self.update or self.sized)) then
+		self.cmd:Flip()
+		g_cmd = self.cmd
+		
 		ui_resourceSet = self.res_set
 		
-		self.rIdx = ~self.rIdx & 1
-		
-		g_dcListUI = self.dcListUI
-		g_dcListId = self.dcListId
-		g_dcListUI:Reset(self.frameBuffer.vp, self.frameBuffer.cr, self.rIdx)
-		g_dcListId:Reset(self.frameBuffer.vp, self.frameBuffer.cr, self.rIdx)
-		g_vsInput = g_vsInput2[self.rIdx]
-		g_vsInput.vbSet:SetWritePos(0)
+		DrawcallList.dvp = self.frameBuffer.vp
+		DrawcallList.vp = self.frameBuffer.vp
+		DrawcallList.dcr = self.frameBuffer.cr
+		DrawcallList.cr = self.frameBuffer.cr
+		self.dcLists[SubpassId(g_rp0, 0)]:Reset()
+		self.dcLists[SubpassId(g_rp0, 1)]:Reset()
+		g_dcLists = self.dcLists
 		self:UpdateUI()
 		self:render()
 	end
@@ -137,8 +145,7 @@ function Window:resize(w, h)
 	self:SetSize(w, h)
 	
 	cGI:DeviceWaitIdle()
-	g_dcList = self.dcListUI
-	self.cbWnd:Set(0, CAddFloat2, self.rect.w, self.rect.h)
+	self.cbWnd:Set(1, self.rect.w, self.rect.h)
 	self.sizegroup:resize(w, h)
 	
 	if (render) then
@@ -152,15 +159,17 @@ function Window:render()
 		self.sizegroup:resize(self.rect.w, self.rect.h)
 	end
 	
-	self.cmd:Wait()
+	g_cmd = self.cmd
+	
+	self.cmd:PrepareRender()
 
 	self.cmd:RenderBegin(self.frameBuffer, false)
 	
-	self.dcListUI:SetupDrawcalls(self.cmd)
+	self.dcLists[SubpassId(g_rp0, 0)]:SetupDrawcalls()
 	
 	self.cmd:NextSubpass(false)
 	
-	self.dcListId:SetupDrawcalls(self.cmd)
+	self.dcLists[SubpassId(g_rp0, 1)]:SetupDrawcalls()
 	
 	self.cmd:RenderEnd()
 	

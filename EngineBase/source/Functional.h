@@ -128,7 +128,7 @@ public:
 
 	size_t m_writePos;
 
-	Lua_wrap_cpp_class(CBuffer, Lua_abstract, Lua_mf(GetWritePos), Lua_mf(SetWritePos));
+	Lua_wrap_cpp_class(CBuffer, Lua_abstract, Lua_mf(GetWritePos), Lua_mf(SetWritePos), Lua_mf(Resize));
 };
 Lua_global_add_cpp_class(CBuffer)
 

@@ -49,7 +49,7 @@ function GridLayoutTest(w)
 		local ww = UiWidget(0, 0, 150, 150)
 		ww.color:set(100, 100, 100, 100)
 		grid:AddChild(ww, 5, 5, 10, 10)
-		ww.gpuClip = true
+		--ww.gpuClip = true
 		
 		local layout = BoxLayout(true)
 		ww:AddChild(layout)
@@ -78,6 +78,15 @@ function NewWindow_LoadProj()
 	--VLayoutTest(w)
 	--HLayoutTest(w)
 	GridLayoutTest(w)
+	--w:AddChild(UiWidget(0, 0, 150, 130))
+	--w:AddChild(UiWidget(200, 0, 150, 130))
+	
+	--w:AddChild(UiTextInput(10, 10, 100, uiFont.fontSize))
+	
+	--w:AddChild(UiTextInput(10, 100, 100, uiFont.fontSize))
+	
+	--w:AddChild(UiText(0, 0, 'abcdef'))
+	--w:AddChild(UiText(100, 0, 'abcdef'))
 	
 	w.OnLeftDown = WindowOnLeftDown
 	--w:bind_event(EVT.LEFT_DOWN, w, w.OnLeftDown)

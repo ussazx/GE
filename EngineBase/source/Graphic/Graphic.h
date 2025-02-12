@@ -178,9 +178,11 @@ public:
 
 	virtual void SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx) = 0;
 
-	virtual void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t n, LuaIdx offsets) = 0;
+	virtual void SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding) = 0;
 
-	virtual void DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count, uint32_t n, LuaIdx offsets) = 0;
+	virtual void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount) = 0;
+
+	virtual void DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count) = 0;
 
 	virtual void CopyImage(LuacObj<Texture> src, int src_base_layer, int src_x, int src_y,
 		LuacObj<Texture> dst, int dst_base_layer, int dst_x, int dst_y, int num_layers, uint32_t w, uint32_t h) = 0;
@@ -199,6 +201,7 @@ public:
 		Lua_mf(SetClipRect),
 		Lua_mf(SetResourceSet),
 		Lua_mf(DrawIndexed),
+		Lua_mf(SetVertexBuffers),
 		Lua_mf(DrawIndexedIndirect),
 		Lua_mf(CopyImage));
 };

@@ -472,7 +472,7 @@ end
 UiWidget = class(Widget2D)
 UiWidget.pipeline = g_plUi
 UiWidget.font = uiFont
-UiWidget.baked = false
+UiWidget.cached = false
 UiWidget.doClip = true
 UiWidget.bakeCount = 4
 UiWidget.writeId = true
@@ -486,18 +486,13 @@ function UiWidget:ctor(x, y, w, h)
 	self.show = true
 	self.fill = true
 	self.gpuClip = false
+	self.renderDisables = {[SubpassId(g_rp0, 1)] = true}
 	
-	if (self.baked) then
-		self.vb = {}
-		self.vb.pos = CMBuffer(SIZE_FLOAT2 * self.bakeCount)
-		self.vb.uvw = CMBuffer(SIZE_FLOAT3 * self.bakeCount)
-		self.vb.color = CMBuffer(SIZE_UINT1 * self.bakeCount)
-		self.ib = CMBuffer(SIZE_UINT1 * self.bakeCount)
-		
-		self.vb[0] = self.vb.pos
-		self.vb[1] = self.vb.uvw
-		self.vb[2] = self.vb.color
-	end
+	self.mesh = Mesh(self.FillVB, self.FillIB, self, self.cached, 1|2|4)
+	self.mesh:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
+	
+	self.rcMesh = Mesh(self.FillClipRectVB, self.FillClipRectIB, self, self.cached, 1|2|4)
+	self.rcMesh:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
 end
 
 function UiWidget:Refresh()
@@ -515,18 +510,30 @@ function UiWidget:OnSized()
 	self:Refresh()
 end
 
-function UiWidget:FillVertex(vbPos, vbUVW, vbColor, wp)
+function UiWidget:FillRectVB(color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 	if (self.clipRect) then
-		CAddRectFloat2(vbPos, wp, self.clipRect.x, self.clipRect.y, self.clipRect.w, self.clipRect.h)
+		CAddRectFloat2(vbPos, wpPos, self.clipRect.x, self.clipRect.y, self.clipRect.w, self.clipRect.h)
 	else
-		CAddRectFloat2(vbPos, wp, self.location.x, self.location.y, self.rect.w, self.rect.h)
+		CAddRectFloat2(vbPos, wpPos, self.location.x, self.location.y, self.rect.w, self.rect.h)
 	end
-	CAddFloat3(vbUVW, wp, 4, self.font.pixels, 0, 0)
-	CAddUByte4(vbColor, wp, 4, self.color.r, self.color.g, self.color.b, self.color.a)
+	CAddFloat3(vbUVW, wpUVW, 4, self.font.pixels, 0, 0)
+	CAddUByte4(vbColor, wpColor, 4, color.r, color.g, color.b, color.a)
 	return 4
 end
 
-function UiWidget:FillIndex(ib, ib_start, wp)
+function UiWidget:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+	return self:FillRectVB(self.color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+end
+
+function UiWidget:FillIB(ib, ib_start, wp)
+	return CAddConvexPolyIndex(ib, wp, 1, ib_start, 4)
+end
+
+function UiWidget:FillClipRectVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+	return self:FillRectVB(self.crColor, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+end
+
+function UiWidget:FillClipRectIB(ib, ib_start, wp)
 	return CAddConvexPolyIndex(ib, wp, 1, ib_start, 4)
 end
 
@@ -542,8 +549,7 @@ function UiWidget:DoUpdate(clipRect)
 			end
 		end
 		if (self.gpuClip) then
-			g_dcListUI:SetClipRect(clipRectNew)
-			g_dcListId:SetClipRect(clipRectNew)
+			DrawcallList.cr = clipRectNew
 		end
 		if (self.doClip) then
 			clipRect = clipRectNew
@@ -559,63 +565,17 @@ function UiWidget:DoUpdate(clipRect)
 	end
 	self.clipRect = clipRectNew
 	
-	g_dcListUI:AddResourceSet(ui_resourceSet)
-	g_dcListUI:AddResourceSet(self.font.res)
-	g_dcListUI:SetPipeline(g_plUi)
-	g_dcListUI:CommitStates()
-	
-	if (self.writeId) then
-		g_dcListId:AddResourceSet(ui_resourceSet)
-		g_dcListId:SetPipeline(g_plId2D)
-		g_dcListId:CommitStates()
+	local d
+	if (self.writeId ~= true) then
+		d = self.renderDisables
 	end
 	
-	local slot = g_plUi.slot
 	if (self.doClip and self.drawClipRect) then
-		CAddRectFloat2(g_vsInput[slot[0]], APPEND, clipRectNew.x, clipRectNew.y, clipRectNew.w, clipRectNew.h)
-		CAddFloat3(g_vsInput[slot[1]], APPEND, 4, self.font.pixels, 0, 0)
-		CAddUByte4(g_vsInput[slot[2]], APPEND, 4, self.crColor.r, self.crColor.g, self.crColor.b, self.crColor.a)
-		
-		local n_idx = CAddConvexPolyIndex(g_dcListUI.ib, APPEND, 1, g_dcListUI.idxAddOn, 4)
-		g_dcListUI:Draw(4, n_idx, 0, 1)
-		
-		if (self.writeId) then
-			n_idx = CAddConvexPolyIndex(g_dcListId.ib, APPEND, 1, g_dcListId.idxAddOn, 4)
-			g_dcListId:Draw(4, n_idx, self.id, 1)
-		else
-			g_dcListId:Skip(4)
-		end
+		self.rcMesh.update = self.moved or self.sized
+		self.rcMesh:Render(d)
 	end
-	
-	--draw self
-	if (self.baked) then
-		if (self.fill or self.moved or clipRectChanged) then
-			self.n_vtx = self:FillVertex(self.vb.pos, self.vb.uvw, self.vb.color, 0, 0)
-			self.n_idx = self:FillIndex(self.ib, 0, 0)
-			self.fill = false
-		end
-		CBufferCopy(self.vb.pos, 0, self.n_vtx * SIZE_FLOAT2, g_vsInput[slot[0]], APPEND)
-		CBufferCopy(self.vb.uvw, 0, self.n_vtx * SIZE_FLOAT3, g_vsInput[slot[1]], APPEND)
-		CBufferCopy(self.vb.color, 0, self.n_vtx * SIZE_UINT1, g_vsInput[slot[2]], APPEND)
-		
-		CCopyIndexBuffer(self.ib, 0, self.n_idx, g_dcListUI.idxAddOn, g_dcListUI.ib, APPEND)
-		if (self.writeId) then
-			CCopyIndexBuffer(self.ib, 0, self.n_idx, g_dcListId.idxAddOn, g_dcListId.ib, APPEND)
-		end
-	else
-		self.n_vtx = self:FillVertex(g_vsInput[slot[0]], g_vsInput[slot[1]], g_vsInput[slot[2]], APPEND)
-		self.n_idx = self:FillIndex(g_dcListUI.ib, g_dcListUI.idxAddOn, APPEND)
-		if (self.writeId) then
-			self:FillIndex(g_dcListId.ib, g_dcListId.idxAddOn, APPEND)
-		end
-	end
-
-	g_dcListUI:Draw(self.n_vtx, self.n_idx, 0, 1)
-	if (self.writeId) then
-		g_dcListId:Draw(self.n_vtx, self.n_idx, self.id, 1)
-	else
-		g_dcListId:Skip(self.n_vtx)
-	end
+	self.mesh.update = self.mesh.update or self.moved or self.sized
+	self.mesh:Render(d)
 	
 	return clipRect
 end
@@ -634,7 +594,7 @@ end
 
 -----Text-----
 UiText = class(UiWidget)
-UiText.baked = true
+UiText.cached = false
 UiText.doClip = false
 
 function UiText:ctor(x, y, s, font)
@@ -649,31 +609,33 @@ function UiText:SetText(s, font)
 		self.text = s
 		self.font = font
 		self:SetSize(CMeasureText(s, -1, -1, font), font.fontSize)
+		self.mesh.update = true
 	end
 end
 
-function UiText:FillVertex(vbPos, vbUVW, vbColor, wp)
+function UiText:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 	local n
 	if (self.clipRect) then
-		n = CAddTextClip(vbPos, vbUVW, wp, self.font,
+		n = CAddTextClip(vbPos, wpPos, vbUVW, wpUVW, self.font,
 		self.location.x - self.clipRect.x, self.location.y - self.clipRect.y + self.font.fontSize + self.font.descender,
 			self.clipRect.x, self.clipRect.y, self.clipRect.w, self.clipRect.h, self.text)
 	else
-		n = CAddText(vbPos, vbUVW, wp, self.font, self.location.x, self.location.y + self.rect.h + self.font.descender, self.text)
+		n = CAddText(vbPos, wpPos, vbUVW, wpUVW, self.font, self.location.x, self.location.y + self.rect.h + self.font.descender, self.text)
 	end
 	
-	CAddUByte4(vbColor, wp, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
+	CAddUByte4(vbColor, wpColor, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
 	self.nText = n
 	return 4 * n
 end
 
-function UiText:FillIndex(ib, ib_start, wp)
+function UiText:FillIB(ib, ib_start, wp)
 	return CAddConvexPolyIndex(ib, wp, self.nText, ib_start, 4)
 end
 
 -----TextInput-----
 UiTextInput = class(UiWidget)
-UiTextInput.baked = true
+UiTextInput.cached = true
+UiTextInput.doClip = true
 UiTextInput.drawClipRect = true
 
 local function TextInputAssign(a, b)
@@ -762,6 +724,7 @@ function UiTextInput:ClearSelected()
 	if (self.selectedIdx >= 0) then
 		self.selectedIdx = -1
 		self:Refresh()
+		self.mesh.update = true
 	end
 end
 
@@ -1033,6 +996,7 @@ function UiTextInput:RestrictCaretPos(x, remainCaret)
 	if (remainCaret ~= true) then
 		self:ResetCaret()
 	end
+	self.mesh.update = true
 end
 
 function UiTextInput:SetText(s, font)
@@ -1052,9 +1016,8 @@ function UiTextInput:SetText(s, font)
 	end
 end
 
-function UiTextInput:FillVertex(vbPos, vbUVW, vbColor, wp)
+function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 	local rect = self.clipRect or self.rect
-	local wp0 = wp
 	local n0 = 0
 	if (self.selectedIdx >= 0 and self.selectedIdx ~= self.insertIdx) then
 		local w = self.selected_x - self.caret.rect.x
@@ -1068,21 +1031,23 @@ function UiTextInput:FillVertex(vbPos, vbUVW, vbColor, wp)
 		elseif (self.selected_x >= rect.w) then
 			w = rect.w - self.caret.rect.x
 		end
-		CAddRectFloat2(vbPos, wp, math.max(self.location.x + x, rect.x), rect.y, w, rect.h)
-		CAddFloat3(vbUVW, wp, 4, self.font.pixels, 0, 0)
-		CAddUByte4(vbColor, wp, 4, self.selectedColor.r, self.selectedColor.g, self.selectedColor.b, self.selectedColor.a)
+		CAddRectFloat2(vbPos, wpPos, math.max(self.location.x + x, rect.x), rect.y, w, rect.h)
+		CAddFloat3(vbUVW, wpUVW, 4, self.font.pixels, 0, 0)
+		CAddUByte4(vbColor, wpColor, 4, self.selectedColor.r, self.selectedColor.g, self.selectedColor.b, self.selectedColor.a)
 		n0 = 1
-		wp = APPEND
+		wpPos = APPEND
+		wpUVW = APPEND
+		wpColor = APPEND
 	end
-	local n = CAddTextClip(vbPos, vbUVW, wp, self.font, self.textOffset, self.rect.h + self.font.descender, 
+	local n = CAddTextClip(vbPos, wpPos, vbUVW, wpUVW, self.font, self.textOffset, self.rect.h + self.font.descender, 
 	rect.x, rect.y, rect.w, rect.h, self.text)
-	CAddUByte4(vbColor, wp, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
+	CAddUByte4(vbColor, wpColor, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
 	n = n + n0
 	self.nText = n
 	return 4 * n
 end
 
-function UiTextInput:FillIndex(ib, ib_start, wp)
+function UiTextInput:FillIB(ib, ib_start, wp)
 	return CAddConvexPolyIndex(ib, wp, self.nText, ib_start, 4)
 end
 

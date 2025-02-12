@@ -682,39 +682,31 @@ void VKCommand::SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx)
 	m_resources[idx] = ((VKResourceSet*)set)->m_set;
 }
 
-void VKCommand::DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t n, LuaIdx offsets)
+void VKCommand::SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding)
+{
+	VKBufferSet* s = (VKBufferSet*)vbSet;
+	vkCmdBindVertexBuffers(m_cmd, firstBinding, s->m_set.size(), s->m_set.data(), s->m_offsets.data());
+}
+
+void VKCommand::DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount)
 {
 	VKPipeline* p = (VKPipeline*)pipeline;
 	vkCmdBindPipeline(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->m_pipeline);
 	if (p->m_resCount > 0 && m_resources.size() > 0)
 		vkCmdBindDescriptorSets(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->m_layout, 0, min(p->m_resCount, m_resources.size()), m_resources.data(), 0, NULL);
 
-	std::vector<VkDeviceSize> o(p->m_vibd.size(), 0);
-	for (size_t i = 0; i < n && i < o.size(); i++)
-		offsets.state.GetValue(offsets, i, &o[i]);
-
-	VKBufferSet* s = (VKBufferSet*)vbSet;
-
-	vkCmdBindVertexBuffers(m_cmd, 0, s->m_set.size(), s->m_set.data(), o.data());
 	vkCmdBindIndexBuffer(m_cmd, ((VKBuffer*)ib)->m_buffer, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexed(m_cmd, indexCount, 1, firstIndex, vtxOffset, 0);
 }
 
-void VKCommand::DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count, uint32_t n, LuaIdx offsets)
+void VKCommand::DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count)
 {
 	VKPipeline* p = (VKPipeline*)pipeline;
 	vkCmdBindPipeline(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->m_pipeline);
 	if (p->m_resCount > 0 && m_resources.size() > 0)
 		vkCmdBindDescriptorSets(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->m_layout, 0, min(p->m_resCount, m_resources.size()), m_resources.data(), 0, NULL);
 	
-	VKBufferSet* s = (VKBufferSet*)vbSet;
-	std::vector<VkDeviceSize> o(s->m_set.size(), 0);
-	for (size_t i = 0; i < n && i < o.size(); i++)
-		offsets.state.GetValue(offsets, i, &o[i]);
-
 	VKDrawIndirectCmd* d = (VKDrawIndirectCmd*)indirect;
-
-	vkCmdBindVertexBuffers(m_cmd, 0, s->m_set.size(), s->m_set.data(), o.data());
 	vkCmdBindIndexBuffer(m_cmd, ((VKBuffer*)ib)->m_buffer, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexedIndirect(m_cmd, d->m_buffer.m_buffer, sizeof(VkDrawIndexedIndirectCommand) * start, count, sizeof(VkDrawIndexedIndirectCommand));
 }

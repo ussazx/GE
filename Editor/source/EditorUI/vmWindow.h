@@ -9,6 +9,28 @@
 
 extern wxStockCursor g_cursor;
 
+class vmTimer : public wxTimer
+{
+public:
+	vmTimer()
+	{
+		Bind(wxEVT_TIMER, &vmTimer::OnTimer, this);
+	}
+	void OnTimer(wxTimerEvent&)
+	{
+		int t{};
+		g_vm->GetValue("Window", "on_timer", LuaObjCall(clock()), &t);
+		HandleTimer(t);
+	}
+	void HandleTimer(int t)
+	{
+		if (t > 0)
+			Start(t);
+		else if (t < 0)
+			Stop();
+	}
+};
+
 class vmWindow : public wxWindow
 {
 public:
