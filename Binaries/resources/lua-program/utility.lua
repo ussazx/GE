@@ -264,9 +264,10 @@ function ObjectArray:insert(obj, idx)
 	if (self.obj_count[obj] == 0) then
 		obj:bind_event(EVT.DELISTED, self, ObjectArray.on_object_delisted)
 	end
-	table.insert(self, idx or self.n + 1, obj)
 	self.n = self.n + 1
+	table.insert(self, idx or self.n, obj)
 	self.obj_count[obj] = self.obj_count[obj] + 1
+	return idx or self.n
 end
 
 function ObjectArray:remove_idx(idx)

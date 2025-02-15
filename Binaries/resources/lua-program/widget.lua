@@ -18,6 +18,12 @@ function Widget2D:ctor(parent)
 	self.sized = true
 end
 
+function Widget2D:dtor()
+	if (g_focusing) then
+		g_focusing:OnWidgetShow(self, show)
+	end
+end	
+
 function Widget2D:AddChild(widget, ...)
 	if (widget.parent) then
 		if (widget.parent == self) then
@@ -26,10 +32,10 @@ function Widget2D:AddChild(widget, ...)
 		widget.parent:RemoveChild(widget)
 	end
 	widget.parent = self
-	self.children:insert(widget)
-	widget:bind_event(EVT.DELISTED, self, Widget2D.OnChildDelisted)
+	widget.window = self.window
+	widget.w_idx = self.children:insert(widget)
 	if (self.window) then
-		self.window:OnAddChild(widget)
+		self.window.update = true
 	end
 	if (self.OnAddChild) then
 		return self:OnAddChild(widget, ...)
@@ -39,18 +45,10 @@ end
 function Widget2D:RemoveChild(widget)
 	if (widget.parent == self) then
 		widget.parent = nil
-		self.children:remove_obj(widget)
-		if (self.OnRemoveChild) then
-			self:OnRemoveChild(widget)
-		end
-	end
-end
-
-function Widget2D:OnChildDelisted(e, widget)
-	if (widget.parent == self) then
-		widget.parent = nil
-		if (self.window) then
-			self.window:OnRemoveChild(w)
+		widget.window = nil
+		self.children:remove_idx(widget.w_idx)
+		if (g_focusing) then
+			g_focusing:OnWidgetShow(self, show)
 		end
 		if (self.OnRemoveChild) then
 			self:OnRemoveChild(widget)
@@ -60,12 +58,12 @@ end
 
 function Widget2D:Show(show)
 	if (self.show ~= show) then
-		if (self.window) then
-			self.window.update = true
+		if (g_focusing) then
+			g_focusing:OnWidgetShow(self, show)
 		end
 		if (self.inLayout) then
 			self.inLayout.update = true
-		end		
+		end
 		self.show = show
 	end
 end
@@ -78,7 +76,6 @@ function Widget2D:Update(...)
 	self.location.x = self.rect.x
 	self.location.y = self.rect.y
 	if (self.parent) then
-		self.window = self.parent.window
 		self.location:move(self.parent.location.x, self.parent.location.y)
 		if (self.moved == false) then
 			self.moved = self.parent.moved
@@ -122,6 +119,9 @@ function Widget2D:SetPos(x, y)
 		return
 	end
 	self:DoSetPos(x, y)
+	if (self.window) then
+		self.window.update = true
+	end
 end
 
 function Widget2D:DoSetPos(x, y)
@@ -142,6 +142,9 @@ function Widget2D:Move(x, y)
 		return
 	end
 	self:DoMove(x, y)
+	if (self.window) then
+		self.window.update = true
+	end
 end
 
 function Widget2D:DoMove(x, y)
@@ -676,7 +679,7 @@ function UiTextInput:ctor(x, y, w, h, font)
 	self.insertIdx = 0
 	self:SetText('', font or uiFont)
 	
-	self.timer = self:auto_del(Timer())
+	self.timer = Timer()
 	self.timer:bind_event(EVT.TIMER, self, UiTextInput.OnTimer)
 	
 	self:bind_event(EVT.FOCUS_IN, self, UiTextInput.OnFocus)

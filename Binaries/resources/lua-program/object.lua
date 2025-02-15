@@ -2,21 +2,7 @@
 require 'class'
 require 'event'
 
-local global_delisted = setmetatable({}, {__mode = 'kv'})
-
-local function weak_table_pairs(t)
-	local k, v
-	return function()
-		k, v = next(t, k)
-		while (global_delisted[k] or global_delisted[v]) do
-			t[k] = nil
-			k, v = next(t, k)
-		end
-		return k, v
-	end
-end
-
-local global_objects = setmetatable({}, {__mode = 'v'})
+local global_objects = setmetatable({}, {__mode = 'kv'})
 local global_recycled_id = {}
 
 local g_id = 0
@@ -41,34 +27,11 @@ function Object:ctor()
 	self.id = new_object_id()
 	global_objects[self.id] = self
 	self.event_table = {}
-	self.delisted = false
 end
 
 function Object:dtor()
-	delist()
-end
-
-function Object:delist()
-	if (self.delisted == false) then
-		global_objects[self.id] = nil
-		global_delisted[self] = self
-		global_recycled_id[self.id] = self.id
-		self.delisted = true
-		self:process_event(EVT.DELISTED, self)
-	end
-end
-
-function Object:is_delisted()
-	return self.delisted
-end
-
-function Object:auto_del(obj)
-	self:bind_event(EVT.DELISTED, obj, Object.on_auto_delist)
-	return obj
-end
-
-function Object:on_auto_delist()
-	self:delist()
+	global_objects[self.id] = nil
+	global_recycled_id[self.id] = self.id
 end
 
 function Object:bind_event(e, obj, func)

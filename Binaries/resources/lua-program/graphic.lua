@@ -362,10 +362,10 @@ local function RenderMesh(mesh, disables)
 		skip = true
 		if (disables[spId] ~= true and mtl[spId]) then
 			mtl[spId](dcList)
-			local n = mesh.idxFunc(mesh.funcData, dcList.ib, dcList.vbArg.idxAddOn, dcList.iwp)
-			dcList.iwp = dcList.iwp + n * SIZE_INDEX
+			local n_idx = mesh.idxFunc(mesh.funcData, dcList.ib, dcList.vbArg.idxAddOn, dcList.iwp)
+			dcList.iwp = dcList.iwp + n_idx * SIZE_INDEX
 			local insArgs = mesh.insArgs[mtl.insSlot[spId]]
-			dcList:Draw(mesh.n_vtx, n, insArgs[1], insArgs[2])
+			dcList:Draw(mesh.n_vtx, n_idx, insArgs[1], insArgs[2])
 			skip = false
 		end
 		if (skip) then

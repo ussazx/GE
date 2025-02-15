@@ -84,7 +84,6 @@ public:
 
 	~vmWindow()
 	{
-		g_vm->GetValue(GetName(), "delist", LuaObjCall());
 		g_vm->SetValue(GetName(), nullptr);
 	}
 

@@ -36,23 +36,20 @@ function Window:dtor()
 	end
 end
 
-function Window:OnAddChild(w)
-	w.window = self
-	self.update = true
-end
-
-function Window:OnRemoveChild(w)
-	if (self.captured == w) then
-		w:process_event(EVT.CAPTURE_LOST)
-		self.captured = nil
-	end
-	if (EVT.focus_id == w.id) then
-		w:process_event(EVT.FOCUS_OUT)
-		EVT.focus_id = 0
-	end
-	if (EVT.entered_id == w.id) then
-		w:process_event(EVT.MOVE_OUT)
-		EVT.moved_in = 0
+function Window:OnWidgetShow(w, show)
+	if (show ~= true) then
+		if (self.captured == w) then
+			w:process_event(EVT.CAPTURE_LOST)
+			self.captured = nil
+		end
+		if (EVT.focus_id == w.id) then
+			w:process_event(EVT.FOCUS_OUT)
+			EVT.focus_id = 0
+		end
+		if (EVT.entered_id == w.id) then
+			w:process_event(EVT.MOVE_OUT)
+			EVT.moved_in = 0
+		end
 	end
 	self.update = true
 end
@@ -185,6 +182,7 @@ function Window:UpdateUI()
 end
 
 function Window:CaptureMouse(w)
+	g_focusing = self
 	if (self.captured and self.captured ~= w) then
 		self.captured:process_event(EVT.CAPTURE_LOST)
 	end
@@ -193,6 +191,7 @@ function Window:CaptureMouse(w)
 		self:Capture(true)
 		self.sysCaptured = true
 	end
+	g_focusing = nil
 end
 
 function Window:ReleaseCaptured()
@@ -204,6 +203,7 @@ function Window:ReleaseCaptured()
 end
 
 function Window:on_capture_lost(t)
+	g_focusing = self
 	self:SetTime(t)
 
 	if (self.captured) then
@@ -211,10 +211,12 @@ function Window:on_capture_lost(t)
 	end
 	self.sysCaptured = false
 	
+	g_focusing = nil
 	return self:TimerPeriod()
 end
 
 function Window:on_mouse(t, e, x, y, n)
+	g_focusing = self
 	self:SetTime(t)
 	
 	local id 
@@ -258,10 +260,12 @@ function Window:on_mouse(t, e, x, y, n)
 		obj:process_event(e, x, y, n)
 	end
 	
+	g_focusing = nil
 	return self:TimerPeriod(), self.cursor
 end
 
 function Window:on_char(t, c)
+	g_focusing = self
 	self:SetTime(t)
 
 	local w = get_object(EVT.focus_id)
@@ -269,10 +273,12 @@ function Window:on_char(t, c)
 		w:process_event(EVT.CHAR, c)
 	end
 	
+	g_focusing = nil
 	return self:TimerPeriod()
 end
 
 function Window:on_acc_key(t, k)
+	g_focusing = self
 	self:SetTime(t)
 	
 	if (k == SYS.VK_CTRL_Z) then
@@ -286,10 +292,12 @@ function Window:on_acc_key(t, k)
 		end
 	end
 	
+	g_focusing = nil
 	return self:TimerPeriod()
 end
 
 function Window:on_key_down(t, k, left, right)
+	g_focusing = self
 	self:SetTime(t)
 	
 	self.keyDowns[k] = true
@@ -299,10 +307,12 @@ function Window:on_key_down(t, k, left, right)
 		w:process_event(EVT.KEY_DOWN, k, left, right)
 	end
 	
+	g_focusing = nil
 	return self:TimerPeriod()
 end	
 
 function Window:on_key_up(t, k)
+	g_focusing = self
 	self:SetTime(t)
 	
 	self.keyDowns[k] = false
@@ -312,6 +322,7 @@ function Window:on_key_up(t, k)
 		w:process_event(EVT,KEY_UP, k)
 	end
 	
+	g_focusing = nil
 	return self:TimerPeriod()
 end
 
