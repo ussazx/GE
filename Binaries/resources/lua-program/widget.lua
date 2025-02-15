@@ -76,6 +76,7 @@ function Widget2D:Update(...)
 	self.location.x = self.rect.x
 	self.location.y = self.rect.y
 	if (self.parent) then
+		self.window = self.parent.window
 		self.location:move(self.parent.location.x, self.parent.location.y)
 		if (self.moved == false) then
 			self.moved = self.parent.moved
@@ -717,9 +718,9 @@ end
 
 function UiTextInput:OnMoveInOut(e)
 	if (e == EVT.MOVE_IN) then
-		self.window.cursor = SYS.CURSOR_IBEAM
+		g_focusing.cursor = SYS.CURSOR_IBEAM
 	elseif (e == EVT.MOVE_OUT) then
-		self.window.cursor = SYS.CURSOR_ARROW
+		g_focusing.cursor = SYS.CURSOR_ARROW
 	end
 end
 
@@ -796,6 +797,7 @@ function UiTextInput:SelectAll()
 	self.caret:SetPos(x + self.textOffset, 0)
 	self:HideCaret()
 	self:Refresh()
+	self.mesh.update = true
 end
 
 function UiTextInput:OnMouseDown(e, x)
@@ -805,15 +807,15 @@ function UiTextInput:OnMouseDown(e, x)
 	
 		self.selectedIdx = self.insertIdx
 		self.selected_x = self.caret.rect.x
-		self.window:CaptureMouse(self)
+		g_focusing:CaptureMouse(self)
 	elseif(e == EVT.LEFT_DCLICK) then
 		self:SelectAll()
 	end
 end
 
 function UiTextInput:OnMouseUp(e, x)
-	if (self.window.captured == self) then
-		self.window:ReleaseCaptured()
+	if (g_focusing.captured == self) then
+		g_focusing:ReleaseCaptured()
 	end
 end
 
@@ -822,7 +824,7 @@ function UiTextInput:OnCaptureLost()
 end
 
 function UiTextInput:OnMouseMotion(e, x)
-	if (self.window.captured == self) then
+	if (g_focusing.captured == self) then
 		x = x - self.location.x - self.textOffset
 		if (x < 0) then
 			x = 0
@@ -887,7 +889,7 @@ end
 
 function UiTextInput:OnKeyDown(e, k)
 	local x
-	local shiftDown = self.window.keyDowns[SYS.VK_SHIFT] or false
+	local shiftDown = g_focusing.keyDowns[SYS.VK_SHIFT] or false
 	if (k == SYS.VK_SHIFT) then
 		if (self.selectedIdx < 0) then
 			self.selectedIdx = self.insertIdx
@@ -1118,16 +1120,16 @@ function UiSlideBar:OnSliderMouseButton(e, x, y)
 		else
 			self.slStart = x
 		end
-		self.window:CaptureMouse(self.slider)
+		g_focusing:CaptureMouse(self.slider)
 	elseif (e == EVT.LEFT_UP) then
-		if (self.window.captured == self.slider) then
-			self.window:ReleaseCaptured()
+		if (g_focusing.captured == self.slider) then
+			g_focusing:ReleaseCaptured()
 		end
 	end
 end
 
 function UiSlideBar:OnSliding(e, x, y)
-	if (self.window.captured ~= self.slider) then
+	if (g_focusing.captured ~= self.slider) then
 		return
 	end
 	if (self.vertical) then
