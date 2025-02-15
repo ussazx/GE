@@ -1,6 +1,5 @@
 ---object---
 require 'class'
-require 'event'
 
 local global_objects = setmetatable({}, {__mode = 'kv'})
 local global_recycled_id = {}
