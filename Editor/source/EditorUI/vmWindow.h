@@ -12,24 +12,20 @@ extern wxStockCursor g_cursor;
 class vmTimer : public wxTimer
 {
 public:
-	vmTimer()
+	vmTimer(uint32_t id)
 	{
+		m_id = id;
 		Bind(wxEVT_TIMER, &vmTimer::OnTimer, this);
 	}
 	void OnTimer(wxTimerEvent&)
 	{
-		int t{};
-		g_vm->GetValue("Window", "on_timer", LuaObjCall(clock()), &t);
-		HandleTimer(t);
+		g_vm->GetValue("Timer", "OnTimer", LuaCall(m_id));
 	}
-	void HandleTimer(int t)
-	{
-		if (t > 0)
-			Start(t);
-		else if (t < 0)
-			Stop();
-	}
+
+	uint32_t m_id;
+	Lua_wrap_cpp_class(vmTimer, Lua_ctor(uint32_t), Lua_mf(Start), Lua_mf(Stop))
 };
+Lua_global_add_cpp_class(vmTimer)
 
 class vmWindow : public wxWindow
 {

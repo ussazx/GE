@@ -16,11 +16,12 @@ function Widget2D:ctor(parent)
 	self.location = Point()
 	self.moved = true
 	self.sized = true
+	self.show = true
 end
 
 function Widget2D:dtor()
-	if (g_focusing) then
-		g_focusing:OnWidgetShow(self, show)
+	if (g_actWindow) then
+		g_actWindow:OnWidgetShow(self, show)
 	end
 end	
 
@@ -47,8 +48,8 @@ function Widget2D:RemoveChild(widget)
 		widget.parent = nil
 		widget.window = nil
 		self.children:remove_idx(widget.w_idx)
-		if (g_focusing) then
-			g_focusing:OnWidgetShow(self, show)
+		if (g_actWindow) then
+			g_actWindow:OnWidgetShow(self, show)
 		end
 		if (self.OnRemoveChild) then
 			self:OnRemoveChild(widget)
@@ -58,8 +59,10 @@ end
 
 function Widget2D:Show(show)
 	if (self.show ~= show) then
-		if (g_focusing) then
-			g_focusing:OnWidgetShow(self, show)
+		if (g_actWindow) then
+			g_actWindow:OnWidgetShow(self, show)
+		elseif(self.window) then
+			self.window.update = true
 		end
 		if (self.inLayout) then
 			self.inLayout.update = true
@@ -69,26 +72,35 @@ function Widget2D:Show(show)
 end
 
 function Widget2D:Update(...)
-	if (self.show == false) then
-		return
+	if (self.show) then
+		self.abortUpdate = false
+		self.location.x = self.rect.x
+		self.location.y = self.rect.y
+		if (self.parent) then
+			self.window = self.parent.window
+			self.location:move(self.parent.location.x, self.parent.location.y)
+			if (self.moved == false) then
+				self.moved = self.parent.moved
+			end
+		end
+		self:UpdateChildren(self:DoUpdate(...))
+		if (self.abortUpdate) then
+			return
+		end
+		self.moved = false
+		self.sized = false
+	else
+		self:SetWindow()
 	end
-	self.abortUpdate = false
-	self.location.x = self.rect.x
-	self.location.y = self.rect.y
-	if (self.parent) then
+end
+
+function Widget2D:SetWindow()
+	if (self.parent and self.window ~= self.parent.window) then
 		self.window = self.parent.window
-		self.location:move(self.parent.location.x, self.parent.location.y)
-		if (self.moved == false) then
-			self.moved = self.parent.moved
+		for w in self.children:pairs() do
+			w:SetWindow()
 		end
 	end
-	self:UpdateChildren(self:DoUpdate(...))
-	if (self.abortUpdate) then
-		return
-	end
-	
-	self.moved = false
-	self.sized = false
 end
 
 function Widget2D:DoUpdate(...)
@@ -105,10 +117,7 @@ function Widget2D:UpdateChildren(...)
 end
 
 local function FilterShown(c, allowHided)
-	if (allowHided) then
-		return true
-	end
-	return c.show
+	return allowHided or c.show
 end
 
 function Widget2D:ChildrenPairs()
@@ -718,9 +727,9 @@ end
 
 function UiTextInput:OnMoveInOut(e)
 	if (e == EVT.MOVE_IN) then
-		g_focusing.cursor = SYS.CURSOR_IBEAM
+		g_actWindow.cursor = SYS.CURSOR_IBEAM
 	elseif (e == EVT.MOVE_OUT) then
-		g_focusing.cursor = SYS.CURSOR_ARROW
+		g_actWindow.cursor = SYS.CURSOR_ARROW
 	end
 end
 
@@ -735,7 +744,7 @@ end
 function UiTextInput:ResetCaret()
 	if (self.hasFocus) then
 		self.caret:Show(true)
-		self.timer:Start(self.window, 500, true)
+		self.timer:Start(500, true)
 	end
 end
 
@@ -807,15 +816,15 @@ function UiTextInput:OnMouseDown(e, x)
 	
 		self.selectedIdx = self.insertIdx
 		self.selected_x = self.caret.rect.x
-		g_focusing:CaptureMouse(self)
+		g_actWindow:CaptureMouse(self)
 	elseif(e == EVT.LEFT_DCLICK) then
 		self:SelectAll()
 	end
 end
 
 function UiTextInput:OnMouseUp(e, x)
-	if (g_focusing.captured == self) then
-		g_focusing:ReleaseCaptured()
+	if (g_actWindow.captured == self) then
+		g_actWindow:ReleaseCaptured()
 	end
 end
 
@@ -824,7 +833,7 @@ function UiTextInput:OnCaptureLost()
 end
 
 function UiTextInput:OnMouseMotion(e, x)
-	if (g_focusing.captured == self) then
+	if (g_actWindow.captured == self) then
 		x = x - self.location.x - self.textOffset
 		if (x < 0) then
 			x = 0
@@ -889,7 +898,7 @@ end
 
 function UiTextInput:OnKeyDown(e, k)
 	local x
-	local shiftDown = g_focusing.keyDowns[SYS.VK_SHIFT] or false
+	local shiftDown = g_actWindow.keyDowns[SYS.VK_SHIFT] or false
 	if (k == SYS.VK_SHIFT) then
 		if (self.selectedIdx < 0) then
 			self.selectedIdx = self.insertIdx
@@ -1120,16 +1129,16 @@ function UiSlideBar:OnSliderMouseButton(e, x, y)
 		else
 			self.slStart = x
 		end
-		g_focusing:CaptureMouse(self.slider)
+		g_actWindow:CaptureMouse(self.slider)
 	elseif (e == EVT.LEFT_UP) then
-		if (g_focusing.captured == self.slider) then
-			g_focusing:ReleaseCaptured()
+		if (g_actWindow.captured == self.slider) then
+			g_actWindow:ReleaseCaptured()
 		end
 	end
 end
 
 function UiSlideBar:OnSliding(e, x, y)
-	if (g_focusing.captured ~= self.slider) then
+	if (g_actWindow.captured ~= self.slider) then
 		return
 	end
 	if (self.vertical) then

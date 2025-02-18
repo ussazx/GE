@@ -249,24 +249,25 @@ function Recorder:Redo()
 end
 
 --ObjectArray---
-ObjectArray = class(object)
-function ObjectArray:ctor()
-	self.n = 0
-	self.obj_count = setmetatable({}, {__mode = 'k'})
+local objNotifier = Object()
+
+function DelistObject(obj)
+	objNotifier:process_event(EVT.DELIST, obj)
 end
 
-function ObjectArray:on_object_delisted(e, obj)
+ObjectArray = class(Object)
+function ObjectArray:ctor(mode)
+	self.n = 0
+	objNotifier:bind_event(EVT.DELIST, self, ObjectArray.on_obj_delist)
+end
+
+function ObjectArray:on_object_delist(e, obj)
 	self:remove_obj(obj)
 end
 
 function ObjectArray:insert(obj, idx)
-	self.obj_count[obj] = self.obj_count[obj] or 0
-	if (self.obj_count[obj] == 0) then
-		obj:bind_event(EVT.DELISTED, self, ObjectArray.on_object_delisted)
-	end
 	self.n = self.n + 1
 	table.insert(self, idx or self.n, obj)
-	self.obj_count[obj] = self.obj_count[obj] + 1
 	return idx or self.n
 end
 
@@ -274,28 +275,18 @@ function ObjectArray:remove_idx(idx)
 	local obj = self[idx]
 	if (obj) then
 		table.remove(self, idx)
-		self.obj_count[obj] = self.obj_count[obj] - 1
 		self.n = self.n - 1
 	end
 	return obj
 end
 
 function ObjectArray:remove_obj(obj)
-	local count = self.obj_count[obj]
-	if (count == nil or count < 1) then
-		return
-	end
 	for v, i in self:pairs() do
 		if (obj == v) then
 			table.remove(self, i)
-			count = count - 1
 			self.n = self.n - 1
-			if (count == 0) then
-				break
-			end
 		end
 	end
-	self.obj_count[obj] = count
 end
 
 function ObjectArray:back()

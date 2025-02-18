@@ -13,7 +13,7 @@ EVT = {}
 EVT.TIMER = new_event()
 EVT.RENDER = new_event()
 EVT.MOVE_IN = new_event()
-EVT.MOVE_OUT =	new_event()
+EVT.MOVE_OUT = new_event()
 EVT.FOCUS_IN = new_event()
 EVT.FOCUS_OUT = new_event()
 
@@ -26,11 +26,13 @@ EVT.CAPTURE_LOST = new_event()
 EVT.SIZE = new_event()
 EVT.MOVE = new_event()
 
-EVT.DELISTED = new_event()
+EVT.DELIST = new_event()
 EVT.WIDGET_ADDED = new_event()
 EVT.WIDGET_REMOVED = new_event()
 
 EVT.SLIDE_BAR = new_event()
+
+EVT.OBJ_DELIST = new_event()
 
 EVT.UNDEFINED = new_event('EVT_UNDEFINED')
 --EVT.ENTER_WINDOW = new_event('EVT_ENTER_WINDOW')

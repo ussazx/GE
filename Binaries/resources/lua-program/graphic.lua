@@ -193,6 +193,7 @@ function DrawcallList:Reset()
 	self.p.cr = nil
 	self.p.pl = nil
 	self.p.mainSlot = nil
+	self.spId = nil
 	for _, v in pairs(self.vbArgs) do
 		v.idxStart = 0
 		v.idxAddOn = 0
@@ -361,7 +362,10 @@ local function RenderMesh(mesh, disables)
 	for spId, dcList in pairs(g_dcLists) do
 		skip = true
 		if (disables[spId] ~= true and mtl[spId]) then
-			mtl[spId](dcList)
+			if (dcList.spId ~= spId) then
+				mtl[spId](dcList)
+				dcList.spId = spId
+			end
 			local n_idx = mesh.idxFunc(mesh.funcData, dcList.ib, dcList.vbArg.idxAddOn, dcList.iwp)
 			dcList.iwp = dcList.iwp + n_idx * SIZE_INDEX
 			local insArgs = mesh.insArgs[mtl.insSlot[spId]]
@@ -387,7 +391,10 @@ local function RenderMeshCached(mesh, disables)
 	for spId, dcList in pairs(g_dcLists) do
 		skip = true
 		if (disables[spId] ~= true and mtl[spId]) then
-			mtl[spId](dcList)
+			if (dcList.spId ~= spId) then
+				mtl[spId](dcList)
+				dcList.spId = spId
+			end
 			CCopyIndexBuffer(mesh.ib, 0, mesh.n_idx, dcList.vbArg.idxAddOn, dcList.ib, dcList.iwp)
 			dcList.iwp = dcList.iwp + mesh.n_idx * SIZE_INDEX
 			local insArgs = mesh.insArgs[mtl.insSlot[spId]]
@@ -535,7 +542,6 @@ function FramePipeline:UpdateLayouts()
 		for k, v in g_pass do
 			g_pass[k] = layout[k]
 			draw = true
-			--g_drawMgr[k]:Reset(
 		end
 		if (draw) then
 			g_drawMgr = data.drawMgr
