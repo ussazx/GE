@@ -115,6 +115,10 @@ function Window:on_idle(t, onTimer, show)
 	self:SetTime(t)
 
 	self:HandleTimer(onTimer, t)
+	
+	if (self.idleText) then
+		self.idleText:SetText(self.idle_cost..'')
+	end
 		
 	if(show and (self.update or self.sized)) then
 		self.cmd:Flip()

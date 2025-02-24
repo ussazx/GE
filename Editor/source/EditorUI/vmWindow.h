@@ -155,6 +155,7 @@ private:
 		auto i = GetTickCount();
 		g_vm->GetValue(GetName(), "on_idle", LuaObjCall(clock(), false, IsShown()), &t);
 		//DebugLog(L"idle [ %u ]\n", GetTickCount() - i);
+		g_vm->SetValue(GetName(), "idle_cost", (uint32_t)(GetTickCount() - i));
 		HandleTimer(t);
 	}
 	void OnPaint(wxPaintEvent&)

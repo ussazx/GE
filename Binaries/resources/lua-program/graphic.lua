@@ -259,6 +259,8 @@ function DrawcallList:SetPipeline(pl, vtxInput, slot)
 	self.c.pl = pl
 	self.c.mainVbSet = vtxInput.vbSet[g_cmd][g_cmd.rIdx]
 	self.c.mainSlot = slot
+	self.vbArg = self.vbArgs[vtxInput] or {idxStart = 0, idxAddOn = 0}
+	self.vbArgs[vtxInput] = self.vbArg
 end
 
 function DrawcallList:SetInsVB(vbSet, slot)
@@ -284,7 +286,6 @@ function DrawcallList:CommitStates()
 		self:CommitCurrent()
 		self.p.pl = self.c.pl
 		self.p.mainVbSet = self.c.mainVbSet
-		self.vbArg = self.vbArgs[self.c.mainVbSet] or {idxStart = 0, idxAddOn = 0}
 	end
 	self.dc.pl = self.c.pl
 	self.dc.mainVbSet = self.c.mainVbSet
@@ -299,15 +300,14 @@ function DrawcallList:CommitStates()
 		self:CommitCurrent()
 		self.dc.vp = DrawcallList.vp
 		self.p.vp = DrawcallList.vp
-		DrawcallList.vp = DrawcallList.dvp
 	end
 	
 	if (DrawcallList.cr ~= self.p.cr) then
 		self:CommitCurrent()
 		self.dc.cr = DrawcallList.cr
 		self.p.cr = DrawcallList.cr
-		DrawcallList.cr = DrawcallList.dcr
 	end
+	
 	self.resIdx = 0
 end
 
@@ -331,6 +331,8 @@ function DrawcallList:CommitIndBuffer()
 end
 
 function DrawcallList:Draw(vtxCount, idxCount, instStart, instCount)
+	self:CommitStates()
+
 	self.vbArg.idxAddOn = self.vbArg.idxAddOn + vtxCount
 	if (self.instStart ~= instStart or self.instCount ~= instCount) then
 		self:CommitIndBuffer()
@@ -342,10 +344,9 @@ end
 
 function DrawcallList:Skip(vtxInput, vtxCount)
 	self:CommitIndBuffer()
-	local n = vtxInput.vbSet[g_cmd][g_cmd.rIdx]
-	local vbArg = self.vbArgs[n] or {idxStart = 0, idxAddOn = 0}
+	local vbArg = self.vbArgs[vtxInput] or {idxStart = 0, idxAddOn = 0}
 	vbArg.idxAddOn = vbArg.idxAddOn + vtxCount
-	self.vbArgs[n] = vbArg
+	self.vbArgs[vtxInput] = vbArg
 end
 
 ---Mesh---
@@ -514,6 +515,8 @@ end
 
 function Mesh:Render(disables)
 	self:render(disables or {})
+	DrawcallList.cr = DrawcallList.dcr
+	DrawcallList.vp = DrawcallList.dvp
 end
 
 ---FramePipeline---

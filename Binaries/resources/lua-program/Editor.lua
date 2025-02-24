@@ -60,7 +60,13 @@ function GridLayoutTest(w)
 		local t = UiText(0, 0, 'abcdef')
 		layout:AddChild(t)
 	end
-	layout:AddChild(UiButton(0, 0, 100, 30, _('Load')), 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 10, 10, 10)
+	local layoutBottom = BoxLayout()
+	w.idle_cost = 0
+	w.idleText = UiText(0, 0, '--')
+	layoutBottom:AddChild(w.idleText, 0, 0, 0, 0, 0, 0)
+	layoutBottom:AddChild(UiButton(0, 0, 100, 30, _('Load')), 1, Layout.ALIGN_RIGHT, 0, 0, 0, 0)
+	layout:AddChild(layoutBottom, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
+	--layout:AddChild(UiButton(0, 0, 100, 30, _('Load')), 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 10, 10, 10)
 end
 
 function NewCommonWindow()

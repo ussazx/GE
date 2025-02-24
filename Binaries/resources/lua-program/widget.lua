@@ -504,7 +504,7 @@ function UiWidget:ctor(x, y, w, h)
 	self.mesh = Mesh(self.FillVB, self.FillIB, self, self.cached, 1|2|4)
 	self.mesh:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
 	
-	self.rcMesh = Mesh(self.FillClipRectVB, self.FillClipRectIB, self, self.cached, 1|2|4)
+	self.rcMesh = Mesh(self.FillClipRectVB, self.FillClipRectIB, self, false, 1|2|4)
 	self.rcMesh:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
 end
 
@@ -524,8 +524,8 @@ function UiWidget:OnSized()
 end
 
 function UiWidget:FillRectVB(color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
-	if (self.clipRect) then
-		CAddRectFloat2(vbPos, wpPos, self.clipRect.x, self.clipRect.y, self.clipRect.w, self.clipRect.h)
+	if (self.cr) then
+		CAddRectFloat2(vbPos, wpPos, self.cr.x, self.cr.y, self.cr.w, self.cr.h)
 	else
 		CAddRectFloat2(vbPos, wpPos, self.location.x, self.location.y, self.rect.w, self.rect.h)
 	end
@@ -550,33 +550,37 @@ function UiWidget:FillClipRectIB(ib, ib_start, wp)
 	return CAddConvexPolyIndex(ib, wp, 1, ib_start, 4)
 end
 
-function UiWidget:DoUpdate(clipRect)
-	local clipRectNew
-	if (self.doClip or clipRect) then
-		clipRectNew = Rect(self.location.x, self.location.y, self.rect.w, self.rect.h)
-		if (clipRect) then
-			clipRectNew = clipRectNew:intersect(clipRect)
-			if (clipRectNew == nil) then
+function UiWidget:DoUpdate(gpuClip, cr)
+	local crNew
+	local crCpu
+	if (self.doClip) then
+		crNew = Rect(self.location.x, self.location.y, self.rect.w, self.rect.h)
+		if (cr ~= nil and ((gpuClip and self.gpuClip) or not gpuClip)) then
+			crNew = crNew:intersect(cr)
+			if (crNew == nil) then
 				self.abortUpdate = true
 				return
 			end
 		end
 		if (self.gpuClip) then
-			DrawcallList.cr = clipRectNew
+			DrawcallList.cr = crNew
+		else
+			crCpu = crNew
+			if (cr and gpuClip) then
+				DrawcallList.cr = cr
+			end
 		end
-		if (self.doClip) then
-			clipRect = clipRectNew
-		end
+	elseif (not gpuClip) then
+		crCpu = cr
+	elseif (cr) then
+		DrawcallList.cr = cr
 	end
 	
-	local clipRectChanged = false
-	if (clipRectNew) then
-		clipRectChanged = self.clipRect == nil or clipRectNew.x ~= self.clipRect.x or clipRectNew.y ~= self.clipRect.y
-		or clipRectNew.w ~= self.clipRect.w or clipRectNew.h ~= self.clipRect.h
-	elseif (self.clipRect) then
-		clipRectChanged = true
-	end
-	self.clipRect = clipRectNew
+	local changed = self.mesh.doCache and (self.mesh.update or (self.moved or self.sized or
+	((self.cr or crCpu) and ((self.cr == nil and crCpu) or (self.cr and crCpu == nil) or
+	(self.cr.x ~= crCpu.x or self.cr.y ~= crCpu.y or self.cr.w ~= crCpu.w or self.cr.h ~= crCpu.h)))))
+	
+	self.cr = crCpu
 	
 	local d
 	if (self.writeId ~= true) then
@@ -584,13 +588,15 @@ function UiWidget:DoUpdate(clipRect)
 	end
 	
 	if (self.doClip and self.drawClipRect) then
-		self.rcMesh.update = self.moved or self.sized
 		self.rcMesh:Render(d)
 	end
-	self.mesh.update = self.mesh.update or self.moved or self.sized
+	self.mesh.update = changed
 	self.mesh:Render(d)
 	
-	return clipRect
+	if (self.doClip) then
+		return self.gpuClip, crNew
+	end
+	return gpuClip, cr
 end
 
 -----Button-----
@@ -628,10 +634,10 @@ end
 
 function UiText:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 	local n
-	if (self.clipRect) then
+	if (self.cr) then
 		n = CAddTextClip(vbPos, wpPos, vbUVW, wpUVW, self.font,
-		self.location.x - self.clipRect.x, self.location.y - self.clipRect.y + self.font.fontSize + self.font.descender,
-			self.clipRect.x, self.clipRect.y, self.clipRect.w, self.clipRect.h, self.text)
+		self.location.x - self.cr.x, self.location.y - self.cr.y + self.font.fontSize + self.font.descender,
+			self.cr.x, self.cr.y, self.cr.w, self.cr.h, self.text)
 	else
 		n = CAddText(vbPos, wpPos, vbUVW, wpUVW, self.font, self.location.x, self.location.y + self.rect.h + self.font.descender, self.text)
 	end
@@ -1031,7 +1037,7 @@ function UiTextInput:SetText(s, font)
 end
 
 function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
-	local rect = self.clipRect or self.rect
+	local rect = self.cr or self.rect
 	local n0 = 0
 	if (self.selectedIdx >= 0 and self.selectedIdx ~= self.insertIdx) then
 		local w = self.selected_x - self.caret.rect.x

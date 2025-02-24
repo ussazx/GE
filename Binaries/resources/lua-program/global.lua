@@ -100,14 +100,12 @@ g_mtlUi[SubpassId(g_rp0, 0)] = function(dcList)
 	dcList:AddResourceSet(ui_resourceSet)
 	dcList:AddResourceSet(uiFont.res)
 	dcList:SetPipeline(g_plUi, g_mtlUi.vtxInput, 0)
-	dcList:CommitStates()
 end
 
 g_mtlUi[SubpassId(g_rp0, 1)] = function(dcList)
 	dcList:AddResourceSet(ui_resourceSet)  
 	dcList:SetPipeline(g_plId2D, g_mtlUi.vtxInput, 0)
 	dcList:SetInsVB(g_idVbSet, 3)
-	dcList:CommitStates()
 end
 
 -- cParamResourceLayout:Reset()
