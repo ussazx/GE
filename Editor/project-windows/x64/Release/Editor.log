@@ -1,12 +1,7 @@
 ﻿  Editor.cpp
-  vmWindow.cpp
-  Global.cpp
-d:\vs\ge\generic\luawrapper\luastate.h(399): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(407): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(431): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
   正在生成代码
-  506 of 3921 functions (12.9%) were compiled, the rest were copied from previous compilation.
-    359 functions were new in current compilation
-    142 functions had inline decision re-evaluated but remain unchanged
+  1 of 3921 functions (<0.1%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
   已完成代码的生成
   Editor.vcxproj -> D:\vs\GE\Binaries\output-windows\x64\Release\Editor.exe

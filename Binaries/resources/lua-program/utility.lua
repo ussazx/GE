@@ -134,6 +134,32 @@ function Rect:diff(rect)
 	return self.x ~= rect.x or self.y ~= rect.y or self.w ~= rect.w or self.h ~= rect.h
 end
 
+Color = class()
+function Color:ctor(r, g, b, a)
+	self.r = r or 0
+	self.g = g or 0
+	self.b = b or 0
+	self.a = a or 0
+end
+
+function Color:read(color)
+	self.r = color.r or self.r
+	self.g = color.r or self.g
+	self.b = color.r or self.b
+	self.a = color.r or self.a
+end
+
+function Color:diff(color)
+	return self.r ~= rect.r or self.g ~= rect.g or self.b ~= rect.b or self.a ~= rect.a
+end
+
+function Color:set(r, g, b, a)
+	self.r = r or 0
+	self.g = g or 0
+	self.b = b or 0
+	self.a = a or 0
+end
+
 function Copy(src, dst)
 	for k, v in pairs(src) do
 		dst[k] = v

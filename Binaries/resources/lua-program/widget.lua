@@ -1,7 +1,7 @@
 ---widget---
 require 'object'
-require 'render'
 require 'utility'
+require 'global'
 
 -----Widget2D-----
 Widget2D = class(Object)
@@ -613,7 +613,7 @@ end
 
 -----Text-----
 UiText = class(UiWidget)
-UiText.cached = false
+UiText.cached = true
 UiText.doClip = false
 
 function UiText:ctor(x, y, s, font)

@@ -170,6 +170,24 @@ bool MyApp::OnInit()
 	g_vm->Run((char*)fd.GetData(), fd.GetSize());
 	fd.Release();
 
+	g_vm->Run("A = class() function A:f() end a = A() B = class(A) b = B() C = class(B) c = C()");
+
+	t = GetTickCount();
+	g_vm->Run("for i = 1, 100000 do A:f() end");
+	DebugLog(L"%d", GetTickCount() - t);
+
+	t = GetTickCount();
+	g_vm->Run("for i = 1, 100000 do a:f() end");
+	DebugLog(L"%d", GetTickCount() - t);
+
+	t = GetTickCount();
+	g_vm->Run("for i = 1, 100000 do b:f() end");
+	DebugLog(L"%d", GetTickCount() - t);
+
+	t = GetTickCount();
+	g_vm->Run("for i = 1, 100000 do c:f() end");
+	DebugLog(L"%d", GetTickCount() - t);
+
 	Entrance en(nullptr, "");
 	g_vm->SetValue("cEntrance", Lua_set_cobj(&en));
 	g_vm->GetValue("LoadEntrance", LuaCall());

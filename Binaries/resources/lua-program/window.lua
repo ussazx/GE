@@ -23,8 +23,6 @@ function Window:ctor()
 	
 	--self.cmdList = CmdList()
 	
-	self.dcLists = {[SubpassId(g_rp0, 0)] = DrawcallList(), [SubpassId(g_rp0, 1)] = DrawcallList()}
-	
 	if (EVT.focus_id == nil) then
 		EVT.focus_id = self.id
 	end
@@ -106,6 +104,16 @@ function Window:init(t, hwnd, w, h)
 	self.sizegroup:add_rtv(self.idTargetView, true)
 	self.sizegroup:add_rtv(self.idTexture, true)
 	
+	self.fp = FramePipeline()
+	local fpParam0 = {spId = SubpassId(g_rp0, 0), layout = self}
+	local fpParam1 = {spId = SubpassId(g_rp0, 1), layout = self}
+	self.copyParam = {srcView = self.idTargetView, srcLayer = 0, src_x = 0, src_y = 0,
+					dstView = self.idTexture, dstLayer = 0, dst_x = 0, dst_y = 0, 
+					numLayers = 1, w = self.rect.w, h = self.rect.h}
+	self.fp:AddFrameOutput(self.frameBuffer, fpParam0, fpParam1)
+	self.fp:AddCopyImage(self.copyParam)
+	self.fp:Bake()
+	
 	self.update = true
 	
 	return self:TimerPeriod()
@@ -126,14 +134,13 @@ function Window:on_idle(t, onTimer, show)
 		
 		ui_resourceSet = self.res_set
 		
-		DrawcallList.dvp = self.frameBuffer.vp
-		DrawcallList.vp = self.frameBuffer.vp
-		DrawcallList.dcr = self.frameBuffer.cr
-		DrawcallList.cr = self.frameBuffer.cr
-		self.dcLists[SubpassId(g_rp0, 0)]:Reset()
-		self.dcLists[SubpassId(g_rp0, 1)]:Reset()
+		self.update = false
+
 		g_dcLists = self.dcLists
-		self:UpdateUI()
+		self.fp:UpdateLayouts()
+		
+		self.sized = false
+		
 		self:render()
 	end
 
@@ -149,6 +156,10 @@ function Window:resize(w, h)
 	self.cbWnd:Set(1, self.rect.w, self.rect.h)
 	self.sizegroup:resize(w, h)
 	
+	self.copyParam.w = w
+	self.copyParam.h = h
+	
+	g_cmd = self.cmd
 	if (render) then
 		self:render()
 	end
@@ -160,21 +171,9 @@ function Window:render()
 		self.sizegroup:resize(self.rect.w, self.rect.h)
 	end
 	
-	g_cmd = self.cmd
-	
 	self.cmd:PrepareRender()
-
-	self.cmd:RenderBegin(self.frameBuffer, false)
 	
-	self.dcLists[SubpassId(g_rp0, 0)]:SetupDrawcalls()
-	
-	self.cmd:NextSubpass(false)
-	
-	self.dcLists[SubpassId(g_rp0, 1)]:SetupDrawcalls()
-	
-	self.cmd:RenderEnd()
-	
-	self.cmd:CopyImage(self.idTargetView, 0, 0, 0, self.idTexture, 0, 0, 0, 1, self.rect.w, self.rect.h)
+	self.fp:FillCommand(self.cmd)
 	
 	self.cmd:Execute()
 end

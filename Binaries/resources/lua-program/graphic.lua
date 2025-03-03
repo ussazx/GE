@@ -39,10 +39,7 @@ function NewVtxInput(...)
 	if (same == n) then
 		return input 
 	end
-	input = {stride = o, wp = {}, vb = {}, vbSet = {}}
-	for i = 1, #o do
-		table.insert(input.wp, 0)
-	end
+	input = {stride = o}
 	table.insert(g_vtxInput, input)
 	return input
 end
@@ -52,13 +49,12 @@ local g_renderCmdPool = {}
 local g_nRenderCmdPool = 0
 
 function Command.New()
-	local i, cmd = next(g_renderCmdPool)
-	if (cmd) then
-		for k, v in pairs(cmd.vtxInputs) do
-			g_vtxInput[k].vb[cmd] = v.vb
-			g_vtxInput[k].vbSet[cmd] = v.vbSet
+	local cmd, o = next(g_renderCmdPool)
+	if (o) then
+		for k, v in pairs(o) do
+			g_vtxInput[k][cmd] = v
 		end
-		g_renderCmdPool[i] = nil
+		g_renderCmdPool[cmd] = nil
 		g_nRenderCmdPool = g_nRenderCmdPool - 1
 		return cmd
 	end
@@ -69,20 +65,21 @@ function Command.New()
 	cmd.rb.pos = 0
 	cmd.rIdx = 0
 	for _, v in pairs(g_vtxInput) do
-		local vbt = {[0] = {}, [1] = {}}
-		v.vb[cmd] = vbt
-		local vbSet = {[0] = cGI:NewBufferSet(nil, 0), [1] = cGI:NewBufferSet(nil, 0)}
-		v.vbSet[cmd] = vbSet
-		local vb
-		for _, s in pairs(v.stride) do
+		local o = {wp = {idxAddOn = 0},
+		[0] = {vb = {}, vbSet = cGI:NewBufferSet(nil, 0)}, 
+		[1] = {vb = {}, vbSet = cGI:NewBufferSet(nil, 0)}}
+		for k, s in pairs(v.stride) do
+			o.wp[k] = 0
+		
+			local vb = cGI:NewBuffer(s)
+			table.insert(o[0].vb, vb)
+			o[0].vbSet:Add(vb)
+			
 			vb = cGI:NewBuffer(s)
-			table.insert(vbt[0], vb)
-			vbSet[0]:Add(vb)
-	
-			vb = cGI:NewBuffer(s)
-			table.insert(vbt[1], vb)
-			vbSet[1]:Add(vb)
+			table.insert(o[1].vb, vb)
+			o[1].vbSet:Add(vb)
 		end
+		v[cmd] = o
 	end
 	return cmd
 end
@@ -90,9 +87,9 @@ end
 function Command:Flip()
 	self.rIdx = ~self.rIdx & 1
 	for _, v in pairs(g_vtxInput) do
-		v.vbSet[self][self.rIdx]:SetWritePos(0)
-		for k, _ in pairs(v.wp) do
-			v.wp[k] = 0
+		local o = v[self]
+		for k, _ in pairs(o.wp) do
+			o.wp[k] = 0
 		end
 	end
 end
@@ -109,19 +106,16 @@ function Command.Recycle(cmd)
 	local rec = false
 	local o
 	if (g_renderCmdPool < 10) then
-		o = {vtxInputs = {}}
-		table.insert(g_renderCmdPool, o)
-		g_nRenderCmdPool = g_nRenderCmdPool + 1
 		rec = true
-		o.cmd = cmd
+		o = {}
+		g_renderCmdPool[cmd] = o
+		g_nRenderCmdPool = g_nRenderCmdPool + 1
 	end
 	for k, v in pairs(g_vtxInput) do
 		if (rec) then
-			o.vtxInputs[k].vb = v.vb[cmd]
-			o.vtxInputs[k].vbSet = v.vbSet[cmd]
+			o[k] = v[cmd]
 		end
-		v.vb[cmd] = nil
-		v.vbSet[cmd] = nil
+		v[cmd] = nil
 	end
 end
 
@@ -178,6 +172,7 @@ function DrawcallList:ctor()
 end
 
 function DrawcallList:Reset()
+	self.cmd = g_cmd
 	self.dcIdx = 0
 	self.dcCount = 0
 	self.dc = nil
@@ -192,6 +187,7 @@ function DrawcallList:Reset()
 	self.p.vp = nil
 	self.p.cr = nil
 	self.p.pl = nil
+	self.p.mainVbSet = nil
 	self.p.mainSlot = nil
 	self.spId = nil
 	for _, v in pairs(self.vbArgs) do
@@ -232,32 +228,33 @@ end
 
 function DrawcallList:SetupDrawcalls()
 	self:CommitCurrent()
+	local cmd = self.cmd
 	for i = 1, self.dcCount do
 		local dc = self.dcList[i]
 		if (dc.vp) then
-			g_cmd:SetViewport(dc.vp.x, dc.vp.y, dc.vp.w, dc.vp.h, 0, 1)
+			cmd:SetViewport(dc.vp.x, dc.vp.y, dc.vp.w, dc.vp.h, 0, 1)
 		end
 		if (dc.cr) then
-			g_cmd:SetClipRect(dc.cr.x, dc.cr.y, dc.cr.w, dc.cr.h)
+			cmd:SetClipRect(dc.cr.x, dc.cr.y, dc.cr.w, dc.cr.h)
 		end
 		for k, v in pairs(dc.resList) do
-			g_cmd:SetResourceSet(v, k)
+			cmd:SetResourceSet(v, k)
 			dc.resList[k] = nil
 		end
 		for k, v in pairs(dc.vbSets) do
-			g_cmd:SetVertexBuffers(v, k)
+			cmd:SetVertexBuffers(v, k)
 		end
 		if (dc.mainSlot) then
-			g_cmd:SetVertexBuffers(dc.mainVbSet, dc.mainSlot)
+			cmd:SetVertexBuffers(dc.mainVbSet[cmd][cmd.rIdx].vbSet, dc.mainSlot)
 		end
-		g_cmd:DrawIndexedIndirect(dc.pl, self.ib, self.indBuf, dc.indStart, dc.indCount)
+		cmd:DrawIndexedIndirect(dc.pl, self.ib, self.indBuf, dc.indStart, dc.indCount)
 	end
 	Print('---draw call---', self.dcCount)
 end
 
 function DrawcallList:SetPipeline(pl, vtxInput, slot)
 	self.c.pl = pl
-	self.c.mainVbSet = vtxInput.vbSet[g_cmd][g_cmd.rIdx]
+	self.c.mainVbSet = vtxInput
 	self.c.mainSlot = slot
 	self.vbArg = self.vbArgs[vtxInput] or {idxStart = 0, idxAddOn = 0}
 	self.vbArgs[vtxInput] = self.vbArg
@@ -282,30 +279,30 @@ function DrawcallList:AddResourceSet(res)
 end
 
 function DrawcallList:CommitStates()
-	if (self.c.pl ~= self.p.pl or self.c.mainVbSet ~= self.p.mainVbSet) then
+	if (self.c.pl ~= self.p.pl) then
 		self:CommitCurrent()
 		self.p.pl = self.c.pl
-		self.p.mainVbSet = self.c.mainVbSet
 	end
 	self.dc.pl = self.c.pl
-	self.dc.mainVbSet = self.c.mainVbSet
 	
-	if (self.c.mainSlot ~= self.p.mainSlot) then
+	if (self.c.mainVbSet ~= self.p.mainVbSet or self.c.mainSlot ~= self.p.mainSlot) then
 		self:CommitCurrent()
+		self.p.mainVbSet = self.c.mainVbSet
 		self.p.mainSlot = self.c.mainSlot
+		self.dc.mainVbSet = self.c.mainVbSet
 		self.dc.mainSlot = self.c.mainSlot
 	end
 	
 	if (DrawcallList.vp ~= self.p.vp) then
 		self:CommitCurrent()
-		self.dc.vp = DrawcallList.vp
 		self.p.vp = DrawcallList.vp
+		self.dc.vp = DrawcallList.vp
 	end
 	
 	if (DrawcallList.cr ~= self.p.cr) then
 		self:CommitCurrent()
-		self.dc.cr = DrawcallList.cr
 		self.p.cr = DrawcallList.cr
+		self.dc.cr = DrawcallList.cr
 	end
 	
 	self.resIdx = 0
@@ -330,23 +327,15 @@ function DrawcallList:CommitIndBuffer()
 	end
 end
 
-function DrawcallList:Draw(vtxCount, idxCount, instStart, instCount)
+function DrawcallList:Draw(idxAddOn, vtxCount, idxCount, instStart, instCount)
 	self:CommitStates()
-
-	self.vbArg.idxAddOn = self.vbArg.idxAddOn + vtxCount
-	if (self.instStart ~= instStart or self.instCount ~= instCount) then
+	if (self.vbArg.idxAddOn ~= idxAddOn or self.instStart ~= instStart or self.instCount ~= instCount) then
 		self:CommitIndBuffer()
 	end
+	self.vbArg.idxAddOn = idxAddOn + vtxCount
 	self.instStart = instStart
 	self.instCount = instCount
 	self.idxCount = self.idxCount + idxCount
-end
-
-function DrawcallList:Skip(vtxInput, vtxCount)
-	self:CommitIndBuffer()
-	local vbArg = self.vbArgs[vtxInput] or {idxStart = 0, idxAddOn = 0}
-	vbArg.idxAddOn = vbArg.idxAddOn + vtxCount
-	self.vbArgs[vtxInput] = vbArg
 end
 
 ---Mesh---
@@ -358,25 +347,27 @@ Mesh.VtxHandlerCached = {}
 local function RenderMesh(mesh, disables)
 	Mesh.mesh = mesh
 	local mtl = mesh.mtl
-	mesh.vbDst = mtl.vtxInput.vb[g_cmd][g_cmd.rIdx]
-	mesh.vtxHandler()
-	for spId, dcList in pairs(g_dcLists) do
-		skip = true
-		if (disables[spId] ~= true and mtl[spId]) then
+	mesh.vbDst = mtl.vtxInput[g_cmd][g_cmd.rIdx].vb
+	local draw = true
+	for spId, func in pairs(mtl.func) do
+		if (disables[spId] ~= true and g_dcLists[spId]) then
+			local dcList = g_dcLists[spId]
 			if (dcList.spId ~= spId) then
-				mtl[spId](dcList)
+				func(dcList)
 				dcList.spId = spId
 			end
-			local n_idx = mesh.idxFunc(mesh.funcData, dcList.ib, dcList.vbArg.idxAddOn, dcList.iwp)
+			if (draw) then
+				mesh.vtxHandler()
+				draw = false
+			end
+			local n_idx = mesh.idxFunc(mesh.funcData, dcList.ib, mesh.vwp.idxAddOn, dcList.iwp)
 			dcList.iwp = dcList.iwp + n_idx * SIZE_INDEX
 			local insArgs = mesh.insArgs[mtl.insSlot[spId]]
-			dcList:Draw(mesh.n_vtx, n_idx, insArgs[1], insArgs[2])
-			skip = false
-		end
-		if (skip) then
-			dcList:Skip(mtl.vtxInput, mesh.n_vtx)
+			dcList:Draw(mesh.vwp.idxAddOn, mesh.n_vtx, n_idx, insArgs[1], insArgs[2])
 		end
 	end
+	mesh.vwp.idxAddOn = mesh.vwp.idxAddOn + mesh.n_vtx
+	mesh.n_vtx = 0
 end
 
 local function RenderMeshCached(mesh, disables)
@@ -387,24 +378,25 @@ local function RenderMeshCached(mesh, disables)
 		mesh.update = false
 	end
 	local mtl = mesh.mtl
-	mesh.vbDst = mtl.vtxInput.vb[g_cmd][g_cmd.rIdx]
-	mesh.vtxHandler()
-	for spId, dcList in pairs(g_dcLists) do
-		skip = true
-		if (disables[spId] ~= true and mtl[spId]) then
+	mesh.vbDst = mtl.vtxInput[g_cmd][g_cmd.rIdx].vb
+	local draw = false
+	for spId, func in pairs(mtl.func) do
+		if (disables[spId] ~= true and g_dcLists[spId]) then
+			local dcList = g_dcLists[spId]
 			if (dcList.spId ~= spId) then
-				mtl[spId](dcList)
+				func(dcList)
 				dcList.spId = spId
 			end
-			CCopyIndexBuffer(mesh.ib, 0, mesh.n_idx, dcList.vbArg.idxAddOn, dcList.ib, dcList.iwp)
+			CCopyIndexBuffer(mesh.ib, 0, mesh.n_idx, mesh.vwp.idxAddOn, dcList.ib, dcList.iwp)
 			dcList.iwp = dcList.iwp + mesh.n_idx * SIZE_INDEX
 			local insArgs = mesh.insArgs[mtl.insSlot[spId]]
-			dcList:Draw(mesh.n_vtx, mesh.n_idx, insArgs[1], insArgs[2])
-			skip = false
+			dcList:Draw(mesh.vwp.idxAddOn, mesh.n_vtx, mesh.n_idx, insArgs[1], insArgs[2])
+			draw = true
 		end
-		if (skip) then
-			dcList:Skip(mtl.vtxInput, mesh.n_vtx)
-		end
+	end
+	if (draw) then
+		mesh.vtxHandler()
+		mesh.vwp.idxAddOn = mesh.vwp.idxAddOn + mesh.n_vtx
 	end
 end
 
@@ -458,7 +450,6 @@ function Mesh:SetMaterial(mtl, ...)
 	end
 	self.mtl = mtl
 	self.stride = mtl.vtxInput.stride
-	self.vwp = mtl.vtxInput.wp
 	self.insArgs = {...}
 	
 	local layout = self.layout
@@ -469,7 +460,8 @@ function Mesh:SetMaterial(mtl, ...)
 		f = Mesh.VtxHandler[layout][mtl.vtxInput]
 	end
 	if (f == nil) then
-		local c = 'local copy = mesh.copy local vb = mesh.vb local n_vtx = mesh.n_vtx local vbDst = mesh.vbDst local vwp = mesh.vwp local stride = mesh.stride '
+		local c = [[local copy = mesh.copy local vb = mesh.vb local n_vtx = mesh.n_vtx 
+		local vbDst = mesh.vbDst local vwp = mesh.vwp local stride = mesh.stride ]]
 		local c1 = ''
 		local i = 1
 		if (self.vb) then
@@ -514,6 +506,7 @@ function Mesh:SetMaterial(mtl, ...)
 end
 
 function Mesh:Render(disables)
+	self.vwp = self.mtl.vtxInput[g_cmd].wp
 	self:render(disables or {})
 	DrawcallList.cr = DrawcallList.dcr
 	DrawcallList.vp = DrawcallList.dvp
@@ -524,33 +517,29 @@ FramePipeline = class()
 
 function FramePipeline:ctor()
 	self.cmdList = {}
-	self.rIdx = 0
-	self.wIdx = 0
 end
 
 function FramePipeline:AddFrameOutput(fb, ...)
-	table.insert(p.cmdList, {type = 0, fb = fb, inputs = {...}})
+	table.insert(self.cmdList, {type = 0, fb = fb, dcLists = {}, params = {...}})
 end
 
 function FramePipeline:AddCopyImage(params)
-	table.insert(p.cmdList, {type = 1, params = params})
+	table.insert(self.cmdList, {type = 1, params = params})
 end
 
 function FramePipeline:UpdateLayouts()
-	local layout
-	local draw
-	for input, param in pairs(self.fpParams) do
-		layout = input.layout
-		g_pass = data.pass
-		for k, v in g_pass do
-			g_pass[k] = layout[k]
-			draw = true
+	for param, dcLists in pairs(self.foParams) do
+		local layout = param.layout
+		DrawcallList.vp = layout.rect
+		DrawcallList.dvp = layout.rect
+		DrawcallList.cr = layout.rect
+		DrawcallList.dcr = layout.rect
+		
+		for _, dcList in pairs(dcLists) do
+			dcList:Reset()
 		end
-		if (draw) then
-			g_drawMgr = data.drawMgr
-			layout:Update()
-		end
-		draw = false
+		g_dcLists = dcLists
+		layout:Update()
 	end
 end
 
@@ -560,37 +549,31 @@ function FramePipeline:FillCommand(cmd)
 end
 
 function FramePipeline:Bake()
-	self.fpParams = {}
+	self.foParams = {}
 
-	local code = ''
-	for i = 1, #self.cmdList do
-		local o = cmdList[i]
-		
-		code = code .. 'local o = cmdList[' .. i .. '] '
-		if (o.type == 0) then
-			code = code .. 'cmd:RenderBegin(o.fb, false) '
-			for j = 1, #o.inputs do
-				local fpParam = self.fpParams[o.inputs[j]] or {}
-				fpParam.dcList = fpParam.dcList or {}
-				fpParam.dcList[o.fb[j]] = DrawcallList()
-				fpParam.pass = fpParam.pass or {}
-				fpParam.pass[o.fb[j]] = o.fb[j]
-				self.fpParams[o.inputs[j]] = fpParam
-
-				code = code..'local layout = o.inputs['..j..'].layout local vsInput = layout.vsInput[rIdx] '
-				code = code..'vsInput.vbSet:SetDrawOffset(0) '
-				code = code..'layout.dcList[o.fb]['..j..']:SetupDrawcalls(vsInput, cmd) '
-				if (j ~= #o.refLayouts) then
-					code = code..'cmd:NextSubpass(false) '
-				else
-					code = code..'cmd:RenderEnd() '
+	local code = 'local c local o\n'
+	for k, c in pairs(self.cmdList) do
+		code = code .. 'c = cmdList[' .. k .. ']\n'
+		if (c.type == 0) then
+			code = code .. 'cmd:RenderBegin(c.fb, false)\n'
+			
+			for k, param in pairs(c.params) do				
+				code = code .. 'c.dcLists['..k..']:SetupDrawcalls()\n'
+				if (k ~= #c.params) then
+					code = code..'cmd:NextSubpass(false)\n'
 				end
+				
+				c.dcLists[k] = c.dcLists[k] or DrawcallList()
+				local dcLists = self.foParams[param] or {}
+				dcLists[param.spId] = c.dcLists[k]
+				self.foParams[param] = dcLists
 			end
-		elseif (type == 1) then
-			code = code..[[o = 
-			o.params cmd:CopyImage(o.srcView, o.srcLayer, o.src_x, o.src_y, o.dstView, o.dstLayer, o.dst_x, o.dst_y, o.numLayers, w, h) ]]
+			code = code..'cmd:RenderEnd()\n'
+		elseif (c.type == 1) then
+			code = code..[[o = c.params cmd:CopyImage(o.srcView, o.srcLayer, o.src_x, o.src_y, 
+			o.dstView, o.dstLayer, o.dst_x, o.dst_y, o.numLayers, o.w, o.h)]]
 		end
 	end
-	self.code = load(code, '', self)
+	self.code = load(code, '', 't', self)
 end
 			

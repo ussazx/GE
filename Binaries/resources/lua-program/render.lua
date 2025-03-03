@@ -2,60 +2,6 @@
 require 'graphic'
 require 'global'
 
-Color = class()
-function Color:ctor(r, g, b, a)
-	self.r = r or 0
-	self.g = g or 0
-	self.b = b or 0
-	self.a = a or 0
-end
-
-function Color:read(color)
-	self.r = color.r or self.r
-	self.g = color.r or self.g
-	self.b = color.r or self.b
-	self.a = color.r or self.a
-end
-
-function Color:diff(color)
-	return self.r ~= rect.r or self.g ~= rect.g or self.b ~= rect.b or self.a ~= rect.a
-end
-
-function Color:set(r, g, b, a)
-	self.r = r or 0
-	self.g = g or 0
-	self.b = b or 0
-	self.a = a or 0
-end
-
-function DrawRectUI(cmd, id, font, rect, color)
-	CAddRectFloat2(ui_renderer.vb[VB_ELEM_FLOAT2_0], APPEND, rect.x, rect.y, rect.w, rect.h)
-	CAddFloat3(ui_renderer.vb[VB_ELEM_FLOAT3_0], APPEND, 4, font.table.pixels, 0, 0)
-	CAddUByte4(ui_renderer.vb[VB_ELEM_FLOAT4_0], APPEND, 4, color.r, color.g, color.b, color.a)
-	AddVertexID(ui_renderer.vb[VB_ELEM_UINT1_0], APPEND, 4, id)
-	local n_idx = CAddConvexPolyIndex(ui_renderer.ib, APPEND, 1, ui_renderer.ib.start, 4)
-	ui_renderer.ib.start = ui_renderer.ib.start + 4
-	
-	cmd:AddResourceSet(ui_resourceSet)
-	cmd:AddResourceSet(font.res)
-	cmd:Render(ui_renderer, n_idx)
-	--cmd:Render(ui_renderer, 4, n, ui_renderer.instStart, 1)
-	--ui_renderer.instStart = ui_renderer.instStart + 1
-
-	--dc.Draw(mesh.ibo.start, mesh.ibo.count, mesh.vbo.start)
-end
-
-function AddUiText(wp, vbPos, vbUVW, font, text, x, y, rect)		
-	local n
-	if (rect) then
-		n, x = CAddTextClip(vbPos, vbUVW, wp, font.table,
-		x, y, rect.x, rect.y, rect.w, rect.h, text)
-	else
-		n, x = CAddText(vbPos, vbUVW, wp, font.table, x, y, text)
-	end
-	return n, x
-end
-
 fo_param_d = {pass = {}}
 fo_param_d.pass[0] = {swapchain}
 fo_param_d.pass[0][0] = rtv0

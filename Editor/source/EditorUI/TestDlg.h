@@ -72,7 +72,8 @@ public:
 		m_itemImage2.LoadFile("scene.png");
 		for (int i = 0; i < 5; i++)
 		{
-			wxString s = wxString().Format("project%d", m_selTable->GetCount());
+			uint32_t n = m_selTable->GetCount();
+			wxString s = wxString().Format("project%u", n);
 			m_selTable->Add(s, new ImageItemRender(m_itemImage, s), "C:\\Users\\asus\\Desktop\\vs\\GE");
 		}
 

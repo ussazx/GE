@@ -96,13 +96,15 @@ g_mtlUi.insSlot[SubpassId(g_rp0, 1)] = 2
 uiFont.res = g_rl1:NewResourceSet()
 uiFont.res:BindTexelView(uiFont.view)
 
-g_mtlUi[SubpassId(g_rp0, 0)] = function(dcList)
+g_mtlUi.func = {}
+
+g_mtlUi.func[SubpassId(g_rp0, 0)] = function(dcList)
 	dcList:AddResourceSet(ui_resourceSet)
 	dcList:AddResourceSet(uiFont.res)
 	dcList:SetPipeline(g_plUi, g_mtlUi.vtxInput, 0)
 end
 
-g_mtlUi[SubpassId(g_rp0, 1)] = function(dcList)
+g_mtlUi.func[SubpassId(g_rp0, 1)] = function(dcList)
 	dcList:AddResourceSet(ui_resourceSet)  
 	dcList:SetPipeline(g_plId2D, g_mtlUi.vtxInput, 0)
 	dcList:SetInsVB(g_idVbSet, 3)
