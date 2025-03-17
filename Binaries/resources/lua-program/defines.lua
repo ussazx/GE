@@ -41,6 +41,16 @@ VB_ELEM_ID = VB_ELEM_UINT1_0
 
 APPEND = -1
 
+g_sizeFunc = {}
+g_sizeFunc[CAddFloat1] = 4
+g_sizeFunc[CAddFloat2] = 8
+g_sizeFunc[CAddFloat3] = 12
+g_sizeFunc[CAddFloat4] = 16
+g_sizeFunc[CAddInt1] = 4
+g_sizeFunc[CAddUInt1] = 4
+g_sizeFunc[CAddUShort1] = 2
+g_sizeFunc[CAddUByte4] = 4
+
 -- SIZE_FLOAT1 = 4
 -- SIZE_FLOAT2 = 8
 -- SIZE_FLOAT3 = 12

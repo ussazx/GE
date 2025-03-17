@@ -291,9 +291,24 @@ public:
 		AddPageWnd(new vmWindow(m_self, name), _(title));
 	}
 
+	const char* FileDirDialog(const char* title, const char* defName, const char* filters)
+	{
+		static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
+		wxFileDialog dialog(m_self,
+			conv.from_bytes(title),
+			wxEmptyString,
+			conv.from_bytes(defName),
+			filters,
+			wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+		dialog.ShowModal();
+		static std::string s;
+		s = conv.to_bytes(dialog.GetPath().wc_str());
+		return s.c_str();
+	}
+
 	virtual void AddPageWnd(vmWindow*, const char* title) = 0;
 
-	Lua_wrap_cpp_class(vmFrame, Lua_abstract, Lua_mf(AddPageWindow));
+	Lua_wrap_cpp_class(vmFrame, Lua_abstract, Lua_mf(AddPageWindow), Lua_mf(FileDirDialog));
 private:
 	wxWindow* m_self{};
 };

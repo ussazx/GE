@@ -608,7 +608,36 @@ function UiButton:ctor(x, y, w, h, s, font)
 	self.layout = BoxLayout()
 	self:AddChild(self.layout)
 	self.text = UiText(0, 0, s, font)
+	self.text.writeId = false
 	self.layout:AddChild(self.text, 1)
+	
+	self:bind_event(EVT.MOVE_IN, self, UiButton.OnMouse)
+	self:bind_event(EVT.MOVE_OUT, self, UiButton.OnMouse)
+	self:bind_event(EVT.LEFT_DOWN, self, UiButton.OnMouse)
+	self:bind_event(EVT.LEFT_UP, self, UiButton.OnMouse)
+end
+
+function UiButton:OnMouse(e)
+	if (e == EVT.LEFT_DOWN) then
+		self.down = true
+	elseif (e == EVT.LEFT_UP) then
+		self.down = false
+	elseif (e == EVT.MOVE_IN) then
+		self.hovering = true
+	elseif (e == EVT.MOVE_OUT) then
+		self.down = false
+		self.hovering = false
+	end
+	
+	if (self.down) then
+		self.color:set(150, 150, 150, 255)
+	elseif (self.hovering) then
+		self.color:set(100, 100, 100, 255)
+	else
+		self.color:set(70, 70, 70, 255)
+	end
+	
+	self:Refresh()
 end
 
 -----Text-----
@@ -1091,11 +1120,11 @@ function UiSlideBar:ctor(vertical, x, y, length, width)
 	
 	self:AddChild(self.slider)
 	self.slider.color:set(150, 150, 150, 255)
-	self.slider:bind_event(EVT.MOVE_IN, self, self.OnSlideBarHovered)
-	self.slider:bind_event(EVT.MOVE_OUT, self, self.OnSlideBarHovered)
-	self.slider:bind_event(EVT.LEFT_DOWN, self, self.OnSliderMouseButton)
-	self.slider:bind_event(EVT.LEFT_UP, self, self.OnSliderMouseButton)
-	self.slider:bind_event(EVT.MOTION, self, self.OnSliding)
+	self.slider:bind_event(EVT.MOVE_IN, self, UiSlideBar.OnSlideBarHovered)
+	self.slider:bind_event(EVT.MOVE_OUT, self, UiSlideBar.OnSlideBarHovered)
+	self.slider:bind_event(EVT.LEFT_DOWN, self, UiSlideBar.OnSliderMouseButton)
+	self.slider:bind_event(EVT.LEFT_UP, self, UiSlideBar.OnSliderMouseButton)
+	self.slider:bind_event(EVT.MOTION, self, UiSlideBar.OnSliding)
 end
 
 function UiSlideBar:OnSlideBarHovered(e)
@@ -1198,7 +1227,7 @@ UiScrollPanel.barWidth = 12
 
 function UiScrollPanel:ctor(widget)
 	self.Layout = VerticalLayout
-	self:bind_event(EVT.MOUSEWHEEL, self, self.OnMouseWheel)
+	self:bind_event(EVT.MOUSEWHEEL, self, UiScrollPanel.OnMouseWheel)
 	
 	local hLayout = BoxLayout(false)
 	Widget2D.AddChild(self, hLayout, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
@@ -1211,15 +1240,15 @@ function UiScrollPanel:ctor(widget)
 	self.plate:AddChild(widget)
 	self.widget:bind_event(EVT.SIZE, self, UiScrollPanel.OnWidgetSize)
 	
-	self.vScrollBar = UiSlideBar(true, 0, 0, 0, self.barWidth)
-	self.vScrollBar:bind_event(EVT.SLIDE_BAR, self, self.OnVScroll)
+	self.vScrollBar = UiSlideBar(true, 0, 0, 0, UiScrollPanel.barWidth)
+	self.vScrollBar:bind_event(EVT.SLIDE_BAR, self, UiScrollPanel.OnVScroll)
 	self.vScrollBar:Show(false)
 	hLayout:AddChild(self.vScrollBar, 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 0, 0, 0)
 	
-	self.hScrollBar = UiSlideBar(false, 0, 0, 0, self.barWidth)
-	self.hScrollBar:bind_event(EVT.SLIDE_BAR, self, self.OnHScroll)
+	self.hScrollBar = UiSlideBar(false, 0, 0, 0, UiScrollPanel.barWidth)
+	self.hScrollBar:bind_event(EVT.SLIDE_BAR, self, UiScrollPanel.OnHScroll)
 	self.hScrollBar:Show(false)
-	Widget2D.AddChild(self, self.hScrollBar, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, self.barWidth, 0, 0)
+	Widget2D.AddChild(self, self.hScrollBar, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, UiScrollPanel.barWidth, 0, 0)
 	
 	self:SetSize()
 end

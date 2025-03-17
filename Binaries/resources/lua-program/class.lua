@@ -1,14 +1,4 @@
 ---class---
-local function dtor(o)
-	local c = o
-	while (c ~= nil) do
-		if (c._base == nil or c.dtor ~= c._base.dtor) then
-			c.dtor(o)
-		end
-		c = c._base
-	end
-end
-
 local function assign(o, c)
 	if (c._base) then
 		o = assign(o, c._base)
@@ -25,6 +15,16 @@ local function ctor(o, c, ...)
 	end
 end
 
+local function dtor(o)
+	local c = o
+	while (c ~= nil) do
+		if (c._base == nil or c.dtor ~= c._base.dtor) then
+			c.dtor(o)
+		end
+		c = c._base
+	end
+end
+
 local function instantiate(c, base, ...)
 	local o
 	local b = getmetatable(base)
@@ -38,14 +38,6 @@ local function instantiate(c, base, ...)
 		ctor(o, c, base, ...)
 	end
 	return o
-end
-
-local function _clone(o)
-	local c = getmetatable(o).__index()
-	for k, v in pairs(o) do
-		c[k] = v
-	end
-	return c
 end
 
 function class(base_class)

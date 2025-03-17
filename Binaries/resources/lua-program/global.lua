@@ -7,23 +7,13 @@ require 'utility'
 -- FrameBufferDesc1 = {rp = '', views = {-1, 1, 2, 3, 4}}
 -- CreatedViews = {}
 
-g_sizeFunc = {}
-g_sizeFunc[CAddFloat1] = 4
-g_sizeFunc[CAddFloat2] = 8
-g_sizeFunc[CAddFloat3] = 12
-g_sizeFunc[CAddFloat4] = 16
-g_sizeFunc[CAddInt1] = 4
-g_sizeFunc[CAddUInt1] = 4
-g_sizeFunc[CAddUShort1] = 2
-g_sizeFunc[CAddUByte4] = 4
-
 g_idVb = cGI:NewBuffer(SIZE_WRITE_ID * ID_NUM_MAX)
 for i = 0, ID_NUM_MAX do
 	AddVertexID(g_idVb, APPEND, 1, i)
 end
 g_idVbSet = cGI:NewBufferSet({g_idVb}, 1)
 
-f = CNewFileInput(false)
+local f = CNewFileInput(false)
 f:Open('Resources/shaders/'..cGI:Type()..'/ui_vs.sc', true)
 ui_vs = cGI:NewShaderModule(f)
 f:Open('Resources/shaders/'..cGI:Type()..'/ui_ps.sc', true)

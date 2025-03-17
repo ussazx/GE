@@ -255,7 +255,7 @@ function Window:on_mouse(t, e, x, y, n)
 	end
 	
 	if (e == EVT.MOUSEWHEEL) then
-		while (obj and obj.event_table[e] == nil) do
+		while (obj and obj.event_table_obj[e] == nil) do
 			obj = obj.parent
 		end
 	end

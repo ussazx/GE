@@ -73,11 +73,24 @@ function NewCommonWindow()
 	local w = Window()
 end
 
+function OnCreateProj()
+	cEntrance:FileDirDialog(_('Create Project'), _("new"), 'Text files (*.txt)|*.txt|Document files (*.doc;*.ods)|*.doc;*.ods')
+end
+
+function NewWindow_CreateProj()
+	local w = Window()
+	
+	local b = UiButton(20, 20, 100 ,30, _('Create'))
+	b:bind_event(EVT.LEFT_UP, nil, OnCreateProj)
+	w:AddChild(b)
+	return w
+end
+
 function NewWindow_LoadProj()
 	local w = Window()
 	
-	t0:bind_event(EVT.TIMER, t0, t0.Func)
-	t1:bind_event(EVT.TIMER, t1, t1.Func)
+	--t0:bind_event(EVT.TIMER, t0, t0.Func)
+	--t1:bind_event(EVT.TIMER, t1, t1.Func)
 	--t0:Start(w, 300, true)
 	--t1:Start(w, 10, true)
 	
@@ -102,7 +115,7 @@ end
 
 function LoadEntrance()
 	cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
-	cEntrance:AddPageWindow('new_proj', 'New Project', Window())
+	cEntrance:AddPageWindow('new_proj', 'New Project', NewWindow_CreateProj())
 end
 
 function LoadMainFrame()

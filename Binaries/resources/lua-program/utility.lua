@@ -279,6 +279,7 @@ local objNotifier = Object()
 
 function DelistObject(obj)
 	objNotifier:process_event(EVT.DELIST, obj)
+	obj:delist()
 end
 
 ObjectArray = class(Object)
