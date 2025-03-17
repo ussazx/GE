@@ -74,7 +74,7 @@ function NewCommonWindow()
 end
 
 function OnCreateProj()
-	cEntrance:FileDirDialog(_('Create Project'), _("new"), 'Text files (*.txt)|*.txt|Document files (*.doc;*.ods)|*.doc;*.ods')
+	cEntrance:FileDirDialog(_('Create Project'), _("new"), 'Project file (*.proj)|*.proj')
 end
 
 function NewWindow_CreateProj()
