@@ -1,8 +1,6 @@
 ---Editor---
 require 'window'
 
-g_recorder = Recorder()
-
 t0 = Timer()
 t1 = Timer()
 
@@ -77,6 +75,19 @@ function OnCreateProj()
 	cEntrance:FileDirDialog(_('Create Project'), _("new"), 'Project file (*.proj)|*.proj')
 end
 
+function LoadProj(path, isBin)	
+	local o, b = CLoadLuaFile(path, isBin)
+	if (not b) then
+		return
+	end
+	if (o) then
+		o = o() or {}
+		Print('qqqqqqqq', o)
+	else
+		Print('error')
+	end
+end
+
 function NewWindow_CreateProj()
 	local w = Window()
 	
@@ -116,6 +127,8 @@ end
 function LoadEntrance()
 	cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
 	cEntrance:AddPageWindow('new_proj', 'New Project', NewWindow_CreateProj())
+	
+	LoadProj('out', true)
 end
 
 function LoadMainFrame()

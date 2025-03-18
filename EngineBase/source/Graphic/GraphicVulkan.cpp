@@ -1067,7 +1067,7 @@ LuacObjNew<BufferSet> VKGraphic::NewBufferSet(LuaIdx t, uint32_t n)
 	for (size_t i = 1; i <= n; i++)
 	{
 		VKBuffer* b{};
-		t.state.GetValue(t, i, 0, (void**)&b);
+		t.GetValue(i, 0, (void**)&b);
 		s->Add(b);
 	}
 	return s;

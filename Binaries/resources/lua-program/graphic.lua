@@ -249,7 +249,7 @@ function DrawcallList:SetupDrawcalls()
 		end
 		cmd:DrawIndexedIndirect(dc.pl, self.ib, self.indBuf, dc.indStart, dc.indCount)
 	end
-	Print('---draw call---', self.dcCount)
+	--Print('---draw call---', self.dcCount)
 end
 
 function DrawcallList:SetPipeline(pl, vtxInput, slot)

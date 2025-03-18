@@ -2,6 +2,8 @@
 require 'graphic'
 require 'utility'
 
+g_recorder = Recorder()
+
 -- TargetViewDescs = {view1 = {samples = 1, format = FORMAT}}
 
 -- FrameBufferDesc1 = {rp = '', views = {-1, 1, 2, 3, 4}}

@@ -340,13 +340,21 @@ public:
 
 	void SetValue(const char* k, const LuaLoad& v) const
 	{
-		luaL_loadbuffer(m_lua, v.code, v.len, v.code);
+		if (luaL_loadbuffer(m_lua, v.code, v.len, v.code) != 0)
+		{
+			lua_pop(m_lua, 1);
+			lua_pushnil(m_lua);
+		}
 		lua_setglobal(m_lua, k);
 	}
 
 	void SetValue(const lua_Idx& idx, const LuaLoad& v) const
 	{
-		luaL_loadbuffer(m_lua, v.code, v.len, v.code);
+		if (luaL_loadbuffer(m_lua, v.code, v.len, v.code) != 0)
+		{
+			lua_pop(m_lua, 1);
+			lua_pushnil(m_lua);
+		}
 		lua_copy(m_lua, -1, Lua_I(idx.idx, 1));
 		lua_pop(m_lua, 1);
 	}
