@@ -38,7 +38,7 @@ function LoadLuaFile(path, isBin)
 	end
 	local o = CLuaLoad(f)
 	f:Close()
-	return o
+	return o, true
 end
 
 --pass

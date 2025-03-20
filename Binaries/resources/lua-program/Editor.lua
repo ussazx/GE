@@ -1,32 +1,12 @@
 ---Editor---
 require 'window'
 
-t0 = Timer()
-t1 = Timer()
-
-local ui1 = nil
-
-function t0:Func()
-	Print('.........t0 ', self.window.time - self.prev)
-end
-
-function t1:Func()
-	Print('.............t1 ', self.window.time - self.prev)
-	ui1:Move(1, 1)
-end
-
 function WindowRecord(w, redo, o)
 	if (redo) then
 		w:AddChild(o)
 	else
 		w:RemoveChild(o)
 	end
-end
-
-function WindowOnLeftDown(w, e, x, y)
-	local tt = UiTextInput(x, y, 300, uiFont.fontSize)
-	w:AddChild(tt)
-	g_recorder:Record(w, WindowRecord, tt)
 end
 
 function GridLayoutTest(w)
