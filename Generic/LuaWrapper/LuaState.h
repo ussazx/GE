@@ -32,9 +32,9 @@ LuaMultiArg(LuaSetTo)
 
 #define LuaSub(...) std::make_tuple(__VA_ARGS__)
 
-struct LuaLoad 
+struct LuaLoad
 {
-	LuaLoad(const char* c, int n = 0) : code(c), len(n == 0 ? strlen(c) : n) {}
+	LuaLoad(void* c, size_t n = 0) : code((char*)c), len(n == 0 ? strlen((char*)c) : n) {}
 	const char* code;
 	size_t len;
 };

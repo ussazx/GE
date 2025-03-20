@@ -75,14 +75,11 @@ function OnCreateProj()
 	cEntrance:FileDirDialog(_('Create Project'), _("new"), 'Project file (*.proj)|*.proj')
 end
 
-function LoadProj(path, isBin)	
-	local o, b = CLoadLuaFile(path, isBin)
-	if (not b) then
-		return
-	end
+function LoadProj(path, isBin)
+	local o = LoadLuaFile(path, isBin)
 	if (o) then
 		o = o() or {}
-		Print('qqqqqqqq', o)
+		
 	else
 		Print('error')
 	end

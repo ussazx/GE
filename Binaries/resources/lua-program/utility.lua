@@ -18,7 +18,7 @@ function tcount(t)
 	return #t
 end
 
-function Text(o)
+local function Text(o)
 	t = type(o)
 	if (t == 'number') then
 		return ''..o

@@ -38,23 +38,6 @@ void Require(LuaState& lua, const char* requiredName)
 	lua.LoadRequired(requiredName, (char*)fd.GetData(), fd.GetSize());
 }
 
-void CLoadLuaFile(LuaRetStack& ret, const char* path, bool isBinary)
-{
-	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-	FileData fd(conv.from_bytes(path).c_str(), isBinary);
-	if (fd.IsLoaded())
-	{
-		ret.Push(LuaLoad((char*)fd.GetData(), fd.GetSize()));
-		ret.Push(true);
-	}
-	else
-	{
-		ret.Push(nullptr);
-		ret.Push(false);
-	}
-}
-Lua_global_add_cfunc(CLoadLuaFile)
-
 wxLocale gLocale;
 
 class MyApp : public wxApp

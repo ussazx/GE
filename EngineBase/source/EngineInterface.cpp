@@ -2,6 +2,7 @@
 #include "EngineInterface.h"
 #include "Generic/LuaWrapper/LuaGlobalCollect.h"
 #include <fstream>
+#include <codecvt>
 
 namespace Engine
 {
@@ -39,7 +40,8 @@ namespace Engine
 			m_data.clear();
 			if (m_ifs.is_open())
 				m_ifs.close();
-			m_ifs.open(fileName, isBinary ? std::ios::binary : 1);
+			std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
+			m_ifs.open(conv.from_bytes(fileName).c_str(), isBinary ? std::ios::binary : 1);
 			return m_ifs.is_open();
 		}
 
@@ -91,7 +93,7 @@ namespace Engine
 		Lua_wrap_cpp_class_derived(StreamInput, FileInput, Lua_abstract, Lua_mf(Open), Lua_mf(Close));
 	private:
 		std::vector<char> m_data;
-		int64_t m_size{};
+		uint64_t m_size{};
 		std::ifstream m_ifs;
 	};
 	Lua_global_add_cpp_class(FileInput);

@@ -31,6 +31,16 @@ uiFont = CLoadFontAtlas(f, 256)
 
 f:Close()
 
+function LoadLuaFile(path, isBin)
+	local f = CNewFileInput(false)
+	if (not f:Open(path, isBin)) then
+		return nil, false
+	end
+	local o = CLuaLoad(f)
+	f:Close()
+	return o
+end
+
 --pass
 cParamRenderPass:Reset(true, false)
 cParamRenderPass:AddViewDesc(cGI.FORMAT_PICK_ID, cGI.SAMPLE_COUNT_1_BIT, false, true, false, false)

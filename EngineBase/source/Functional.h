@@ -351,3 +351,9 @@ public:
 };
 Lua_global_add_cpp_class(CList);
 
+inline void CLuaLoad(LuaReturn& ret, LuacObj<Engine::StreamInput> input)
+{
+	ret.Push(LuaLoad(input->GetData(), input->GetSize()));
+}
+Lua_global_add_cfunc(CLuaLoad)
+
