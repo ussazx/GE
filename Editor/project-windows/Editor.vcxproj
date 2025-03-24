@@ -159,6 +159,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\Generic\Terminal.h" />
     <ClInclude Include="..\source\EditorUI\common\button.h" />
     <ClInclude Include="..\source\EditorUI\common\floatablenotebook.h" />
     <ClInclude Include="..\source\EditorUI\common\handlelessctrl.h" />

@@ -81,6 +81,9 @@
     <ClInclude Include="..\source\EditorUI\vmWindow.h">
       <Filter>源文件\EditorUI</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Generic\Terminal.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\source\Editor.cpp">

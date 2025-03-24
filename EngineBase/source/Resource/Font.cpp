@@ -125,21 +125,14 @@ std::tuple<uint32_t, uint32_t> MeasureText(const std::wstring& s, GlyphTable& ta
 	return { x, i };
 }
 
-std::tuple<uint32_t, uint32_t> CMeasureText(const char* utf8text, int maxIndex, int range, LuacObj<GlyphTable> font)
+std::tuple<uint32_t, uint32_t> CMeasureText(CString s, int maxIndex, int range, LuacObj<GlyphTable> font)
 {
-	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-	static std::wstring s;
-	s = conv.from_bytes(utf8text);
-
 	return MeasureText(s, *font, maxIndex, range);
 }
 Lua_global_add_cfunc(CMeasureText);
 
-std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, int x, int y, const char* utf8text)
+std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, int x, int y, CString s)
 {
-	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-	std::wstring s = conv.from_bytes(utf8text);
-
 	if (s.length() == 0)
 		return { 0, x };
 
@@ -147,7 +140,8 @@ std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuff
 	BufferWriter<float3> uvw(*vb_uv, s.length(), wp_uv);
 
 	int n = 0;
-	for (auto it = s.begin(); it != s.end(); it++)
+	const std::wstring& a = s;
+	for (auto it = a.begin(); it != a.end(); it++)
 	{
 		uint32_t index = 0;
 		if (*it >= table->indices.size())
@@ -172,11 +166,8 @@ std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuff
 }
 Lua_global_add_cfunc(CAddText);
 
-std::tuple<int, int> CAddTextClip(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, int offset_x, int offset_y, int rect_x, int rect_y, int rect_w, int rect_h, const char* utf8text)
+std::tuple<int, int> CAddTextClip(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, int offset_x, int offset_y, int rect_x, int rect_y, int rect_w, int rect_h, CString s)
 {
-	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-	std::wstring s = conv.from_bytes(utf8text);
-
 	if (s.length() == 0)
 		return { 0, offset_x };
 
@@ -184,7 +175,8 @@ std::tuple<int, int> CAddTextClip(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<C
 	BufferWriter<float3> uvw(*vb_uv, s.length(), wp_uv);
 
 	int n = 0, x = 0;
-	for (auto it = s.begin(); it != s.end() && x + offset_x < rect_w; it++)
+	const std::wstring& a = s;
+	for (auto it = a.begin(); it != a.end() && x + offset_x < rect_w; it++)
 	{
 		uint32_t index = 0;
 		if (*it >= table->indices.size())
@@ -282,58 +274,3 @@ LuacObjNew<GlyphTable> CLoadFontAtlas(LuacObj<Engine::StreamInput> input, uint32
 		LuaSub("view", atlasView.set));
 }
 Lua_global_add_cfunc(CLoadFontAtlas);
-
-std::tuple<const char*, uint32_t, uint32_t> CTextInsert(const char* os, uint32_t pos, const char* s, LuacObj<GlyphTable> font)
-{
-	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-	static std::wstring src_os, src_s;
-	static std::string dst_s;
-	
-	src_os = conv.from_bytes(os);
-	src_s = conv.from_bytes(s);
-
-	dst_s = conv.to_bytes(src_os.insert(min(src_os.length(), pos), src_s));
-	auto n = MeasureText(src_s, *font);
-	return { dst_s.c_str(), std::get<0>(n), std::get<1>(n) };
-}
-Lua_global_add_cfunc(CTextInsert);
-
-std::tuple<const char*, uint32_t> CTextRemove(const char* os, uint32_t pos, uint32_t count, LuacObj<GlyphTable> font)
-{
-	if (count == 0)
-		return { os, 0 };
-
-	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-	static std::wstring src_os;
-	static std::wstring src_s;
-	static std::string dst_s;
-
-	src_os = conv.from_bytes(os);
-	if (src_os.length() <= pos)
-		return { os, 0 };
-
-	src_s = src_os.substr(0, pos);
-	size_t src_len = src_os.length();
-	if (pos + count - 1 < src_len)
-		src_s += src_os.substr(pos + count);
-
-	dst_s = conv.to_bytes(src_s);
-	return { dst_s.c_str(), std::get<0>(MeasureText(src_os.substr(pos, min(src_len - pos, count)), *font)) };
-}
-Lua_global_add_cfunc(CTextRemove);
-
-const char* CTextSubstr(const char* os, uint32_t pos, uint32_t count)
-{
-	if (count == 0)
-		return "";
-
-	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-	static std::wstring src_os;
-	static std::string dst_s;
-
-	src_os = conv.from_bytes(os);
-	if (src_os.length() > pos)
-		dst_s = conv.to_bytes(src_os.substr(pos, min(src_os.length() - pos, count)));
-	return dst_s.c_str();
-}
-Lua_global_add_cfunc(CTextSubstr);

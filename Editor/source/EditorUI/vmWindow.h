@@ -294,7 +294,7 @@ public:
 	const char* FileDirDialog(const char* title, const char* defName, const char* filters)
 	{
 		static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-		wxFileDialog dialog(m_self,
+		wxFileDialog dialog(nullptr,
 			conv.from_bytes(title),
 			wxEmptyString,
 			conv.from_bytes(defName),
@@ -313,23 +313,78 @@ private:
 	wxWindow* m_self{};
 };
 
-inline const char* CGetClipboardText()
+inline void SetClipboardText(const wchar_t* s)
+{
+	wxTheClipboard->SetData(new wxTextDataObject(s));
+}
+
+inline const wchar_t* GetClipboardText()
 {
 	static wxTextDataObject data;
+	static std::wstring s;
 	if (wxTheClipboard->GetData(data))
 	{
-		static std::string s;
-		static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-		s = conv.to_bytes(data.GetText().wc_str());
+		s = data.GetText().wc_str();
 		return s.c_str();
 	}
 	return {};
 }
-Lua_global_add_cfunc(CGetClipboardText);
 
-inline void CSetClipboardText(const char* s)
+inline void NewDirectory(const wchar_t* path)
 {
-	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-	wxTheClipboard->SetData(new wxTextDataObject(conv.from_bytes(s)));
+	::CreateDirectory(path, NULL);
 }
-Lua_global_add_cfunc(CSetClipboardText);
+
+inline void SetCurrentDir(const wchar_t* path)
+{
+	::SetCurrentDirectory(path);
+}
+
+inline const wchar_t* NewFileDirDialog(const wchar_t* title, const wchar_t* defName, const wchar_t* filters)
+{
+	wxFileDialog dialog(nullptr,
+		title,
+		wxEmptyString,
+		defName,
+		filters,
+		wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+	dialog.ShowModal();
+	static std::wstring s;
+	s = dialog.GetPath();
+	return s.c_str();
+}
+
+class FileParser : public Engine::TerminalImpl::FileParser
+{
+public:
+	static Engine::TerminalImpl::FileParser* New()
+	{
+		return new FileParser;
+	}
+
+	bool FindFirst(const wchar_t* path) override
+	{
+#ifdef WIN32
+		m_wfd = {};
+		if (m_hFind != INVALID_HANDLE_VALUE)
+			FindClose(m_hFind);
+		m_hFind = ::FindFirstFile(path, &m_wfd);
+		return m_hFind != INVALID_HANDLE_VALUE;
+#endif
+	}
+
+	bool FindNext() override
+	{
+		return ::FindNextFile(m_hFind, &m_wfd) == TRUE;
+	}
+
+	~FileParser()
+	{
+		if (m_hFind != INVALID_HANDLE_VALUE)
+			FindClose(m_hFind);
+	}
+
+private:
+	WIN32_FIND_DATA m_wfd = {};
+	HANDLE m_hFind = INVALID_HANDLE_VALUE;
+};

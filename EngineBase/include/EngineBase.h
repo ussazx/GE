@@ -27,14 +27,26 @@ namespace Engine
 #endif
 	};
 
-	struct TerminalNotification
+	struct TerminalImpl
 	{
+		struct FileParser
+		{
+			virtual ~FileParser() {}
+			virtual bool FindFirst(const wchar_t*) = 0;
+			virtual bool FindNext() = 0;
+		};
 		void(*addEvent)(const char* name, int id);
 		void(*flushStdout)(void);
 		void(*flushStderr)(void);
+		void(*setClipboardText)(const wchar_t*);
+		const wchar_t*(*getClipboardText)();
+		FileParser*(*newFileParser)();
+		void(*newDirectory)(const wchar_t*);
+		void(*setCurrentDir)(const wchar_t*);
+		const wchar_t*(*newFileDialog)(const wchar_t* title, const wchar_t* defName, const wchar_t* filter);
 	};
 
-	DECLSPEC void LuaRegister(lua_State* L, const TerminalNotification& n);
+	DECLSPEC void LuaRegister(lua_State* L, const TerminalImpl& n);
 
 	DECLSPEC bool Initialize(const InitParam& param);
 	DECLSPEC void CleanUp();

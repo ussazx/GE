@@ -52,17 +52,26 @@ function NewCommonWindow()
 end
 
 function OnCreateProj()
-	cEntrance:FileDirDialog(_('Create Project'), _("new"), 'Project file (*.proj)|*.proj')
+	local s = cTerminal:NewFileDialog(_('Create Project'), _("new"), '')
+	if (s == nil or s == '') then
+		return
+	end
+	cTerminal:NewDirectory(s)
+	g_projLoc = s
 end
 
 function LoadProj(path, isBin)
-	local o = LoadLuaFile(path, isBin)
-	if (o) then
-		o = o() or {}
+	-- local o = LoadLuaFile(path, isBin)
+	-- if (o) then
+		-- o = o() or {}
 		
-	else
-		Print('error')
-	end
+	-- else
+		-- Print('error')
+	-- end
+	
+	--// parse content and load assets
+	
+	--// Open windows
 end
 
 function NewWindow_CreateProj()

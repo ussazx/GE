@@ -132,9 +132,16 @@ bool MyApp::OnInit()
 	eip.hInst = wxGetInstance();
 	assert(Engine::Initialize(eip));
 
-	Engine::TerminalNotification n{};
+	Engine::TerminalImpl n{};
 	n.addEvent = vmWindow::AddEvent;
 	n.flushStdout = n.flushStderr = FlushStdout;
+	n.getClipboardText = GetClipboardText;
+	n.setClipboardText = SetClipboardText;
+	n.newFileParser = FileParser::New;
+	n.newDirectory = NewDirectory;
+	n.setCurrentDir = SetCurrentDir;
+	n.newFileDialog = NewFileDirDialog;
+
 	Engine::LuaRegister(g_vm->Lua(), n);
 
 	LuaRegGlobalCollected(g_vm);

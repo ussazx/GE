@@ -4,6 +4,10 @@ require 'utility'
 
 g_recorder = Recorder()
 
+g_assets = {}
+
+g_content = {}
+
 -- TargetViewDescs = {view1 = {samples = 1, format = FORMAT}}
 
 -- FrameBufferDesc1 = {rp = '', views = {-1, 1, 2, 3, 4}}

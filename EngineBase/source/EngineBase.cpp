@@ -3,30 +3,71 @@
 
 Graphic* g_graphic;
 
-void(*g_addEvent)(const char* name, int id);
-void(*g_flushStdout)(void);
-void(*g_flushStderr)(void);
+using namespace Engine;
 
-inline void CAddEvent(const char* name, int id)
+struct FileParser
 {
-	if (g_addEvent)
-		g_addEvent(name, id);
-}
-Lua_global_add_cfunc(CAddEvent)
+	FileParser(TerminalImpl::FileParser* parser) : m_parser(parser) {}
+	TerminalImpl::FileParser* m_parser;
 
-inline void CFlushStdout()
-{
-	if (g_flushStdout)
-		g_flushStdout();
-}
-Lua_global_add_cfunc(CFlushStdout)
+	bool FindFirst(LuacObj<CString> path)
+	{
+		return m_parser->FindFirst(path);
+	}
 
-inline void CFlushStderr()
+	bool FindNext()
+	{
+		return m_parser->FindNext();
+	}
+	Lua_wrap_cpp_class(FileParser, Lua_abstract, Lua_mf(FindFirst), Lua_mf(FindNext))
+};
+Lua_global_add_cpp_class(FileParser)
+
+class Terminal
 {
-	if (g_flushStderr)
-		g_flushStderr();
-}
-Lua_global_add_cfunc(CFlushStderr)
+public:
+	void AddEvent(const char* name, int id)
+	{
+		m_impl.addEvent(name, id);
+	}
+	void FlushStdout()
+	{
+		m_impl.flushStdout();
+	}
+	void FlushStderr()
+	{
+		m_impl.flushStderr();
+	}
+	LuacObjNew<FileParser> NewFileParser()
+	{
+		return new FileParser(m_impl.newFileParser());
+	}
+	void SetClipboardText(CString s)
+	{
+		m_impl.setClipboardText(s);
+	}
+	LuacObjNew<CString> GetClipboardText()
+	{
+		auto s = m_impl.getClipboardText();
+		if (s) return new CString(s);
+		return nullptr;
+	}
+	LuacObjNew<CString> NewFileDialog(CString title, CString defName, CString filter)
+	{
+		return new CString(m_impl.newFileDialog(title, defName, filter));
+	}
+	void NewDirectory(CString path)
+	{
+		m_impl.newDirectory(path);
+	}
+
+	TerminalImpl m_impl;
+
+	Lua_wrap_cpp_class(Terminal, Lua_abstract, Lua_mf(AddEvent), Lua_mf(FlushStdout), Lua_mf(FlushStderr), Lua_mf(NewFileParser),
+		Lua_mf(GetClipboardText), Lua_mf(SetClipboardText), Lua_mf(NewFileDialog), Lua_mf(NewDirectory))
+};
+
+Terminal g_terminal;
 
 bool Engine::Initialize(const InitParam& param)
 {
@@ -42,16 +83,16 @@ void Engine::CleanUp()
 	delete Graphic::Vulkan();
 }
 
-void Engine::LuaRegister(lua_State* L, const TerminalNotification& n)
+void Engine::LuaRegister(lua_State* L, const TerminalImpl& ti)
 {
 	LuaState lua(L);
-	g_addEvent = n.addEvent;
-	g_flushStdout = n.flushStdout;
-	g_flushStderr = n.flushStderr;
 	LuaRegGlobalCollected(&lua);
 
 	Graphic::RegisterVulkanDefines(lua);
 	g_graphic = Graphic::Vulkan();
+
+	g_terminal.m_impl = ti;
+	lua.SetValue("cTerminal", Lua_set_cobj(&g_terminal));
 
 #ifdef WIN32
 	lua.SetValue("SCREEN_W", ::GetSystemMetrics(SM_CXSCREEN));

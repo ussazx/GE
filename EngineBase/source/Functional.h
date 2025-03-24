@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <codecvt>
 #include "Generic/Types.h"
 #include "Generic/LuaWrapper/LuaGlobalCollect.h"
 
@@ -19,6 +20,173 @@ inline void DebugLog(const wchar_t* szFmt, ...)
 #define ptr_deref(type, p, offset) *((type*)p + offset)
 
 #define CHECK(a, ret) if (!(a)) return (ret);
+
+class CString : public LuaCustomParam<CString>
+{
+public:
+	CString(const wchar_t* s = L"")
+	{
+		m_text = std::make_shared<std::wstring>(s);
+	}
+	CString(const char* utf8)
+	{
+		m_text = std::make_shared<std::wstring>(m_conv.from_bytes(utf8));
+	}
+	CString(const CString& s)
+	{
+		m_text = s.m_text;
+	}
+	CString(const std::string& utf8)
+	{
+		m_text = std::make_shared<std::wstring>(m_conv.from_bytes(utf8));
+	}
+	CString(const std::wstring& s)
+	{
+		m_text = std::make_shared<std::wstring>(s);
+	}
+	CString(std::wstring&& s) : m_text(std::make_shared<std::wstring>(std::forward<std::wstring>(s))) {}
+
+	const CString& operator = (const char* utf8)
+	{
+		m_text = std::make_shared<std::wstring>(m_conv.from_bytes(utf8));
+	}
+	const CString& operator = (const wchar_t* s)
+	{
+		m_text = std::make_shared<std::wstring>(s);
+	}
+	const CString& operator = (const std::string& utf8)
+	{
+		m_text = std::make_shared<std::wstring>(m_conv.from_bytes(utf8));
+	}
+	const CString& operator = (const std::wstring& s)
+	{
+		m_text = std::make_shared<std::wstring>(s);
+	}
+	const CString& operator = (std::wstring&& s)
+	{
+		m_text = std::make_shared<std::wstring>(std::forward<std::wstring>(s));
+	}
+	const CString& operator = (const CString& s)
+	{
+		m_text = s.m_text;
+	}
+	CString operator + (const CString& s) const
+	{
+		return CString(*m_text + *s.m_text);
+	}
+	const CString& operator += (const CString& s)
+	{
+		if (m_text.use_count() > 1)
+			m_text = std::make_shared<std::wstring>(*m_text + *s.m_text);
+		else
+			*m_text += *s.m_text;
+		return *this;
+	}
+	operator const std::wstring& () const
+	{
+		return *m_text;
+	}
+	operator const wchar_t* () const
+	{
+		return m_text->c_str();
+	}
+	operator const std::string& ()
+	{
+		m_utf8 = m_conv.to_bytes(*m_text);
+		return m_utf8;
+	}
+	operator const char* ()
+	{
+		m_utf8 = m_conv.to_bytes(*m_text);
+		return m_utf8.c_str();
+	}
+
+	const char* ch(size_t n)
+	{
+		m_utf8 = m_conv.to_bytes(m_text->substr(n, 1));
+		return m_utf8.c_str();
+	}
+
+	size_t length() const
+	{
+		return m_text->length();
+	}
+
+	void set(CString s)
+	{
+		if (m_text.use_count() > 1)
+			m_text = std::make_shared<std::wstring>(*s.m_text);
+		else
+			m_text = s.m_text;
+	}
+	const wchar_t* c_str() const
+	{
+		return m_text->c_str();
+	}
+	const char* utf8()
+	{
+		m_utf8 = m_conv.to_bytes(*m_text);
+		return m_utf8.c_str();
+	}
+
+	size_t insert(size_t pos, CString s)
+	{
+		if (m_text.use_count() > 1)
+			m_text = std::make_shared<std::wstring>(*m_text);
+		m_text->insert(pos, s.c_str());
+		return s.length();
+	}
+
+	void erase(size_t pos, size_t count)
+	{
+		if (m_text.use_count() > 1)
+			m_text = std::make_shared<std::wstring>(*m_text);
+		m_text->erase(pos, count);
+	}
+
+	LuacObjNew<CString> substr(size_t pos, size_t count)
+	{
+		return new CString(m_text->substr(pos, count));
+	}
+
+	bool is_same(CString s)
+	{
+		return *m_text == *s.m_text;
+	}
+
+	size_t find(CString s, size_t pos)
+	{
+		return m_text->find(*s.m_text, pos);
+	}
+
+	size_t find_last_of(CString s, size_t pos)
+	{
+		return m_text->find_last_of(*s.m_text, pos);
+	}
+
+	LuacObjNew<CString> clone()
+	{
+		return new CString(*this);
+	}
+
+	Lua_wrap_cpp_class(CString, Lua_ctor(const char*), Lua_mf(clone), Lua_mf(set), Lua_mf(utf8), Lua_mf(length),
+		Lua_mf(ch), Lua_mf(insert), Lua_mf(erase), Lua_mf(substr), Lua_mf(is_same), Lua_mf(find), Lua_mf(find_last_of))
+protected:
+	std::wstring_convert<std::codecvt_utf8<wchar_t>> m_conv;
+	std::shared_ptr<std::wstring> m_text;
+	std::string m_utf8;
+};
+inline CString LuaCustomParam<CString>::GetValue(const LuaIdx& idx)
+{
+	if (idx.Type() == LUA_TSTRING)
+	{
+		const char* s{};
+		idx.GetValue(&s);
+		return s;
+	}
+	return *idx.GetCppObj<CString>();
+}
+Lua_global_add_cpp_class(CString)
 
 //template<typename T0, typename ...T1>
 //static inline void SetValue(void* p, int offset, int n, T1... t)

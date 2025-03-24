@@ -1,8 +1,4 @@
 ﻿  Editor.cpp
   vmWindow.cpp
-  Global.cpp
-d:\vs\ge\generic\luawrapper\luastate.h(407): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(415): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
-d:\vs\ge\generic\luawrapper\luastate.h(439): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
   正在生成代码...
   Editor.vcxproj -> D:\vs\GE\Binaries\output-windows\x64\Debug\Editor.exe

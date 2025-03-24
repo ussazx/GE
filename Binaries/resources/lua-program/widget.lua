@@ -647,17 +647,19 @@ UiText.doClip = false
 
 function UiText:ctor(x, y, s, font)
 	self:SetPos(x, y)
+	self.text = CString('')
 	self:SetText(s, font)
 end
 
 function UiText:SetText(s, font)
 	s = s or ''
 	font = font or uiFont
-	if (self.text ~= s or self.font ~= font) then
-		self.text = s
+	if (not self.text:is_same(s) or self.font ~= font) then
+		self.text:set(s)
 		self.font = font
 		self:SetSize(CMeasureText(s, -1, -1, font), font.fontSize)
 		self.mesh.update = true
+		self:Refresh()
 	end
 end
 
@@ -687,7 +689,7 @@ UiTextInput.doClip = true
 UiTextInput.drawClipRect = true
 
 local function TextInputAssign(a, b)
-	a.text = b.text
+	a.text = b.text:clone()
 	a.font = b.font
 	a.textWidth = b.textWidth
 	a.insertIdx = b.insertIdx
@@ -722,6 +724,8 @@ function UiTextInput:ctor(x, y, w, h, font)
 	self.textWidth = 0
 	self.textOffset = 0
 	self.insertIdx = 0
+	
+	self.text = CString('')
 	self:SetText('', font or uiFont)
 	
 	self.timer = Timer()
@@ -831,7 +835,7 @@ function UiTextInput:OnSized()
 end
 
 function UiTextInput:SelectAll()
-	if (self.text == '') then
+	if (self.text:length() == 0) then
 		return
 	end
 	self.selectedIdx = 0
@@ -893,10 +897,10 @@ function UiTextInput:OnChar(e, c)
 	if (count > 0) then
 		self:RemoveText(idx, count, true)
 	end
-	local w, n
-	self.text, w, n = CTextInsert(self.text, self.insertIdx, c, self.font)
+	
+	local w = CMeasureText(c, -1, -1, self.font)
+	self.insertIdx = self.insertIdx + self.text:insert(self.insertIdx, c)
 	self.textWidth = self.textWidth + w
-	self.insertIdx = self.insertIdx + n
 	self:RestrictCaretPos(self.caret.rect.x + w)
 	self:ClearSelected()
 	
@@ -904,11 +908,12 @@ function UiTextInput:OnChar(e, c)
 end
 
 function UiTextInput:RemoveText(idx, count, recorded)
-	self.text, d = CTextRemove(self.text, idx, count, self.font)
-	if (d == 0) then
+	local s = self.text:substr(idx, count)
+	if (s:length() == 0) then
 		return
 	end
-	
+	self.text:erase(idx, count)
+	local d = CMeasureText(s, -1, -1, self.font)
 	self.textWidth = self.textWidth - d
 	if (self.textOffset + d > 0) then
 		if (self.insertIdx == idx) then
@@ -929,6 +934,7 @@ function UiTextInput:RemoveText(idx, count, recorded)
 	if (recorded == nil) then
 		self:Record()
 	end
+	return s
 end
 
 function UiTextInput:OnKeyDown(e, k)
@@ -1013,13 +1019,18 @@ function UiTextInput:OnAccKey(e, k)
 		local idx, count = self:GetSelectedRange()
 		if (count == 0) then
 		return end
-		CSetClipboardText(CTextSubstr(self.text, idx, count))
+		local s
 		if (k == SYS.VK_CTRL_X) then
-			self:RemoveText(idx, count)
+			s = self:RemoveText(idx, count)
+		else
+			s = self.text:substr(idx, count)
+		end
+		if (s) then
+			cTerminal:SetClipboardText(s)
 		end
 	
 	elseif (k == SYS.VK_CTRL_V) then
-		local s = CGetClipboardText()
+		local s = cTerminal:GetClipboardText()
 		if (s) then
 			self:OnChar(0, s)
 		end
@@ -1051,8 +1062,8 @@ end
 function UiTextInput:SetText(s, font)
 	s = s or ''
 	font = font or uiFont
-	if (self.text ~= s or self.font ~= font) then
-		self.text = s
+	if (not self.text:is_same(s) or self.font ~= font) then
+		self.text:set(s)
 		self.font = font
 		self.insertIdx = 0
 		self.caret:SetSize(1, font.fontSize)

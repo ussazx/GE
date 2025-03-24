@@ -10,14 +10,34 @@ struct LuaIdx : public lua_Idx
 	LuaIdx(const LuaState& s, int idx) : lua_Idx(idx), state(s.Lua()) {}
 	LuaIdx(LuaIdx&& i) : lua_Idx(i.idx), state(i.state.Lua()) {}
 	template<typename ...T>
-	void SetValue(const T&... t)
+	void SetValue(const T&... t) const
 	{
 		state.SetValue(*this, t...);
 	}
 	template<typename ...T>
-	void GetValue(T... t)
+	void GetValue(T... t) const
 	{
 		state.GetValue(*this, t...);
+	}
+	int Type() const
+	{
+		return lua_type(state.Lua(), idx);
+	}
+	template<typename T = void>
+	inline T* GetCppObj() const
+	{
+		auto lua = state.Lua();
+		int n = lua_gettop(lua);
+		Assert(abs(idx) <= lua_gettop(lua));
+
+		lua_pushinteger(lua, 0);
+		lua_gettable(lua, idx);
+		Assert(lua_type(lua, -1) == LUA_TLIGHTUSERDATA);
+
+		void* p{};
+		p = lua_touserdata(lua, -1);
+		lua_pop(lua, 1);
+		return (T*)p;
 	}
 private:
 	LuaState state;
@@ -30,9 +50,17 @@ struct LuacObj
 	operator T* () { return ptr; }
 	template<typename T1>
 	operator T1 () { return (T1)ptr; }
+	T& operator * () { return *ptr; }
 	T* operator -> () { return ptr; }
 	T* ptr;
 	typedef T cObj;
+};
+
+template<typename T>
+struct LuaCustomParam
+{
+	static T GetValue(const LuaIdx&);
+	typedef T LuaCustomType;
 };
 
 template<class C>
@@ -232,13 +260,22 @@ inline void LuaPushRetValue(lua_State *L, const std::tuple<>&) {}
 template<typename T>
 inline typename std::enable_if<std::is_same<LuaIdx, T>::value, T>::type LuaGetValue(lua_State* L, int i)
 {
+	Assert(abs(i) <= lua_gettop(L));
 	return LuaIdx(L, i);
 }
 
 template<class T>
 inline typename T::cObj* LuaGetValue(lua_State* L, int i)
 {
+	Assert(abs(i) <= lua_gettop(L));
 	return LuaGetCppObj<T::cObj>(L, i);
+}
+
+template<class T>
+inline typename T::LuaCustomType LuaGetValue(lua_State* L, int i)
+{
+	Assert(abs(i) <= lua_gettop(L));
+	return T::GetValue(LuaIdx(L, i));
 }
 
 template<typename ...T, size_t... I>
@@ -283,14 +320,37 @@ inline int LuaCallCFunc(lua_State *L, C* c, void(C::*f)(T...), int t, std::index
 	return 0;
 }
 
+template<class C, typename ...T, size_t... I>
+inline int LuaCallCFunc(lua_State *L, C* c, void(C::*f)(T...)const, int t, std::index_sequence<I...>)
+{
+	(c->*f)(LuaGetValue<T>(L, t + I)...);
+	return 0;
+}
+
 template<class C, typename R, typename ...T, size_t... I>
 inline int LuaCallCFunc(lua_State *L, C* c, R(C::*f)(T...), int t, std::index_sequence<I...>)
 {
 	return LuaPushRetValue(L, (c->*f)(LuaGetValue<T>(L, t + I)...));
 }
 
+template<class C, typename R, typename ...T, size_t... I>
+inline int LuaCallCFunc(lua_State *L, C* c, R(C::*f)(T...)const, int t, std::index_sequence<I...>)
+{
+	return LuaPushRetValue(L, (c->*f)(LuaGetValue<T>(L, t + I)...));
+}
+
 template<class C, typename R, typename ...T>
 inline int LuaCallCFunc(lua_State *L, R(C::*f)(T...))
+{
+	const int n = sizeof ...(T);
+	int t = lua_gettop(L) - n;
+	C* c = LuaGetCppObj<C>(L, t++);
+	assert(c);
+	return LuaCallCFunc(L, c, f, t, std::make_index_sequence<n>());
+}
+
+template<class C, typename R, typename ...T>
+inline int LuaCallCFunc(lua_State *L, R(C::*f)(T...)const)
 {
 	const int n = sizeof ...(T);
 	int t = lua_gettop(L) - n;
@@ -307,8 +367,23 @@ inline int LuaCallCFunc(lua_State *L, void(C::*f)(LuaReturn&, T...), int t, std:
 	return ret.Count();
 }
 
+template<class C, typename ...T, size_t... I>
+inline int LuaCallCFunc(lua_State *L, void(C::*f)(LuaReturn&, T...)const, int t, std::index_sequence<I...>)
+{
+	LuaReturn ret(L);
+	f(ret, LuaGetValue<T>(L, t + I)...);
+	return ret.Count();
+}
+
 template<class C, typename ...T>
 inline int LuaCallCFunc(lua_State *L, void(C::*f)(LuaReturn&, T...))
+{
+	const int n = sizeof ...(T);
+	return LuaCallCFunc(L, f, lua_gettop(L) - n + 1, std::make_index_sequence<n>());
+}
+
+template<class C, typename ...T>
+inline int LuaCallCFunc(lua_State *L, void(C::*f)(LuaReturn&, T...)const)
 {
 	const int n = sizeof ...(T);
 	return LuaCallCFunc(L, f, lua_gettop(L) - n + 1, std::make_index_sequence<n>());

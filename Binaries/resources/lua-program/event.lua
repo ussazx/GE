@@ -1,10 +1,11 @@
 ---event---
+require 'utility'
 local i = 0
 function new_event(name)
 	i = i + 1
 	local e = i
-	if (name and CAddEvent) then
-		CAddEvent(name, e)
+	if (name) then
+		cTerminal:AddEvent(name, e)
 	end
 	return e
 end

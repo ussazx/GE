@@ -1,11 +1,9 @@
 ---utility.lua---
-require 'class'
+require 'object'
 
 function Print(...)
 	print(...)
-	if (CFlushStdout) then
-		CFlushStdout()
-	end
+	cTerminal:FlushStdout()
 end
 
 function _(s)
