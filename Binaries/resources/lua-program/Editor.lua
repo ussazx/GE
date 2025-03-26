@@ -52,12 +52,14 @@ function NewCommonWindow()
 end
 
 function OnCreateProj()
-	local s = cTerminal:NewFileDialog(_('Create Project'), _("new"), '')
-	if (s == nil or s == '') then
+	local path = cTerminal:NewFileDialog(_('Create Project'), _("new"), '')
+	if (path:length() == 0) then
 		return
 	end
-	cTerminal:NewDirectory(s)
-	g_projLoc = s
+	cTerminal:NewDirectory(path)
+	local name = path .. path:substr(path:rfind('\\'), -1) .. '.proj'
+	Print(name:utf8())
+	local proj = path:utf8() .. '/'
 end
 
 function LoadProj(path, isBin)

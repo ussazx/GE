@@ -497,7 +497,6 @@ function UiWidget:ctor(x, y, w, h)
 	self.crColor = Color()
 	self.color = Color(255, 255, 255, 255)
 	self.show = true
-	self.fill = true
 	self.gpuClip = false
 	self.renderDisables = {[SubpassId(g_rp0, 1)] = true}
 	
@@ -509,7 +508,7 @@ function UiWidget:ctor(x, y, w, h)
 end
 
 function UiWidget:Refresh()
-	self.fill = true
+	self.mesh.update = true
 	if (self.window) then
 		self.window.update = true
 	end
@@ -647,18 +646,17 @@ UiText.doClip = false
 
 function UiText:ctor(x, y, s, font)
 	self:SetPos(x, y)
-	self.text = CString('')
+	self.text = LString('')
 	self:SetText(s, font)
 end
 
 function UiText:SetText(s, font)
 	s = s or ''
 	font = font or uiFont
-	if (not self.text:is_same(s) or self.font ~= font) then
+	if (self.text ~= s or self.font ~= font) then
 		self.text:set(s)
 		self.font = font
 		self:SetSize(CMeasureText(s, -1, -1, font), font.fontSize)
-		self.mesh.update = true
 		self:Refresh()
 	end
 end
@@ -689,7 +687,7 @@ UiTextInput.doClip = true
 UiTextInput.drawClipRect = true
 
 local function TextInputAssign(a, b)
-	a.text = b.text:clone()
+	a.text = LString(b.text)
 	a.font = b.font
 	a.textWidth = b.textWidth
 	a.insertIdx = b.insertIdx
@@ -725,7 +723,7 @@ function UiTextInput:ctor(x, y, w, h, font)
 	self.textOffset = 0
 	self.insertIdx = 0
 	
-	self.text = CString('')
+	self.text = LString('')
 	self:SetText('', font or uiFont)
 	
 	self.timer = Timer()
@@ -776,7 +774,6 @@ function UiTextInput:ClearSelected()
 	if (self.selectedIdx >= 0) then
 		self.selectedIdx = -1
 		self:Refresh()
-		self.mesh.update = true
 	end
 end
 
@@ -845,7 +842,6 @@ function UiTextInput:SelectAll()
 	self.caret:SetPos(x + self.textOffset, 0)
 	self:HideCaret()
 	self:Refresh()
-	self.mesh.update = true
 end
 
 function UiTextInput:OnMouseDown(e, x)
@@ -1056,13 +1052,12 @@ function UiTextInput:RestrictCaretPos(x, remainCaret)
 	if (remainCaret ~= true) then
 		self:ResetCaret()
 	end
-	self.mesh.update = true
 end
 
 function UiTextInput:SetText(s, font)
 	s = s or ''
 	font = font or uiFont
-	if (not self.text:is_same(s) or self.font ~= font) then
+	if (self.text ~= s or self.font ~= font) then
 		self.text:set(s)
 		self.font = font
 		self.insertIdx = 0

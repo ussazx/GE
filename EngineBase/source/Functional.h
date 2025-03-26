@@ -21,60 +21,96 @@ inline void DebugLog(const wchar_t* szFmt, ...)
 
 #define CHECK(a, ret) if (!(a)) return (ret);
 
-class CString : public LuaCustomParam<CString>
+class LString : public LuaCustomParam<LString>
 {
 public:
-	CString(const wchar_t* s = L"")
+	LString()
+	{
+		m_text = std::make_shared<std::wstring>();
+	}
+	LString(LuaIdx idx)
+	{
+		if (idx.Type() == LUA_TSTRING)
+		{
+			const char* utf8{};
+			idx.GetValue(&utf8);
+			m_cvt = std::make_shared<Cvt>();
+			m_text = std::make_shared<std::wstring>(m_cvt->cvt.from_bytes(utf8));
+		}
+		else
+		{
+			LString* s = idx.GetCppObj<LString>();
+			m_text = s->m_text;
+			m_cvt = s->m_cvt;
+		}
+	}
+	LString(const wchar_t* s = L"")
 	{
 		m_text = std::make_shared<std::wstring>(s);
 	}
-	CString(const char* utf8)
+	LString(const char* utf8)
 	{
-		m_text = std::make_shared<std::wstring>(m_conv.from_bytes(utf8));
+		m_cvt = std::make_shared<Cvt>();
+		m_text = std::make_shared<std::wstring>(m_cvt->cvt.from_bytes(utf8));
 	}
-	CString(const CString& s)
+	LString(const LString& s)
 	{
 		m_text = s.m_text;
 	}
-	CString(const std::string& utf8)
+	LString(LString&& s)
 	{
-		m_text = std::make_shared<std::wstring>(m_conv.from_bytes(utf8));
+		m_text = s.m_text;
+		m_cvt = s.m_cvt;
 	}
-	CString(const std::wstring& s)
+	LString(const std::string& utf8)
+	{
+		m_cvt = std::make_shared<Cvt>();
+		m_text = std::make_shared<std::wstring>(m_cvt->cvt.from_bytes(utf8));
+	}
+	LString(const std::wstring& s)
 	{
 		m_text = std::make_shared<std::wstring>(s);
 	}
-	CString(std::wstring&& s) : m_text(std::make_shared<std::wstring>(std::forward<std::wstring>(s))) {}
+	LString(std::wstring&& s) : m_text(std::make_shared<std::wstring>(std::forward<std::wstring>(s))) {}
 
-	const CString& operator = (const char* utf8)
+	const LString& operator = (const char* utf8)
 	{
-		m_text = std::make_shared<std::wstring>(m_conv.from_bytes(utf8));
+		m_cvt = std::make_shared<Cvt>();
+		m_text = std::make_shared<std::wstring>(m_cvt->cvt.from_bytes(utf8));
 	}
-	const CString& operator = (const wchar_t* s)
-	{
-		m_text = std::make_shared<std::wstring>(s);
-	}
-	const CString& operator = (const std::string& utf8)
-	{
-		m_text = std::make_shared<std::wstring>(m_conv.from_bytes(utf8));
-	}
-	const CString& operator = (const std::wstring& s)
+	const LString& operator = (const wchar_t* s)
 	{
 		m_text = std::make_shared<std::wstring>(s);
 	}
-	const CString& operator = (std::wstring&& s)
+	const LString& operator = (const std::string& utf8)
+	{
+		m_cvt = std::make_shared<Cvt>();
+		m_text = std::make_shared<std::wstring>(m_cvt->cvt.from_bytes(utf8));
+	}
+	const LString& operator = (const std::wstring& s)
+	{
+		m_text = std::make_shared<std::wstring>(s);
+	}
+	const LString& operator = (std::wstring&& s)
 	{
 		m_text = std::make_shared<std::wstring>(std::forward<std::wstring>(s));
 	}
-	const CString& operator = (const CString& s)
+	const LString& operator = (const LString& s)
 	{
 		m_text = s.m_text;
 	}
-	CString operator + (const CString& s) const
+	const LString& operator = (LString&& s)
 	{
-		return CString(*m_text + *s.m_text);
+		m_text = s.m_text;
+		if (m_cvt == nullptr)
+			m_cvt = s.m_cvt;
+		return *this;
 	}
-	const CString& operator += (const CString& s)
+	LString operator + (const LString& s) const
+	{
+		return LString(*m_text + *s.m_text);
+	}
+	const LString& operator += (const LString& s)
 	{
 		if (m_text.use_count() > 1)
 			m_text = std::make_shared<std::wstring>(*m_text + *s.m_text);
@@ -92,19 +128,25 @@ public:
 	}
 	operator const std::string& ()
 	{
-		m_utf8 = m_conv.to_bytes(*m_text);
-		return m_utf8;
+		if (m_cvt == nullptr)
+			m_cvt = std::make_shared<Cvt>();
+		m_cvt->utf8 = m_cvt->cvt.to_bytes(*m_text);
+		return m_cvt->utf8;
 	}
 	operator const char* ()
 	{
-		m_utf8 = m_conv.to_bytes(*m_text);
-		return m_utf8.c_str();
+		if (m_cvt == nullptr)
+			m_cvt = std::make_shared<Cvt>();
+		m_cvt->utf8 = m_cvt->cvt.to_bytes(*m_text);
+		return m_cvt->utf8.c_str();
 	}
 
 	const char* ch(size_t n)
 	{
-		m_utf8 = m_conv.to_bytes(m_text->substr(n, 1));
-		return m_utf8.c_str();
+		if (m_cvt == nullptr)
+			m_cvt = std::make_shared<Cvt>();
+		m_cvt->utf8 = m_cvt->cvt.to_bytes(m_text->substr(n, 1));
+		return m_cvt->utf8.c_str();
 	}
 
 	size_t length() const
@@ -112,12 +154,14 @@ public:
 		return m_text->length();
 	}
 
-	void set(CString s)
+	void set(LString s)
 	{
 		if (m_text.use_count() > 1)
 			m_text = std::make_shared<std::wstring>(*s.m_text);
 		else
 			m_text = s.m_text;
+		if (m_cvt == nullptr and s.m_cvt != nullptr)
+			m_cvt = s.m_cvt;
 	}
 	const wchar_t* c_str() const
 	{
@@ -125,15 +169,16 @@ public:
 	}
 	const char* utf8()
 	{
-		m_utf8 = m_conv.to_bytes(*m_text);
-		return m_utf8.c_str();
+		return *this;
 	}
 
-	size_t insert(size_t pos, CString s)
+	size_t insert(size_t pos, LString s)
 	{
 		if (m_text.use_count() > 1)
 			m_text = std::make_shared<std::wstring>(*m_text);
 		m_text->insert(pos, s.c_str());
+		if (m_cvt == nullptr and s.m_cvt != nullptr)
+			m_cvt = s.m_cvt;
 		return s.length();
 	}
 
@@ -144,39 +189,47 @@ public:
 		m_text->erase(pos, count);
 	}
 
-	LuacObjNew<CString> substr(size_t pos, size_t count)
+	LuacObjNew<LString> substr(size_t pos, size_t count)
 	{
-		return new CString(m_text->substr(pos, count));
+		LString* s = new LString(m_text->substr(pos, count));
+		s->m_cvt = m_cvt;
+		return s;
 	}
 
-	bool is_same(CString s)
+	static LuacObjNew<LString> concat(LString s0, LString s1)
 	{
-		return *m_text == *s.m_text;
+		LString* s = new LString(*s0.m_text + *s1.m_text);
+		s->m_cvt = s0.m_cvt != nullptr ? s0.m_cvt : s1.m_cvt;
+		return s;
 	}
 
-	size_t find(CString s, size_t pos)
+	static bool equal(LString s0, LString s1)
 	{
-		return m_text->find(*s.m_text, pos);
+		return *s0.m_text == *s1.m_text;
 	}
 
-	size_t find_last_of(CString s, size_t pos)
+	size_t find(LString s)
 	{
-		return m_text->find_last_of(*s.m_text, pos);
+		return m_text->find(*s.m_text);
 	}
 
-	LuacObjNew<CString> clone()
+	size_t rfind(LString s)
 	{
-		return new CString(*this);
+		return m_text->rfind(*s.m_text);
 	}
 
-	Lua_wrap_cpp_class(CString, Lua_ctor(const char*), Lua_mf(clone), Lua_mf(set), Lua_mf(utf8), Lua_mf(length),
-		Lua_mf(ch), Lua_mf(insert), Lua_mf(erase), Lua_mf(substr), Lua_mf(is_same), Lua_mf(find), Lua_mf(find_last_of))
+	Lua_wrap_cpp_class(LString, Lua_ctor(LuaIdx), Lua_mf(set), Lua_mf(utf8), Lua_mf(length), Lua_mf(ch), 
+		Lua_mf(insert), Lua_mf(erase), Lua_mf(substr), Lua_mt_mf("__concat", concat), Lua_mt_mf("__eq", equal), Lua_mf(find), Lua_mf(rfind))
 protected:
-	std::wstring_convert<std::codecvt_utf8<wchar_t>> m_conv;
+	struct Cvt
+	{
+		std::wstring_convert<std::codecvt_utf8<wchar_t>> cvt;
+		std::string utf8;
+	};
+	std::shared_ptr<Cvt> m_cvt;
 	std::shared_ptr<std::wstring> m_text;
-	std::string m_utf8;
 };
-inline CString LuaCustomParam<CString>::GetValue(const LuaIdx& idx)
+inline LString LuaCustomParam<LString>::GetValue(const LuaIdx& idx)
 {
 	if (idx.Type() == LUA_TSTRING)
 	{
@@ -184,9 +237,9 @@ inline CString LuaCustomParam<CString>::GetValue(const LuaIdx& idx)
 		idx.GetValue(&s);
 		return s;
 	}
-	return *idx.GetCppObj<CString>();
+	return *idx.GetCppObj<LString>();
 }
-Lua_global_add_cpp_class(CString)
+Lua_global_add_cpp_class(LString)
 
 //template<typename T0, typename ...T1>
 //static inline void SetValue(void* p, int offset, int n, T1... t)

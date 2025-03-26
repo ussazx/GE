@@ -3,7 +3,7 @@
 #include <vector>
 #include <typeinfo>
 
-#define Lua_set_cobj(obj) LuaSub(0, (obj)->LuaClassObj(obj)), LuaSub(1, typeid(decltype(obj)).hash_code()), (obj)->LuaGetMemberFuncs()
+#define Lua_set_cobj(obj) LuaSub(0, (obj)->LuaClassObj(obj)), LuaSub(1, typeid(decltype(obj)).hash_code()), (LuaCustomSet)(obj)->LuaSetClassTable
 
 struct LuaIdx : public lua_Idx
 {
@@ -69,7 +69,7 @@ struct LuacObjNew
 	LuacObjNew(C* obj) : object(obj)
 	{
 		if (obj)
-			set = LuaDataSet(LuaSub(0, obj), LuaSub(1, typeid(C*).hash_code()), LuaSub(LuaMeta(), LuaGet(C::LuaGetName(), LuaMeta(), "class")));
+			set = LuaDataSet(LuaSub(0, obj), LuaSub(1, typeid(C*).hash_code()), LuaSub(LuaMeta(), LuaGet(C::LuaGetName(), "_class")));
 		else
 			set = LuaDataSet(nullptr);
 	}
@@ -77,7 +77,7 @@ struct LuacObjNew
 	LuacObjNew(C* obj, T&&... t) : object(obj)
 	{
 		if (obj)
-			set = LuaDataSet(LuaSub(0, obj), LuaSub(1, typeid(C*).hash_code()), LuaSub(LuaMeta(), LuaGet(C::LuaGetName(), LuaMeta(), "class")), LuaSub(std::forward<T>(t)...));
+			set = LuaDataSet(LuaSub(0, obj), LuaSub(1, typeid(C*).hash_code()), LuaSub(LuaMeta(), LuaGet(C::LuaGetName(), "_class")), LuaSub(std::forward<T>(t)...));
 		else
 			set = LuaDataSet(nullptr);
 	}
@@ -88,7 +88,9 @@ struct LuacObjNew
 
 #define Lua_cf(func) [](lua_State* L){ return LuaCallCFunc(L, func);}
 
-#define Lua_mf(func) {#func, [](lua_State* L){ return LuaCallCFunc(L, &func);}}
+#define Lua_mf(func) LuaSub(#func, [](lua_State* L){ return LuaCallCFunc(L, &func);})
+
+#define Lua_mt_mf(name, func) LuaSub("_class", name, Lua_cf(func))
 
 #define Lua_cpp_class_base_def(cpp_class) \
 typedef cpp_class class_type; \
@@ -100,6 +102,17 @@ static cpp_class* LuaClassObj(T p) \
 static const char* LuaGetName() \
 { \
 	return #cpp_class; \
+}\
+static void LuaSetClassTable(const LuaState&, const lua_Idx&, const std::tuple<>&){} \
+template<typename T> \
+static void LuaSetClassTable(const LuaState& s, const lua_Idx& idx, const std::tuple<T>& t) \
+{\
+	s.SetValue(idx, std::get<0>(t)); \
+}\
+template<typename ...T> \
+static void LuaSetClassTable(const LuaState& s, const lua_Idx& idx, const std::tuple<T...>& t) \
+{\
+	s.SetValue(idx, t); \
 }
 
 #define Lua_abstract \
@@ -117,7 +130,7 @@ static int LuaObjectCtor(lua_State *L) \
 	lua_pushnil(L); \
 	lua_Idx idxOut(lua.GetTop()); \
 	lua.SetValue(idxOut, LuaSub(0, c), LuaSub(1, typeid(class_type).hash_code())); \
-	lua.GetValue(idxIn, LuaMeta(), "class", LuaSetTo(idxOut, LuaMeta())); \
+	lua.GetValue(idxIn, "_class", LuaSetTo(idxOut, LuaMeta())); \
 	return 1; \
 }
 
@@ -129,17 +142,9 @@ static const char* LuaGetBaseName() \
 { \
 	return {}; \
 } \
-static const luaL_Reg* LuaGetMemberFuncs(size_t* n = {}) \
-{ \
-	static std::vector<luaL_Reg> regOut = { __VA_ARGS__ }; \
-	static bool loaded = false; \
-	if (!loaded) \
-	{ \
-		regOut.push_back({}); \
-		loaded = true; \
-	} \
-	if (n) *n = regOut.size() - 1; \
-	return regOut.data(); \
+static void LuaSetClassTable(const LuaState& s, const lua_Idx& idx) \
+{\
+	LuaSetClassTable(s, idx, LuaSub(__VA_ARGS__)); \
 }
 
 #define Lua_wrap_cpp_class_derived(base_class, cpp_class, ctor, ...) \
@@ -150,22 +155,10 @@ static const char* LuaGetBaseName() \
 { \
 	return #base_class; \
 } \
-static const luaL_Reg* LuaGetMemberFuncs(size_t* n = {}) \
-{ \
-	static std::vector<luaL_Reg> regOut = { __VA_ARGS__ }; \
-	static bool loaded = false; \
-	if (!loaded) \
-	{ \
-		size_t n = 0; \
-		const luaL_Reg* regBase = base_class::LuaGetMemberFuncs(&n); \
-		for (size_t i = 0; i < n; i++) \
-			regOut.insert(regOut.begin(), regBase[i]); \
-		\
-		regOut.push_back({}); \
-		loaded = true; \
-	} \
-	if (n) *n = regOut.size() - 1; \
-	return regOut.data(); \
+static void LuaSetClassTable(const LuaState& s, const lua_Idx& idx) \
+{\
+	base_class::LuaSetClassTable(s, idx); \
+	LuaSetClassTable(s, idx, LuaSub(__VA_ARGS__)); \
 }
 
 template<typename T = void>
@@ -405,19 +398,19 @@ inline int LuaObjectDtor(lua_State *L)
 }
 
 inline void LuaRegisterCppClass(LuaState& lua, const char* name, const char* baseName, 
-	lua_CFunction objectCtor, lua_CFunction objectDtor, const luaL_Reg* memberFuncs)
+	lua_CFunction objectCtor, lua_CFunction objectDtor, const LuaCustomSet& setClassTable)
 {
 	if (baseName)
-		lua.GetValue(baseName, LuaSetTo(name, "__base"), LuaSetTo(name, LuaMeta(), "__index"));
+		lua.GetValue(baseName, LuaSetTo(name, "_base"), LuaSetTo(name, "_class", "__index"));
 	if (objectCtor)
 		lua.SetValue(name, LuaMeta(), "__call", objectCtor);
-	lua.SetValue(name, memberFuncs);
-	lua.SetValue(name, LuaMeta(), "class", "__gc", objectDtor);
-	lua.GetValue(name, LuaSetTo(name, LuaMeta(), "class", "__index"));
+	lua.SetValue(name, setClassTable);
+	lua.SetValue(name, "_class", "__gc", objectDtor);
+	lua.GetValue(name, LuaSetTo(name, "_class", "__index"));
 }
 
 template<class T>
 inline void LuaRegisterCppClass(LuaState& lua)
 {
-	LuaRegisterCppClass(lua, T::LuaGetName(), T::LuaGetBaseName(), T::LuaGetObjectCtor(), LuaObjectDtor<T>, T::LuaGetMemberFuncs());
+	LuaRegisterCppClass(lua, T::LuaGetName(), T::LuaGetBaseName(), T::LuaGetObjectCtor(), LuaObjectDtor<T>, T::LuaSetClassTable);
 }

@@ -119,9 +119,17 @@ public:
 
 	void SetValue(const char* k, const LuaCustomSet& cs) const
 	{
-		lua_pushnil(m_lua);
-		cs(*this, lua_Idx(GetTop()));
-		lua_setglobal(m_lua, k);
+		lua_getglobal(m_lua, k);
+		if (lua_type(m_lua, -1) == LUA_TTABLE)
+		{
+			cs(*this, lua_Idx(GetTop()));
+			lua_pop(m_lua, 1);
+		}
+		else
+		{
+			cs(*this, lua_Idx(GetTop()));
+			lua_setglobal(m_lua, k);
+		}
 	}
 
 	void SetValue(const lua_Idx& idx, const LuaCustomSet& cs) const
@@ -315,6 +323,12 @@ public:
 	{
 		SetValue(idx, t0);
 		SetValue(idx, t1);
+	}
+	template<typename ...T>
+	void SetValue(const lua_Idx& idx, const std::tuple<T...>& t, const LuaCustomSet& cs) const
+	{
+		SetValue(idx, t);
+		cs(*this, idx);
 	}
 
 	template<typename ...T>

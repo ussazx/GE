@@ -10,7 +10,7 @@ struct FileParser
 	FileParser(TerminalImpl::FileParser* parser) : m_parser(parser) {}
 	TerminalImpl::FileParser* m_parser;
 
-	bool FindFirst(LuacObj<CString> path)
+	bool FindFirst(LuacObj<LString> path)
 	{
 		return m_parser->FindFirst(path);
 	}
@@ -42,21 +42,21 @@ public:
 	{
 		return new FileParser(m_impl.newFileParser());
 	}
-	void SetClipboardText(CString s)
+	void SetClipboardText(LString s)
 	{
 		m_impl.setClipboardText(s);
 	}
-	LuacObjNew<CString> GetClipboardText()
+	LuacObjNew<LString> GetClipboardText()
 	{
 		auto s = m_impl.getClipboardText();
-		if (s) return new CString(s);
+		if (s) return new LString(s);
 		return nullptr;
 	}
-	LuacObjNew<CString> NewFileDialog(CString title, CString defName, CString filter)
+	LuacObjNew<LString> NewFileDialog(LString title, LString defName, LString filter)
 	{
-		return new CString(m_impl.newFileDialog(title, defName, filter));
+		return new LString(m_impl.newFileDialog(title, defName, filter));
 	}
-	void NewDirectory(CString path)
+	void NewDirectory(LString path)
 	{
 		m_impl.newDirectory(path);
 	}

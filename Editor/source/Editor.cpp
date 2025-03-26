@@ -13,7 +13,8 @@ char g_stdout[BUFSIZ];
 void FlushStdout()
 {
 	fflush(stdout);
-	OutputDebugStringA(g_stdout);
+	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
+	OutputDebugString(conv.from_bytes(g_stdout).c_str());
 	memset(g_stdout, 0, strlen(g_stdout));
 }
 

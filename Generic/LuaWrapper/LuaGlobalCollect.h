@@ -7,14 +7,14 @@ static int lua_nop_##func = LuaRegGlobalCollected(nullptr, { #func, Lua_cf(func)
 
 #define Lua_global_add_cpp_class(cpp_class) \
 static int lua_nop_##cpp_class = LuaRegGlobalCollected(nullptr, {}, #cpp_class, \
-{cpp_class::LuaGetBaseName(), cpp_class::LuaGetObjectCtor(), LuaObjectDtor<cpp_class>, cpp_class::LuaGetMemberFuncs()});
+{cpp_class::LuaGetBaseName(), cpp_class::LuaGetObjectCtor(), LuaObjectDtor<cpp_class>, cpp_class::LuaSetClassTable});
 
 struct LuaCppClassReg
 {
 	const char* baseClass;
 	lua_CFunction objectCtor;
 	lua_CFunction objectDtor;
-	const luaL_Reg* memberFuncs;
+	void(*setClassTable)(const LuaState&, const lua_Idx&);
 };
 
 inline int LuaRegGlobalCollected(LuaState* lua, const luaL_Reg& funcReg = {}, const char* className = {}, const LuaCppClassReg& classReg = {})
@@ -33,7 +33,7 @@ inline int LuaRegGlobalCollected(LuaState* lua, const luaL_Reg& funcReg = {}, co
 			lua->SetValue(it->first, it->second);
 		
 		for (auto it = luaCppClass.begin(); it != luaCppClass.end(); it++)
-			LuaRegisterCppClass(*lua, it->first, it->second.baseClass, it->second.objectCtor, it->second.objectDtor, it->second.memberFuncs);
+			LuaRegisterCppClass(*lua, it->first, it->second.baseClass, it->second.objectCtor, it->second.objectDtor, it->second.setClassTable);
 	}
 	return 0;
 }
