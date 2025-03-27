@@ -1,2 +1,290 @@
-﻿    正在创建库 D:\vs\GE\Binaries\output-windows\x64\Debug\EngineBase.lib 和对象 D:\vs\GE\Binaries\output-windows\x64\Debug\EngineBase.exp
+﻿  EngineBase.cpp
+d:\vs\ge\enginebase\include\engineinterface.h(45): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::StreamInput”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(52): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::StreamOutput”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(88): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::CallStack”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(95): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Registry”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(131): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Font”的左侧
+d:\vs\ge\generic\luawrapper\luastate.h(421): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(429): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(453): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(290): warning C4267: “=”: 从“size_t”转换到“T”，可能丢失数据
+          with
+          [
+              T=uint1
+          ]
+d:\vs\ge\enginebase\source\functional.h(291): warning C4267: “=”: 从“size_t”转换到“T”，可能丢失数据
+          with
+          [
+              T=uint1
+          ]
+d:\vs\ge\enginebase\source\functional.h(305): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(315): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(321): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(332): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\enginebase.cpp(204): warning C4477: “sprintf_s”: 格式字符串“%d”需要类型“int”的参数，但可变参数 1 拥有了类型“size_t”
+  d:\vs\ge\enginebase\source\enginebase.cpp(204): note: 请考虑在格式字符串中使用“%zd”
+d:\vs\ge\enginebase\source\enginebase.cpp(210): warning C4477: “sprintf_s”: 格式字符串“%c”需要类型“int”的参数，但可变参数 1 拥有了类型“size_t”
+d:\vs\ge\enginebase\source\functional.h(189): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+  d:\vs\ge\enginebase\source\functional.h(183): note: 编译 类 模板 成员函数 "T &BufferWriter<T>::operator [](size_t)" 时
+          with
+          [
+              T=uint1
+          ]
+  d:\vs\ge\enginebase\source\functional.h(289): note: 参见对正在编译的函数 模板 实例化“T &BufferWriter<T>::operator [](size_t)”的引用
+          with
+          [
+              T=uint1
+          ]
+  d:\vs\ge\enginebase\source\functional.h(284): note: 参见对正在编译的 类 模板 实例化 "BufferWriter<uint1>" 的引用
+d:\vs\ge\enginebase\source\functional.h(176): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+  d:\vs\ge\enginebase\source\functional.h(171): note: 编译 类 模板 成员函数 "BufferWriter<uint1>::BufferWriter(CBuffer &,size_t,int)" 时
+  d:\vs\ge\enginebase\source\functional.h(284): note: 参见对正在编译的函数 模板 实例化“BufferWriter<uint1>::BufferWriter(CBuffer &,size_t,int)”的引用
+d:\vs\ge\generic\luawrapper\luafunctional.h(114): warning C4244: “return”: 从“lua_Integer”转换到“unsigned int”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(387): note: 参见对正在编译的函数 模板 实例化“unsigned int LuaGetValue<uint32_t>(lua_State *,int)”的引用
+  d:\vs\ge\enginebase\source\functional.h(144): note: 参见对正在编译的函数 模板 实例化“C *LuaCallConstructor<CMBuffer::class_type,uint32_t,0>(lua_State *,int,std::integer_sequence<unsigned __int64,0>)”的引用
+          with
+          [
+              C=CMBuffer::class_type
+          ]
+d:\vs\ge\generic\luawrapper\luawrapper.h(296): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(304): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<LuacObj<Engine::StreamInput>,0>(lua_State *,void (__cdecl *)(LuaReturn &,LuacObj<Engine::StreamInput>),int,std::integer_sequence<unsigned __int64,0>)”的引用
+  d:\vs\ge\enginebase\source\functional.h(360): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<LuacObj<Engine::StreamInput>>(lua_State *,void (__cdecl *)(LuaReturn &,LuacObj<Engine::StreamInput>))”的引用
+d:\vs\ge\generic\luawrapper\luafunctional.h(114): warning C4244: “return”: 从“lua_Integer”转换到“int”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(276): note: 参见对正在编译的函数 模板 实例化“int LuaGetValue<int>(lua_State *,int)”的引用
+  d:\vs\ge\generic\luawrapper\luawrapper.h(289): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<LuacObj<CBuffer>,int,int,float,0,1,2,3>(lua_State *,void (__cdecl *)(LuacObj<CBuffer>,int,int,float),int,std::integer_sequence<unsigned __int64,0,1,2,3>)”的引用
+  d:\vs\ge\enginebase\source\functional.h(216): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<void,LuacObj<CBuffer>,int,int,float>(lua_State *,R (__cdecl *)(LuacObj<CBuffer>,int,int,float))”的引用
+          with
+          [
+              R=void
+          ]
+d:\vs\ge\generic\luawrapper\luafunctional.h(122): warning C4244: “return”: 从“lua_Number”转换到“float”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(276): note: 参见对正在编译的函数 模板 实例化“float LuaGetValue<float>(lua_State *,int)”的引用
+  EngineInterface.cpp
+d:\vs\ge\enginebase\include\engineinterface.h(88): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::CallStack”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(95): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Registry”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(131): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Font”的左侧
+d:\vs\ge\generic\luawrapper\luastate.h(421): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(429): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(453): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
+  GraphicVulkan.cpp
+d:\vs\ge\enginebase\include\engineinterface.h(45): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::StreamInput”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(52): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::StreamOutput”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(88): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::CallStack”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(95): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Registry”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(131): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Font”的左侧
+d:\vs\ge\generic\luawrapper\luastate.h(421): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(429): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(453): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(290): warning C4267: “=”: 从“size_t”转换到“T”，可能丢失数据
+          with
+          [
+              T=uint1
+          ]
+d:\vs\ge\enginebase\source\functional.h(291): warning C4267: “=”: 从“size_t”转换到“T”，可能丢失数据
+          with
+          [
+              T=uint1
+          ]
+d:\vs\ge\enginebase\source\functional.h(305): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(315): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(321): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(332): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\paramvulkan.h(134): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\paramvulkan.h(225): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\paramvulkan.h(358): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\paramvulkan.h(374): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(123): warning C4267: “初始化”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(248): warning C4244: “=”: 从“VkDeviceSize”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(269): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(302): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(304): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(306): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(340): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(403): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(637): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(688): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(696): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(707): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(792): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(802): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\graphicvulkan.cpp(1168): warning C4309: “=”: 截断常量值
+d:\vs\ge\enginebase\source\functional.h(189): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+  d:\vs\ge\enginebase\source\functional.h(183): note: 编译 类 模板 成员函数 "T &BufferWriter<T>::operator [](size_t)" 时
+          with
+          [
+              T=uint1
+          ]
+  d:\vs\ge\enginebase\source\functional.h(289): note: 参见对正在编译的函数 模板 实例化“T &BufferWriter<T>::operator [](size_t)”的引用
+          with
+          [
+              T=uint1
+          ]
+  d:\vs\ge\enginebase\source\functional.h(284): note: 参见对正在编译的 类 模板 实例化 "BufferWriter<uint1>" 的引用
+d:\vs\ge\enginebase\source\functional.h(176): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+  d:\vs\ge\enginebase\source\functional.h(171): note: 编译 类 模板 成员函数 "BufferWriter<uint1>::BufferWriter(CBuffer &,size_t,int)" 时
+  d:\vs\ge\enginebase\source\functional.h(284): note: 参见对正在编译的函数 模板 实例化“BufferWriter<uint1>::BufferWriter(CBuffer &,size_t,int)”的引用
+d:\vs\ge\generic\luawrapper\luafunctional.h(114): warning C4244: “return”: 从“lua_Integer”转换到“unsigned int”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(387): note: 参见对正在编译的函数 模板 实例化“unsigned int LuaGetValue<uint32_t>(lua_State *,int)”的引用
+  d:\vs\ge\enginebase\source\functional.h(144): note: 参见对正在编译的函数 模板 实例化“C *LuaCallConstructor<CMBuffer::class_type,uint32_t,0>(lua_State *,int,std::integer_sequence<unsigned __int64,0>)”的引用
+          with
+          [
+              C=CMBuffer::class_type
+          ]
+d:\vs\ge\generic\luawrapper\luawrapper.h(296): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(304): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<LuacObj<Engine::StreamInput>,0>(lua_State *,void (__cdecl *)(LuaReturn &,LuacObj<Engine::StreamInput>),int,std::integer_sequence<unsigned __int64,0>)”的引用
+  d:\vs\ge\enginebase\source\functional.h(360): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<LuacObj<Engine::StreamInput>>(lua_State *,void (__cdecl *)(LuaReturn &,LuacObj<Engine::StreamInput>))”的引用
+d:\vs\ge\generic\luawrapper\luafunctional.h(114): warning C4244: “return”: 从“lua_Integer”转换到“int”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(276): note: 参见对正在编译的函数 模板 实例化“int LuaGetValue<int>(lua_State *,int)”的引用
+  d:\vs\ge\generic\luawrapper\luawrapper.h(289): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<LuacObj<CBuffer>,int,int,float,0,1,2,3>(lua_State *,void (__cdecl *)(LuacObj<CBuffer>,int,int,float),int,std::integer_sequence<unsigned __int64,0,1,2,3>)”的引用
+  d:\vs\ge\enginebase\source\functional.h(216): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<void,LuacObj<CBuffer>,int,int,float>(lua_State *,R (__cdecl *)(LuacObj<CBuffer>,int,int,float))”的引用
+          with
+          [
+              R=void
+          ]
+d:\vs\ge\generic\luawrapper\luafunctional.h(122): warning C4244: “return”: 从“lua_Number”转换到“float”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(276): note: 参见对正在编译的函数 模板 实例化“float LuaGetValue<float>(lua_State *,int)”的引用
+  ParamVulkan.cpp
+d:\vs\ge\enginebase\include\engineinterface.h(45): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::StreamInput”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(52): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::StreamOutput”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(88): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::CallStack”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(95): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Registry”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(131): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Font”的左侧
+d:\vs\ge\generic\luawrapper\luastate.h(421): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(429): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(453): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(290): warning C4267: “=”: 从“size_t”转换到“T”，可能丢失数据
+          with
+          [
+              T=uint1
+          ]
+d:\vs\ge\enginebase\source\functional.h(291): warning C4267: “=”: 从“size_t”转换到“T”，可能丢失数据
+          with
+          [
+              T=uint1
+          ]
+d:\vs\ge\enginebase\source\functional.h(305): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(315): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(321): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(332): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\paramvulkan.h(134): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\paramvulkan.h(225): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\paramvulkan.h(358): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\graphic\paramvulkan.h(374): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(189): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+  d:\vs\ge\enginebase\source\functional.h(183): note: 编译 类 模板 成员函数 "T &BufferWriter<T>::operator [](size_t)" 时
+          with
+          [
+              T=uint1
+          ]
+  d:\vs\ge\enginebase\source\functional.h(289): note: 参见对正在编译的函数 模板 实例化“T &BufferWriter<T>::operator [](size_t)”的引用
+          with
+          [
+              T=uint1
+          ]
+  d:\vs\ge\enginebase\source\functional.h(284): note: 参见对正在编译的 类 模板 实例化 "BufferWriter<uint1>" 的引用
+d:\vs\ge\enginebase\source\functional.h(176): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+  d:\vs\ge\enginebase\source\functional.h(171): note: 编译 类 模板 成员函数 "BufferWriter<uint1>::BufferWriter(CBuffer &,size_t,int)" 时
+  d:\vs\ge\enginebase\source\functional.h(284): note: 参见对正在编译的函数 模板 实例化“BufferWriter<uint1>::BufferWriter(CBuffer &,size_t,int)”的引用
+d:\vs\ge\generic\luawrapper\luafunctional.h(114): warning C4244: “return”: 从“lua_Integer”转换到“unsigned int”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(387): note: 参见对正在编译的函数 模板 实例化“unsigned int LuaGetValue<uint32_t>(lua_State *,int)”的引用
+  d:\vs\ge\enginebase\source\functional.h(144): note: 参见对正在编译的函数 模板 实例化“C *LuaCallConstructor<CMBuffer::class_type,uint32_t,0>(lua_State *,int,std::integer_sequence<unsigned __int64,0>)”的引用
+          with
+          [
+              C=CMBuffer::class_type
+          ]
+d:\vs\ge\generic\luawrapper\luawrapper.h(296): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(304): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<LuacObj<Engine::StreamInput>,0>(lua_State *,void (__cdecl *)(LuaReturn &,LuacObj<Engine::StreamInput>),int,std::integer_sequence<unsigned __int64,0>)”的引用
+  d:\vs\ge\enginebase\source\functional.h(360): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<LuacObj<Engine::StreamInput>>(lua_State *,void (__cdecl *)(LuaReturn &,LuacObj<Engine::StreamInput>))”的引用
+d:\vs\ge\generic\luawrapper\luafunctional.h(114): warning C4244: “return”: 从“lua_Integer”转换到“int”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(276): note: 参见对正在编译的函数 模板 实例化“int LuaGetValue<int>(lua_State *,int)”的引用
+  d:\vs\ge\generic\luawrapper\luawrapper.h(289): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<LuacObj<CBuffer>,int,int,float,0,1,2,3>(lua_State *,void (__cdecl *)(LuacObj<CBuffer>,int,int,float),int,std::integer_sequence<unsigned __int64,0,1,2,3>)”的引用
+  d:\vs\ge\enginebase\source\functional.h(216): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<void,LuacObj<CBuffer>,int,int,float>(lua_State *,R (__cdecl *)(LuacObj<CBuffer>,int,int,float))”的引用
+          with
+          [
+              R=void
+          ]
+d:\vs\ge\generic\luawrapper\luafunctional.h(122): warning C4244: “return”: 从“lua_Number”转换到“float”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(276): note: 参见对正在编译的函数 模板 实例化“float LuaGetValue<float>(lua_State *,int)”的引用
+  Font.cpp
+d:\vs\ge\enginebase\include\engineinterface.h(45): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::StreamInput”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(52): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::StreamOutput”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(88): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::CallStack”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(95): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Registry”的左侧
+d:\vs\ge\enginebase\include\engineinterface.h(131): warning C4091: “extern __declspec(dllexport)”: 没有声明变量时忽略“Engine::Font”的左侧
+d:\vs\ge\generic\luawrapper\luastate.h(421): warning C4244: “=”: 从“lua_Integer”转换到“int”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(429): warning C4244: “=”: 从“lua_Integer”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\generic\luawrapper\luastate.h(453): warning C4244: “=”: 从“lua_Number”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(290): warning C4267: “=”: 从“size_t”转换到“T”，可能丢失数据
+          with
+          [
+              T=uint1
+          ]
+d:\vs\ge\enginebase\source\functional.h(291): warning C4267: “=”: 从“size_t”转换到“T”，可能丢失数据
+          with
+          [
+              T=uint1
+          ]
+d:\vs\ge\enginebase\source\functional.h(305): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(315): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(321): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\functional.h(332): warning C4267: “=”: 从“size_t”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(18): warning C4244: “初始化”: 从“const int”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(19): warning C4244: “初始化”: 从“const int”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(52): warning C4244: “=”: 从“int”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(53): warning C4244: “=”: 从“uint32_t”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(56): warning C4244: “=”: 从“int”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(57): warning C4244: “=”: 从“uint32_t”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(60): warning C4244: “=”: 从“int”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(61): warning C4244: “=”: 从“uint32_t”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(64): warning C4244: “=”: 从“int”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(65): warning C4244: “=”: 从“uint32_t”转换到“float”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(91): warning C4018: “>”: 有符号/无符号不匹配
+d:\vs\ge\enginebase\source\resource\font.cpp(101): warning C4018: “>”: 有符号/无符号不匹配
+d:\vs\ge\enginebase\source\resource\font.cpp(111): warning C4018: “>”: 有符号/无符号不匹配
+d:\vs\ge\enginebase\source\resource\font.cpp(119): warning C4244: “初始化”: 从“float”转换到“uint32_t”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(121): warning C4018: “<”: 有符号/无符号不匹配
+d:\vs\ge\enginebase\source\resource\font.cpp(157): warning C4244: “+=”: 从“float”转换到“int”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(195): warning C4244: “+=”: 从“float”转换到“int”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(219): warning C4244: “=”: 从“float”转换到“int”，可能丢失数据
+d:\vs\ge\enginebase\source\resource\font.cpp(231): warning C4267: “=”: 从“size_t”转换到“_Ty”，可能丢失数据
+          with
+          [
+              _Ty=uint16_t
+          ]
+d:\vs\ge\enginebase\source\functional.h(189): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+  d:\vs\ge\enginebase\source\functional.h(183): note: 编译 类 模板 成员函数 "T &BufferWriter<T>::operator [](size_t)" 时
+          with
+          [
+              T=uint1
+          ]
+  d:\vs\ge\enginebase\source\functional.h(289): note: 参见对正在编译的函数 模板 实例化“T &BufferWriter<T>::operator [](size_t)”的引用
+          with
+          [
+              T=uint1
+          ]
+  d:\vs\ge\enginebase\source\functional.h(284): note: 参见对正在编译的 类 模板 实例化 "BufferWriter<uint1>" 的引用
+d:\vs\ge\enginebase\source\functional.h(176): warning C4267: “参数”: 从“size_t”转换到“uint32_t”，可能丢失数据
+  d:\vs\ge\enginebase\source\functional.h(171): note: 编译 类 模板 成员函数 "BufferWriter<uint1>::BufferWriter(CBuffer &,size_t,int)" 时
+  d:\vs\ge\enginebase\source\functional.h(284): note: 参见对正在编译的函数 模板 实例化“BufferWriter<uint1>::BufferWriter(CBuffer &,size_t,int)”的引用
+d:\vs\ge\generic\luawrapper\luafunctional.h(114): warning C4244: “return”: 从“lua_Integer”转换到“unsigned int”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(387): note: 参见对正在编译的函数 模板 实例化“unsigned int LuaGetValue<uint32_t>(lua_State *,int)”的引用
+  d:\vs\ge\enginebase\source\functional.h(144): note: 参见对正在编译的函数 模板 实例化“C *LuaCallConstructor<CMBuffer::class_type,uint32_t,0>(lua_State *,int,std::integer_sequence<unsigned __int64,0>)”的引用
+          with
+          [
+              C=CMBuffer::class_type
+          ]
+d:\vs\ge\generic\luawrapper\luawrapper.h(296): warning C4267: “return”: 从“size_t”转换到“int”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(304): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<LuacObj<Engine::StreamInput>,0>(lua_State *,void (__cdecl *)(LuaReturn &,LuacObj<Engine::StreamInput>),int,std::integer_sequence<unsigned __int64,0>)”的引用
+  d:\vs\ge\enginebase\source\functional.h(360): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<LuacObj<Engine::StreamInput>>(lua_State *,void (__cdecl *)(LuaReturn &,LuacObj<Engine::StreamInput>))”的引用
+d:\vs\ge\generic\luawrapper\luafunctional.h(114): warning C4244: “return”: 从“lua_Integer”转换到“int”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(276): note: 参见对正在编译的函数 模板 实例化“int LuaGetValue<int>(lua_State *,int)”的引用
+  d:\vs\ge\generic\luawrapper\luawrapper.h(289): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<LuacObj<CBuffer>,int,int,float,0,1,2,3>(lua_State *,void (__cdecl *)(LuacObj<CBuffer>,int,int,float),int,std::integer_sequence<unsigned __int64,0,1,2,3>)”的引用
+  d:\vs\ge\enginebase\source\functional.h(216): note: 参见对正在编译的函数 模板 实例化“int LuaCallCFunc<void,LuacObj<CBuffer>,int,int,float>(lua_State *,R (__cdecl *)(LuacObj<CBuffer>,int,int,float))”的引用
+          with
+          [
+              R=void
+          ]
+d:\vs\ge\generic\luawrapper\luafunctional.h(122): warning C4244: “return”: 从“lua_Number”转换到“float”，可能丢失数据
+  d:\vs\ge\generic\luawrapper\luawrapper.h(276): note: 参见对正在编译的函数 模板 实例化“float LuaGetValue<float>(lua_State *,int)”的引用
+  正在生成代码...
   EngineBase.vcxproj -> D:\vs\GE\Binaries\output-windows\x64\Debug\EngineBase.dll

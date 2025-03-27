@@ -1,6 +1,6 @@
 #define INTERFACE_IMPLEMENT
 #include "EngineInterface.h"
-#include "Generic/LuaWrapper/LuaGlobalCollect.h"
+#include "Generic/LuaWrapper/LuaUtility.h"
 #include <fstream>
 #include <codecvt>
 
@@ -26,6 +26,16 @@ namespace Engine
 	};
 	Lua_global_add_cpp_class(StreamInput);
 
+	class StreamOutput
+	{
+	public:
+		virtual ~StreamOutput() {};
+		virtual bool IsValid() = 0;
+		virtual bool OutputUtf8(const char* str) = 0;
+		Lua_wrap_cpp_class(StreamOutput, Lua_abstract, Lua_mf(IsValid), Lua_mf(OutputUtf8))
+	};
+	Lua_global_add_cpp_class(StreamOutput);
+
 	class FileInput : public StreamInput
 	{
 	public:
@@ -34,14 +44,13 @@ namespace Engine
 			Close();
 		}
 
-		bool Open(const char* fileName, bool isBinary)
+		bool Open(LString fileName, bool isBinary)
 		{
 			m_size = 0;
 			m_data.clear();
 			if (m_ifs.is_open())
 				m_ifs.close();
-			std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-			m_ifs.open(conv.from_bytes(fileName).c_str(), isBinary ? std::ios::binary : 1);
+			m_ifs.open(fileName.c_str(), isBinary ? std::ios::binary : 1);
 			return m_ifs.is_open();
 		}
 
@@ -122,4 +131,51 @@ namespace Engine
 		return new FileInput;
 	}
 	Lua_global_add_cfunc(CNewFileInput);
+
+	class FileOutput : public StreamOutput
+	{
+	public:
+		~FileOutput()
+		{
+			Close();
+		}
+
+		bool Open(LString fileName, bool isBinary)
+		{
+			m_size = 0;
+			m_data.clear();
+			if (m_ofs.is_open())
+				m_ofs.close();
+			m_ofs.open(fileName.c_str(), (isBinary ? std::ios::binary : 0) | std::ios::out);
+			return m_ofs.is_open();
+		}
+
+		void Close()
+		{
+			if (m_ofs.is_open())
+				m_ofs.close();
+		}
+
+		bool IsValid() override
+		{
+			return m_ofs.is_open();
+		}
+		bool OutputUtf8(const char* buff) override
+		{
+			return m_ofs.write(buff, strlen(buff)).good();
+		}
+
+		Lua_wrap_cpp_class_derived(StreamOutput, FileOutput, Lua_abstract, Lua_mf(Open), Lua_mf(Close));
+	private:
+		std::vector<char> m_data;
+		uint64_t m_size{};
+		std::ofstream m_ofs;
+	};
+	Lua_global_add_cpp_class(FileOutput);
+
+	LuacObjNew<FileOutput> CNewFileOutput()
+	{
+		return new FileOutput;
+	}
+	Lua_global_add_cfunc(CNewFileOutput)
 };

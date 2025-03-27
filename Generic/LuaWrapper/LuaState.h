@@ -1,5 +1,5 @@
 #pragma once
-#include "LuaUtils.h"
+#include "LuaFunctional.h"
 #include <vector>
 #include <functional>
 

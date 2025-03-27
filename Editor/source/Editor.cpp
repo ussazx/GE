@@ -145,7 +145,7 @@ bool MyApp::OnInit()
 
 	Engine::LuaRegister(g_vm->Lua(), n);
 
-	LuaRegGlobalCollected(g_vm);
+	LuaRegGlobalReflected(g_vm);
 
 	g_vm->Run("BB.ff(nil, 1)");
 

@@ -58,11 +58,14 @@ function OnCreateProj()
 	end
 	cTerminal:NewDirectory(path)
 	local name = path .. path:substr(path:rfind('\\'), -1) .. '.proj'
-	Print(name:utf8())
-	local proj = path:utf8() .. '/'
+	local f = CNewFileOutput()
+	f:Open(name, true)
+	--f:OutputUtf8('')
+	f:Close()
+	cTerminal:NewDirectory(path .. '\\Assets')
 end
 
-function LoadProj(path, isBin)
+function LoadProj(path)
 	-- local o = LoadLuaFile(path, isBin)
 	-- if (o) then
 		-- o = o() or {}

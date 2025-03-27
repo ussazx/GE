@@ -1,6 +1,6 @@
 #pragma once
 #include "EngineBase.h"
-#include "Generic/LuaWrapper/LuaGlobalCollect.h"
+#include "Generic/LuaWrapper/LuaGlobalReflect.h"
 
 void FlushStdout();
 

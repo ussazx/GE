@@ -86,7 +86,7 @@ void Engine::CleanUp()
 void Engine::LuaRegister(lua_State* L, const TerminalImpl& ti)
 {
 	LuaState lua(L);
-	LuaRegGlobalCollected(&lua);
+	LuaRegGlobalReflected(&lua);
 
 	Graphic::RegisterVulkanDefines(lua);
 	g_graphic = Graphic::Vulkan();

@@ -43,8 +43,16 @@ namespace Engine
 			return missingFail && n < sizeof(T) ? 0 : n;
 		}
 	};
+	DECLSPEC class StreamOutput
+	{
+	public:
+		virtual ~StreamOutput() {};
+		virtual bool IsValid() = 0;
+		virtual bool OutputUtf8(const char* str) = 0;
+	};
 #else
 	class StreamInput;
+	class StreamOutput;
 #endif
 
 	enum ValueType
