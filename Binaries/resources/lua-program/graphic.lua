@@ -84,8 +84,7 @@ function Command.New()
 	return cmd
 end
 
-function Command:Flip()
-	self.rIdx = ~self.rIdx & 1
+function Command:Prepare()
 	for _, v in pairs(g_vtxInput) do
 		local o = v[self]
 		for k, _ in pairs(o.wp) do
@@ -94,12 +93,16 @@ function Command:Flip()
 	end
 end
 
-function Command:PrepareRender()
+function Command:WaitFinish()
 	self:Wait()
 	if (self.rb.updated) then
 		CBufferCopy(self.rb.mb, 0, self.rb.pos, self.rb.gb, 0)
 		self.updated = false
 	end
+end
+
+function Command:Flip()
+	self.rIdx = ~self.rIdx & 1 
 end
 
 function Command.Recycle(cmd)
@@ -245,7 +248,7 @@ function DrawcallList:SetupDrawcalls()
 			cmd:SetVertexBuffers(v, k)
 		end
 		if (dc.mainSlot) then
-			cmd:SetVertexBuffers(dc.mainVbSet[cmd][cmd.rIdx].vbSet, dc.mainSlot)
+			cmd:SetVertexBuffers(dc.mainVbSet, dc.mainSlot)
 		end
 		cmd:DrawIndexedIndirect(dc.pl, self.ib, self.indBuf, dc.indStart, dc.indCount)
 	end
@@ -254,7 +257,7 @@ end
 
 function DrawcallList:SetPipeline(pl, vtxInput, slot)
 	self.c.pl = pl
-	self.c.mainVbSet = vtxInput
+	self.c.mainVbSet = vtxInput[self.cmd][self.cmd.rIdx].vbSet
 	self.c.mainSlot = slot
 	self.vbArg = self.vbArgs[vtxInput] or {idxStart = 0, idxAddOn = 0}
 	self.vbArgs[vtxInput] = self.vbArg
@@ -508,8 +511,6 @@ end
 function Mesh:Render(disables)
 	self.vwp = self.mtl.vtxInput[g_cmd].wp
 	self:render(disables or {})
-	DrawcallList.cr = DrawcallList.dcr
-	DrawcallList.vp = DrawcallList.dvp
 end
 
 ---FramePipeline---
@@ -531,15 +532,13 @@ function FramePipeline:UpdateLayouts()
 	for param, dcLists in pairs(self.foParams) do
 		local layout = param.layout
 		DrawcallList.vp = layout.rect
-		DrawcallList.dvp = layout.rect
 		DrawcallList.cr = layout.rect
-		DrawcallList.dcr = layout.rect
 		
 		for _, dcList in pairs(dcLists) do
 			dcList:Reset()
 		end
 		g_dcLists = dcLists
-		layout:Update()
+		layout:Update(layout.cpuClip, layout.rect)
 	end
 end
 

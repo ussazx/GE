@@ -38,9 +38,11 @@ function Widget2D:AddChild(widget, ...)
 	if (self.window) then
 		self.window.update = true
 	end
-	if (self.OnAddChild) then
-		return self:OnAddChild(widget, ...)
-	end
+	return self:OnAddChild(widget, ...)
+end
+
+function Widget2D:OnAddChild(w, x, y)
+	w:SetPos(x, y)
 end
 
 function Widget2D:RemoveChild(widget)
@@ -486,18 +488,18 @@ UiWidget = class(Widget2D)
 UiWidget.pipeline = g_plUi
 UiWidget.font = uiFont
 UiWidget.cached = false
-UiWidget.doClip = true
+UiWidget.cpuClip = true
+UiWidget.gpuClip = false
 UiWidget.bakeCount = 4
 UiWidget.writeId = true
 UiWidget.drawClipRect = false
 UiWidget.acceptFocus = true
+UiWidget.show = true
 
-function UiWidget:ctor(x, y, w, h)
-	self.rect:set(x, y, w, h)
+function UiWidget:ctor(w, h)
+	self.rect:set(0, 0, w, h)
 	self.crColor = Color()
 	self.color = Color(255, 255, 255, 255)
-	self.show = true
-	self.gpuClip = false
 	self.renderDisables = {[SubpassId(g_rp0, 1)] = true}
 	
 	self.mesh = Mesh(self.FillVB, self.FillIB, self, self.cached, 1|2|4)
@@ -549,12 +551,12 @@ function UiWidget:FillClipRectIB(ib, ib_start, wp)
 	return CAddConvexPolyIndex(ib, wp, 1, ib_start, 4)
 end
 
-function UiWidget:DoUpdate(gpuClip, cr)
+function UiWidget:DoUpdate(cpuClip, cr)
 	local crNew
 	local crCpu
-	if (self.doClip) then
+	if (self.cpuClip or self.gpuClip) then
 		crNew = Rect(self.location.x, self.location.y, self.rect.w, self.rect.h)
-		if (cr ~= nil and ((gpuClip and self.gpuClip) or not gpuClip)) then
+		if (cr ~= nil and (cpuClip or self.gpuClip)) then
 			crNew = crNew:intersect(cr)
 			if (crNew == nil) then
 				self.abortUpdate = true
@@ -565,11 +567,11 @@ function UiWidget:DoUpdate(gpuClip, cr)
 			DrawcallList.cr = crNew
 		else
 			crCpu = crNew
-			if (cr and gpuClip) then
+			if (cr and not cpuClip) then
 				DrawcallList.cr = cr
 			end
 		end
-	elseif (not gpuClip) then
+	elseif (cpuClip) then
 		crCpu = cr
 	elseif (cr) then
 		DrawcallList.cr = cr
@@ -586,27 +588,27 @@ function UiWidget:DoUpdate(gpuClip, cr)
 		d = self.renderDisables
 	end
 	
-	if (self.doClip and self.drawClipRect) then
+	if (self.drawClipRect) then
 		self.rcMesh:Render(d)
 	end
 	self.mesh.update = changed
 	self.mesh:Render(d)
 	
-	if (self.doClip) then
-		return self.gpuClip, crNew
+	if (self.cpuClip or self.gpuClip) then
+		return self.cpuClip, crNew
 	end
-	return gpuClip, cr
+	return cpuClip, cr
 end
 
 -----Button-----
 UiButton = class(UiWidget)
 
-function UiButton:ctor(x, y, w, h, s, font)
+function UiButton:ctor(w, h, s, font)
 	self.color:set(70, 70, 70, 255)
-	self.rect:set(x, y, w, h)
+	self.rect:set(0, 0, w, h)
 	self.layout = BoxLayout()
 	self:AddChild(self.layout)
-	self.text = UiText(0, 0, s, font)
+	self.text = UiText(s, font)
 	self.text.writeId = false
 	self.layout:AddChild(self.text, 1)
 	
@@ -642,10 +644,9 @@ end
 -----Text-----
 UiText = class(UiWidget)
 UiText.cached = true
-UiText.doClip = false
+UiText.cpuClip = false
 
-function UiText:ctor(x, y, s, font)
-	self:SetPos(x, y)
+function UiText:ctor(s, font)
 	self.text = LString('')
 	self:SetText(s, font)
 end
@@ -683,7 +684,7 @@ end
 -----TextInput-----
 UiTextInput = class(UiWidget)
 UiTextInput.cached = true
-UiTextInput.doClip = true
+UiTextInput.cpuClip = true
 UiTextInput.drawClipRect = true
 
 local function TextInputAssign(a, b)
@@ -705,8 +706,8 @@ local function TextInputAssign(a, b)
 	end
 end
 
-function UiTextInput:ctor(x, y, w, h, font)
-	self.rect:set(x, y, w, h)
+function UiTextInput:ctor(w, h, font)
+	self.rect:set(0, 0, w, h)
 	
 	self.crColor:set(100, 100, 100, 100)
 	self.selectedColor = Color(0, 130, 255, 100)
@@ -1022,11 +1023,11 @@ function UiTextInput:OnAccKey(e, k)
 			s = self.text:substr(idx, count)
 		end
 		if (s) then
-			cTerminal:SetClipboardText(s)
+			cTerminal.SetClipboardText(s)
 		end
 	
 	elseif (k == SYS.VK_CTRL_V) then
-		local s = cTerminal:GetClipboardText()
+		local s = cTerminal.GetClipboardText()
 		if (s) then
 			self:OnChar(0, s)
 		end
@@ -1108,19 +1109,18 @@ end
 
 UiSlideBar = class(UiWidget)
 
-function UiSlideBar:ctor(vertical, x, y, length, width)
+function UiSlideBar:ctor(vertical, length, width)
 	self.color:set(100, 100, 100, 100)
-	self:SetPos(x, y)
 	self.scale = 1
 	self.slScale = 1
 	self.step = 1
 	self.pos = 0
 	self.vertical = vertical
 	if (vertical) then
-		self.slider = UiWidget(x, 0, math.max(1, width), 0)
+		self.slider = UiWidget(math.max(1, width), 0)
 		self:SetSize(width, length)
 	else
-		self.slider = UiWidget(0, y, 0, math.max(1, width))
+		self.slider = UiWidget(0, math.max(1, width))
 		self:SetSize(length, width)
 	end
 	
@@ -1246,12 +1246,12 @@ function UiScrollPanel:ctor(widget)
 	self.plate:AddChild(widget)
 	self.widget:bind_event(EVT.SIZE, self, UiScrollPanel.OnWidgetSize)
 	
-	self.vScrollBar = UiSlideBar(true, 0, 0, 0, UiScrollPanel.barWidth)
+	self.vScrollBar = UiSlideBar(true, 0, UiScrollPanel.barWidth)
 	self.vScrollBar:bind_event(EVT.SLIDE_BAR, self, UiScrollPanel.OnVScroll)
 	self.vScrollBar:Show(false)
 	hLayout:AddChild(self.vScrollBar, 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 0, 0, 0)
 	
-	self.hScrollBar = UiSlideBar(false, 0, 0, 0, UiScrollPanel.barWidth)
+	self.hScrollBar = UiSlideBar(false, 0, UiScrollPanel.barWidth)
 	self.hScrollBar:bind_event(EVT.SLIDE_BAR, self, UiScrollPanel.OnHScroll)
 	self.hScrollBar:Show(false)
 	Widget2D.AddChild(self, self.hScrollBar, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, UiScrollPanel.barWidth, 0, 0)
@@ -1279,7 +1279,49 @@ function UiScrollPanel:OnMouseWheel(e, x, y, n)
 		self.vScrollBar:MoveScalePos(-n)
 	end
 end
-	
+
+-----UiPolyIcon-----
+UiPolyIcon = class(UiWidget)
+UiPolyIcon.cpuClip = false
+UiPolyIcon.cached = false
+UiPolyIcon.drawClipRect = false
+
+function UiPolyIcon:ctor(iconPoly, stretch, w, h)
+	self.poly = iconPoly
+	self.scale = stretch
+	if (stretch) then
+		self.mat2d = CMatrix2D()
+		self:SetSize(w, h)
+	else
+		self:SetSize(iconPoly.w, iconPoly.h)
+	end
+	self.color:set(150, 150, 150, 255)
+end
+
+function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+	local n = self.poly.vtx_count
+	if (self.scale) then
+		if (self.sized) then
+			self.mat2d:SetD0(self.rect.w / self.poly.w, 0)
+			self.mat2d:SetD1(0, self.rect.h / self.poly.h)
+		end
+		if (self.moved) then
+			self.mat2d:SetD2(self.location.x, self.location.y) 			
+		end
+		CTransformFloat2(g_innerPolyVB, self.poly.vb_offset, n, self.mat2d, vbPos, wpPos)
+	else
+		CMoveFloat2(g_innerPolyVB, self.poly.vb_offset, n, self.location.x, self.location.y, vbPos, wpPos)
+	end
+	CAddFloat3(vbUVW, wpUVW, n, self.font.pixels, 0, 0)
+	CAddUByte4(vbColor, wpColor, n, self.color.r, self.color.g, self.color.b, self.color.a)
+	return n
+end
+
+function UiPolyIcon:FillIB(ib, ib_start, wp)
+	CCopyIndexBuffer(g_innerPolyIB, self.poly.ib_offset, self.poly.idx_count, ib_start, ib, wp)
+	return self.poly.idx_count
+end
+
 	
 	
 	

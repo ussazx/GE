@@ -5,70 +5,6 @@ Graphic* g_graphic;
 
 using namespace Engine;
 
-struct FileParser
-{
-	FileParser(TerminalImpl::FileParser* parser) : m_parser(parser) {}
-	TerminalImpl::FileParser* m_parser;
-
-	bool FindFirst(LuacObj<LString> path)
-	{
-		return m_parser->FindFirst(path);
-	}
-
-	bool FindNext()
-	{
-		return m_parser->FindNext();
-	}
-	Lua_wrap_cpp_class(FileParser, Lua_abstract, Lua_mf(FindFirst), Lua_mf(FindNext))
-};
-Lua_global_add_cpp_class(FileParser)
-
-class Terminal
-{
-public:
-	void AddEvent(const char* name, int id)
-	{
-		m_impl.addEvent(name, id);
-	}
-	void FlushStdout()
-	{
-		m_impl.flushStdout();
-	}
-	void FlushStderr()
-	{
-		m_impl.flushStderr();
-	}
-	LuacObjNew<FileParser> NewFileParser()
-	{
-		return new FileParser(m_impl.newFileParser());
-	}
-	void SetClipboardText(LString s)
-	{
-		m_impl.setClipboardText(s);
-	}
-	LuacObjNew<LString> GetClipboardText()
-	{
-		auto s = m_impl.getClipboardText();
-		if (s) return new LString(s);
-		return nullptr;
-	}
-	LuacObjNew<LString> NewFileDialog(LString title, LString defName, LString filter)
-	{
-		return new LString(m_impl.newFileDialog(title, defName, filter));
-	}
-	void NewDirectory(LString path)
-	{
-		m_impl.newDirectory(path);
-	}
-
-	TerminalImpl m_impl;
-
-	Lua_wrap_cpp_class(Terminal, Lua_abstract, Lua_mf(AddEvent), Lua_mf(FlushStdout), Lua_mf(FlushStderr), Lua_mf(NewFileParser),
-		Lua_mf(GetClipboardText), Lua_mf(SetClipboardText), Lua_mf(NewFileDialog), Lua_mf(NewDirectory))
-};
-
-Terminal g_terminal;
-
 bool Engine::Initialize(const InitParam& param)
 {
 #ifdef WIN32
@@ -83,16 +19,13 @@ void Engine::CleanUp()
 	delete Graphic::Vulkan();
 }
 
-void Engine::LuaRegister(lua_State* L, const TerminalImpl& ti)
+void Engine::LuaRegister(lua_State* L)
 {
 	LuaState lua(L);
 	LuaRegGlobalReflected(&lua);
 
 	Graphic::RegisterVulkanDefines(lua);
 	g_graphic = Graphic::Vulkan();
-
-	g_terminal.m_impl = ti;
-	lua.SetValue("cTerminal", Lua_set_cobj(&g_terminal));
 
 #ifdef WIN32
 	lua.SetValue("SCREEN_W", ::GetSystemMetrics(SM_CXSCREEN));

@@ -129,19 +129,27 @@ function Window:on_idle(t, onTimer, show)
 	end
 		
 	if(show and (self.update or self.sized)) then
-		self.cmd:Flip()
 		g_cmd = self.cmd
+		if (self.rendered) then
+			g_cmd:Flip()
+			self.rendered = false
+		end
+		g_cmd:Prepare()
 		
 		ui_resourceSet = self.res_set
-		
-		self.update = false
-
 		g_dcLists = self.dcLists
-		self.fp:UpdateLayouts()
+		
+		self.update = true
+		while (self.update) do
+			self.update = false
+			self.fp:UpdateLayouts()
+		end
 		
 		self.sized = false
 		
-		self:render()
+		if (self.rect.w > 0 and self.rect.h > 0) then
+			self:render()
+		end
 	end
 
 	return self:TimerPeriod()
@@ -149,8 +157,10 @@ end
 
 function Window:resize(w, h)
 	local render = w <= self.rect.w and h <= self.rect.h
-
 	self:SetSize(w, h)
+	if (w < 1 or h < 1) then
+		return
+	end
 	
 	cGI:DeviceWaitIdle()
 	self.cbWnd:Set(1, self.rect.w, self.rect.h)
@@ -171,17 +181,13 @@ function Window:render()
 		self.sizegroup:resize(self.rect.w, self.rect.h)
 	end
 	
-	self.cmd:PrepareRender()
+	self.cmd:WaitFinish()
 	
 	self.fp:FillCommand(self.cmd)
 	
 	self.cmd:Execute()
-end
 	
-function Window:UpdateUI()
-	self.update = false
-	self:Update()
-	self.sized = false
+	self.rendered = true
 end
 
 function Window:CaptureMouse(w)
@@ -386,7 +392,7 @@ end
 Timer = class(Object)
 
 function Timer:ctor()
-	self.t = vmTimer(self.id)
+	self.t = cTerminal.NewTimer(self.id)
 end
 
 function Timer.OnTimer(id)

@@ -72,9 +72,6 @@
     <ClInclude Include="..\source\EditorUI\TestFrame.h">
       <Filter>源文件\EditorUI</Filter>
     </ClInclude>
-    <ClInclude Include="..\source\Global.h">
-      <Filter>源文件</Filter>
-    </ClInclude>
     <ClInclude Include="..\source\EditorUI\MainFrame.h">
       <Filter>源文件\EditorUI</Filter>
     </ClInclude>
@@ -106,9 +103,6 @@
     </ClCompile>
     <ClCompile Include="..\source\EditorUI\TestFrame.cpp">
       <Filter>源文件\EditorUI</Filter>
-    </ClCompile>
-    <ClCompile Include="..\source\Global.cpp">
-      <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\source\EditorUI\vmWindow.cpp">
       <Filter>源文件\EditorUI</Filter>

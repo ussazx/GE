@@ -48,7 +48,7 @@ namespace Engine
 	public:
 		virtual ~StreamOutput() {};
 		virtual bool IsValid() = 0;
-		virtual bool OutputUtf8(const char* str) = 0;
+		virtual bool WriteUtf8(const char* str) = 0;
 	};
 #else
 	class StreamInput;

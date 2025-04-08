@@ -134,9 +134,9 @@ bool VKSwapchain::Acquire()
 	VkResult res = vkAcquireNextImageKHR(g->device, m_swapchain, UINT64_MAX,
 		m_vSemaphore[++m_semaIndex %= m_scci.minImageCount], VK_NULL_HANDLE, &m_imageIndex);
 
-	char s[128]{};
-	sprintf_s(s, "---Acquire %u %d\n", m_imageIndex, res);
-	DEBUG_PRINT(s);
+	//char s[128]{};
+	//sprintf_s(s, "---Acquire %u %d\n", m_imageIndex, res);
+	//DEBUG_PRINT(s);
 
 	if (res == VK_ERROR_OUT_OF_DATE_KHR)
 		return false;

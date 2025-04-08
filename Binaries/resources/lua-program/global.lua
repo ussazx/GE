@@ -8,6 +8,44 @@ g_assets = {}
 
 g_content = {}
 
+g_innerPolyVB = CMBuffer(1024)
+g_innerPolyVB.offset = 0
+g_innerPolyIB = CMBuffer(1024)
+g_innerPolyIB.offset = 0
+
+function AddPoly2D(...)
+	local o = {}
+	o.w = 0
+	o.h = 0
+	o.vtx_count = 0
+	o.idx_count = 0
+	o.vb_offset = g_innerPolyVB.offset
+	o.ib_offset = g_innerPolyIB.offset
+	for _, v in pairs({...}) do
+		local nv = 0
+		for _, w in pairs(v) do
+			nv = nv + 1
+			CAddFloat2(g_innerPolyVB, APPEND, 1, w[1], w[2])
+			if (o.w < w[1]) then
+				o.w = w[1]
+			end
+			if (o.h < w[2]) then
+				o.h = w[2]
+			end
+		end
+		o.idx_count = o.idx_count + CAddConvexPolyIndex(g_innerPolyIB, APPEND, 1, o.vtx_count, nv)
+		o.vtx_count = o.vtx_count + nv
+	end
+	g_innerPolyVB.offset = g_innerPolyVB.offset + SIZE_FLOAT2 * o.vtx_count
+	g_innerPolyIB.offset = g_innerPolyIB.offset + SIZE_UINT1 * o.idx_count
+	return o
+end
+
+g_iconFolder = AddPoly2D({{5, 0}, {50, 0}, {55, 5}, {0, 5}}, 
+						{{0, 5}, {110, 5}, {110, 10}, {0, 10}}, 
+						{{0, 12}, {110, 12}, {110, 62}, {0, 62}})
+
+
 -- TargetViewDescs = {view1 = {samples = 1, format = FORMAT}}
 
 -- FrameBufferDesc1 = {rp = '', views = {-1, 1, 2, 3, 4}}

@@ -62,6 +62,16 @@ inline void LuaPushValue(lua_State* lua, uint32_t v)
 	lua_pushinteger(lua, v);
 }
 
+inline void LuaPushValue(lua_State* lua, long v)
+{
+	lua_pushinteger(lua, v);
+}
+
+inline void LuaPushValue(lua_State* lua, unsigned long v)
+{
+	lua_pushinteger(lua, v);
+}
+
 inline void LuaPushValue(lua_State* lua, uint64_t v)
 {
 	lua_pushinteger(lua, v);

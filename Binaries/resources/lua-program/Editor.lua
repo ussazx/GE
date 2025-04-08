@@ -13,7 +13,7 @@ function GridLayoutTest(w)
 	local layout = BoxLayout(true)
 	w:AddChild(layout)
 	
-	layout:AddChild(UiTextInput(0, 0, 0, uiFont.fontSize), 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 20, 20, 20, 10)
+	layout:AddChild(UiTextInput(0, uiFont.fontSize), 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 20, 20, 20, 10)
 	
 	-- local sb = UiSlideBar(nil, false, 0, 0, 0, 20)
 	-- sb:SetScale(5, 1)
@@ -22,9 +22,14 @@ function GridLayoutTest(w)
 	
 	local grid = GridLayout()
 	local scrollPanel = UiScrollPanel(grid)
+	g_sp = scrollPanel
+	scrollPanel.plate.cpuClip = true
+	scrollPanel.plate.gpuClip = true
+	g_g = grid
+	g_p = scrollPanel.plate
 	layout:AddChild(scrollPanel, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
 	for i = 1, 100 do
-		local ww = UiWidget(0, 0, 150, 150)
+		local ww = UiWidget(150, 150)
 		ww.color:set(100, 100, 100, 100)
 		grid:AddChild(ww, 5, 5, 10, 10)
 		--ww.gpuClip = true
@@ -32,17 +37,20 @@ function GridLayoutTest(w)
 		local layout = BoxLayout(true)
 		ww:AddChild(layout)
 		
-		ww = UiWidget(0, 0, 150, 130)
-		ww.color:set(90, 90, 90, 100)
-		layout:AddChild(ww, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 5, 5, 5, 5)
-		local t = UiText(0, 0, 'abcdef')
+		ww = UiPolyIcon(g_iconFolder, true, 80, 45)
+		layout:AddChild(ww, 1, 0, 5, 5, 5, 5)
+		-- ww = UiPolyIcon(g_iconFolder, true)
+		-- layout:AddChild(ww, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 5, 5, 5, 5)
+		--ww = UiPolyIcon(g_iconFolder)
+		--layout:AddChild(ww, 1, 0, 5, 5, 5, 5)
+		local t = UiText('abcdef')
 		layout:AddChild(t)
 	end
 	local layoutBottom = BoxLayout()
 	w.idle_cost = 0
-	w.idleText = UiText(0, 0, '--')
+	w.idleText = UiText('--')
 	layoutBottom:AddChild(w.idleText, 0, 0, 0, 0, 0, 0)
-	layoutBottom:AddChild(UiButton(0, 0, 100, 30, _('Load')), 1, Layout.ALIGN_RIGHT, 0, 0, 0, 0)
+	layoutBottom:AddChild(UiButton(100, 30, _('Load')), 1, Layout.ALIGN_RIGHT, 0, 0, 0, 0)
 	layout:AddChild(layoutBottom, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
 	--layout:AddChild(UiButton(0, 0, 100, 30, _('Load')), 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 10, 10, 10)
 end
@@ -52,20 +60,27 @@ function NewCommonWindow()
 end
 
 function OnCreateProj()
-	local path = cTerminal:NewFileDialog(_('Create Project'), _("new"), '')
+	local path = cTerminal.NewFileDialog(_('Create Project'), _("new"), '')
 	if (path:length() == 0) then
 		return
 	end
-	cTerminal:NewDirectory(path)
+	cTerminal.NewDirectory(path)
 	local name = path .. path:substr(path:rfind('\\'), -1) .. '.proj'
 	local f = CNewFileOutput()
 	f:Open(name, true)
-	--f:OutputUtf8('')
+	--f:WriteUtf8('')
 	f:Close()
-	cTerminal:NewDirectory(path .. '\\Assets')
+	cTerminal.NewDirectory(path .. '\\Assets')
+	cTerminal.NewDirectory(path .. '\\Configs')
+	cEntrance:Accept()
+	g_projPath = LString(path)
 end
 
-function LoadProj(path)
+function LoadProject()
+	LoadAssets(path)
+end
+
+function LoadAssets(path)
 	-- local o = LoadLuaFile(path, isBin)
 	-- if (o) then
 		-- o = o() or {}
@@ -74,17 +89,30 @@ function LoadProj(path)
 		-- Print('error')
 	-- end
 	
-	--// parse content and load assets
-	
+	--// traverse content and load assets
+	local f = cTerminal.NewFileFinder()
+	local found = f:FindFirst(path .. '\\*')
+	while (found) do
+		local name = f:GetName()
+		if (f:IsDirectory()) then
+			if (name:ch(0) ~= '.') then
+				LoadProject(path .. '\\' .. name)
+			end
+		elseif (name:rfind('.xasset') ~= -1) then
+			CLoadAsset(path .. '\\' .. name)
+		end
+		found = f:FindNext()
+	end
 	--// Open windows
+	
 end
 
 function NewWindow_CreateProj()
 	local w = Window()
 	
-	local b = UiButton(20, 20, 100 ,30, _('Create'))
+	local b = UiButton(100 ,30, _('Create'))
 	b:bind_event(EVT.LEFT_UP, nil, OnCreateProj)
-	w:AddChild(b)
+	w:AddChild(b, 20, 20)
 	return w
 end
 
@@ -118,8 +146,6 @@ end
 function LoadEntrance()
 	cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
 	cEntrance:AddPageWindow('new_proj', 'New Project', NewWindow_CreateProj())
-	
-	LoadProj('out', true)
 end
 
 function LoadMainFrame()

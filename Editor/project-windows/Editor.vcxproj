@@ -176,7 +176,6 @@
     <ClInclude Include="..\source\EditorUI\TestDlg.h" />
     <ClInclude Include="..\source\EditorUI\TestFrame.h" />
     <ClInclude Include="..\source\EditorUI\vmWindow.h" />
-    <ClInclude Include="..\source\Global.h" />
     <ClInclude Include="Editor.h" />
     <ClInclude Include="Resource.h" />
   </ItemGroup>
@@ -189,7 +188,6 @@
     <ClCompile Include="..\source\EditorUI\common\wxModified\auibook2.cpp" />
     <ClCompile Include="..\source\EditorUI\TestFrame.cpp" />
     <ClCompile Include="..\source\EditorUI\vmWindow.cpp" />
-    <ClCompile Include="..\source\Global.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Editor.rc" />

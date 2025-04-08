@@ -1,31 +1,13 @@
 #pragma once
-#include "common/uiutils.h"
-#include "../Global.h"
 #include "wx/clipbrd.h"
 #include <string>
 #include <codecvt>
 #include <unordered_map>
 #include <memory>
+#include "common/uiutils.h"
+#include "../../../Generic/Terminal.h"
 
 extern wxStockCursor g_cursor;
-
-class vmTimer : public wxTimer
-{
-public:
-	vmTimer(uint32_t id)
-	{
-		m_id = id;
-		Bind(wxEVT_TIMER, &vmTimer::OnTimer, this);
-	}
-	void OnTimer(wxTimerEvent&)
-	{
-		g_vm->GetValue("Timer", "OnTimer", LuaCall(m_id));
-	}
-
-	uint32_t m_id;
-	Lua_wrap_cpp_class(vmTimer, Lua_ctor(uint32_t), Lua_mf(Start), Lua_mf(Stop))
-};
-Lua_global_add_cpp_class(vmTimer)
 
 class vmWindow : public wxWindow
 {
@@ -72,22 +54,15 @@ public:
 
 		m_timer.Bind(wxEVT_TIMER, &vmWindow::OnTimer, this);
 
-		g_vm->SetValue(GetName(), Lua_set_cobj(this));
+		Terminal::Lua().SetValue(GetName(), Lua_set_cobj(this));
 		int t{};
-		g_vm->GetValue(GetName(), "init", LuaObjCall(clock(), GetHWND(), GetRect().GetWidth(), GetRect().GetHeight()), &t);
+		Terminal::Lua().GetValue(GetName(), "init", LuaObjCall(clock(), GetHWND(), GetRect().GetWidth(), GetRect().GetHeight()), &t);
 		HandleTimer(t);
 	}
 
 	~vmWindow()
 	{
-		g_vm->SetValue(GetName(), nullptr);
-	}
-
-	static void AddEvent(const char* name, int id)
-	{
-		auto it = m_eventName.find(name);
-		if (it != m_eventName.end())
-			m_eventId[it->second] = id;
+		Terminal::Lua().SetValue(GetName(), nullptr);
 	}
 
 	static int GetEventId(const wxEventType& e)
@@ -118,6 +93,13 @@ public:
 		m_eventName.emplace("EVT_MAGNIFY", wxEVT_MAGNIFY);
 	}
 
+	static void AddEvent(const char* name, int id)
+	{
+		auto it = m_eventName.find(name);
+		if (it != m_eventName.end())
+			m_eventId[it->second] = id;
+	}
+
 	Lua_wrap_cpp_class(vmWindow, Lua_abstract, Lua_mf(Capture));
 private:
 	void Capture(bool b)
@@ -134,7 +116,7 @@ private:
 	void OnCaptureLost(wxMouseCaptureLostEvent&)
 	{
 		int t{};
-		g_vm->GetValue(GetName(), "on_capture_lost", LuaObjCall(clock()), &t);
+		Terminal::Lua().GetValue(GetName(), "on_capture_lost", LuaObjCall(clock()), &t);
 		HandleTimer(t);
 	}
 
@@ -146,29 +128,27 @@ private:
 	void OnTimer(wxTimerEvent&)
 	{
 		int t{};
-		g_vm->GetValue(GetName(), "on_idle", LuaObjCall(clock(), true, IsShown()), &t);
+		Terminal::Lua().GetValue(GetName(), "on_idle", LuaObjCall(clock(), true, IsShown()), &t);
 		HandleTimer(t);
 	}
 	void OnIdle(wxIdleEvent& e)
 	{
 		int t{};
 		auto i = GetTickCount();
-		g_vm->GetValue(GetName(), "on_idle", LuaObjCall(clock(), false, IsShown()), &t);
+		Terminal::Lua().GetValue(GetName(), "on_idle", LuaObjCall(clock(), false, IsShown()), &t);
 		//DebugLog(L"idle [ %u ]\n", GetTickCount() - i);
-		g_vm->SetValue(GetName(), "idle_cost", (uint32_t)(GetTickCount() - i));
+		Terminal::Lua().SetValue(GetName(), "idle_cost", (uint32_t)(GetTickCount() - i));
 		HandleTimer(t);
 	}
 	void OnPaint(wxPaintEvent&)
 	{
-		g_vm->GetValue(GetName(), "render", LuaObjCall());
+		Terminal::Lua().GetValue(GetName(), "render", LuaObjCall());
 	}
 	void OnSize(wxSizeEvent& e)
 	{
-		if (e.GetSize().x < 1 || e.GetSize().y < 1)
-			return;
 		auto i = GetTickCount();
-		g_vm->GetValue(GetName(), "resize", LuaObjCall(e.GetSize().x, e.GetSize().y));
-		DebugLog(L"resize [ %u ]\n", GetTickCount() - i);
+		Terminal::Lua().GetValue(GetName(), "resize", LuaObjCall(e.GetSize().x, e.GetSize().y));
+		//DebugLog(L"resize [ %u ]\n", GetTickCount() - i);
 	}
 	void OnCharEvent(wxKeyEvent& e)
 	{
@@ -211,11 +191,11 @@ private:
 		case 27:  // Ctrl [
 		case 28:  // Ctrl \ 
 		case 29:  // Ctrl ]
-			g_vm->GetValue(GetName(), "on_acc_key", LuaObjCall(clock(), e.GetUnicodeKey()), &t);
+			Terminal::Lua().GetValue(GetName(), "on_acc_key", LuaObjCall(clock(), e.GetUnicodeKey()), &t);
 			break;
 		default:
 			swprintf_s(c, L"%c", e.GetUnicodeKey());
-			g_vm->GetValue(GetName(), "on_char", LuaObjCall(clock(), conv.to_bytes(c).c_str()), &t);
+			Terminal::Lua().GetValue(GetName(), "on_char", LuaObjCall(clock(), conv.to_bytes(c).c_str()), &t);
 			break;
 		}
 		HandleTimer(t);
@@ -243,7 +223,7 @@ private:
 			break;
 		}
 		int t{};
-		g_vm->GetValue(GetName(), "on_key_down", LuaObjCall(clock(), k, left, right), &t);
+		Terminal::Lua().GetValue(GetName(), "on_key_down", LuaObjCall(clock(), k, left, right), &t);
 		HandleTimer(t);
 		e.Skip();
 	}
@@ -251,7 +231,7 @@ private:
 	void OnKeyUp(wxKeyEvent& e)
 	{
 		int t{};
-		g_vm->GetValue(GetName(), "on_key_up", LuaObjCall(clock(), e.GetRawKeyCode()), &t);
+		Terminal::Lua().GetValue(GetName(), "on_key_up", LuaObjCall(clock(), e.GetRawKeyCode()), &t);
 		HandleTimer(t);
 		e.Skip();
 	}
@@ -259,7 +239,7 @@ private:
 	void OnMouseEvent(wxMouseEvent& e)
 	{
 		int t{}, c{};
-		g_vm->GetValue(GetName(), "on_mouse", LuaObjCall(clock(), GetEventId(e.GetEventType()), e.GetX(), e.GetY(), e.GetWheelRotation()), &t, &c);
+		Terminal::Lua().GetValue(GetName(), "on_mouse", LuaObjCall(clock(), GetEventId(e.GetEventType()), e.GetX(), e.GetY(), e.GetWheelRotation()), &t, &c);
 		HandleTimer(t);
 		g_cursor = (wxStockCursor)c;
 	}
@@ -287,104 +267,16 @@ public:
 	
 	void AddPageWindow(const char* name, const char* title, LuaIdx wnd)
 	{
-		g_vm->SetValue(name, wnd);
+		Terminal::Lua().SetValue(name, wnd);
 		AddPageWnd(new vmWindow(m_self, name), _(title));
-	}
-
-	const char* FileDirDialog(const char* title, const char* defName, const char* filters)
-	{
-		static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-		wxFileDialog dialog(nullptr,
-			conv.from_bytes(title),
-			wxEmptyString,
-			conv.from_bytes(defName),
-			filters,
-			wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-		dialog.ShowModal();
-		static std::string s;
-		s = conv.to_bytes(dialog.GetPath().wc_str());
-		return s.c_str();
 	}
 
 	virtual void AddPageWnd(vmWindow*, const char* title) = 0;
 
-	Lua_wrap_cpp_class(vmFrame, Lua_abstract, Lua_mf(AddPageWindow), Lua_mf(FileDirDialog));
+	virtual void Accept() = 0;
+	virtual void Reject() = 0;
+
+	Lua_wrap_cpp_class(vmFrame, Lua_abstract, Lua_mf(AddPageWindow), Lua_mf(Accept), Lua_mf(Reject));
 private:
 	wxWindow* m_self{};
-};
-
-inline void SetClipboardText(const wchar_t* s)
-{
-	wxTheClipboard->SetData(new wxTextDataObject(s));
-}
-
-inline const wchar_t* GetClipboardText()
-{
-	static wxTextDataObject data;
-	static std::wstring s;
-	if (wxTheClipboard->GetData(data))
-	{
-		s = data.GetText().wc_str();
-		return s.c_str();
-	}
-	return {};
-}
-
-inline void NewDirectory(const wchar_t* path)
-{
-	::CreateDirectory(path, NULL);
-}
-
-inline void SetCurrentDir(const wchar_t* path)
-{
-	::SetCurrentDirectory(path);
-}
-
-inline const wchar_t* NewFileDirDialog(const wchar_t* title, const wchar_t* defName, const wchar_t* filters)
-{
-	wxFileDialog dialog(nullptr,
-		title,
-		wxEmptyString,
-		defName,
-		filters,
-		wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-	dialog.ShowModal();
-	static std::wstring s;
-	s = dialog.GetPath();
-	return s.c_str();
-}
-
-class FileParser : public Engine::TerminalImpl::FileParser
-{
-public:
-	static Engine::TerminalImpl::FileParser* New()
-	{
-		return new FileParser;
-	}
-
-	bool FindFirst(const wchar_t* path) override
-	{
-#ifdef WIN32
-		m_wfd = {};
-		if (m_hFind != INVALID_HANDLE_VALUE)
-			FindClose(m_hFind);
-		m_hFind = ::FindFirstFile(path, &m_wfd);
-		return m_hFind != INVALID_HANDLE_VALUE;
-#endif
-	}
-
-	bool FindNext() override
-	{
-		return ::FindNextFile(m_hFind, &m_wfd) == TRUE;
-	}
-
-	~FileParser()
-	{
-		if (m_hFind != INVALID_HANDLE_VALUE)
-			FindClose(m_hFind);
-	}
-
-private:
-	WIN32_FIND_DATA m_wfd = {};
-	HANDLE m_hFind = INVALID_HANDLE_VALUE;
 };

@@ -22,6 +22,49 @@ inline void DebugLog(const wchar_t* szFmt, ...)
 
 #define CHECK(a, ret) if (!(a)) return (ret);
 
+struct CMatrix2D
+{
+	CMatrix2D()
+	{
+		m[0] = { 1, 0 };
+		m[1] = { 0, 1 };
+		m[2] = { 0, 0 };
+	}
+
+	void SetD0(float x, float y)
+	{
+		m[0] = { x, y };
+	}
+	void SetD1(float x, float y)
+	{
+		m[1] = { x, y };
+	}
+	void SetD2(float x, float y)
+	{
+		m[2] = { x, y };
+	}
+	const float2& operator [] (size_t n) const
+	{
+		return m[n];
+	}
+
+	float2& operator [] (size_t n)
+	{
+		return m[n];
+	}
+
+	float2 m[3];
+
+	Lua_wrap_cpp_class(CMatrix2D, Lua_ctor(), Lua_mf(SetD0), Lua_mf(SetD1), Lua_mf(SetD2))
+};
+Lua_global_add_cpp_class(CMatrix2D)
+
+inline float2 operator * (const float2& v, const CMatrix2D& m)
+{
+	return { v.x * m[0].x + v.y * m[1].x + m[2].x,
+			v.x * m[0].y + v.y * m[1].y + m[2].y };
+}
+
 //template<typename T0, typename ...T1>
 //static inline void SetValue(void* p, int offset, int n, T1... t)
 //{
@@ -329,15 +372,49 @@ Lua_global_add_cfunc(CBufferCopy)
 
 inline void CCopyIndexBuffer(LuacObj<CBuffer> src, uint32_t src_pos, uint32_t count, uint32_t idx_start, LuacObj<CBuffer> dst, int dst_wp)
 {
-	count = PrepareCopy(*src, src_pos, sizeof(uint1), count, *dst, dst_wp);
-	if (count == 0)
-		return;
+	BufferWriter<uint1> bw_src(*src, count, src_pos);
+	BufferWriter<uint1> bw_dst(*dst, count, dst_wp);
 
 	for (size_t i = 0; i < count; i++)
-		*((uint1*)(dst->GetPtr() + dst->m_writePos) + i) = *((uint1*)(src->GetPtr() + src_pos) + i) + idx_start;
-	dst->m_writePos += sizeof(uint1) * count;
+		bw_dst[i] = bw_src[i] + idx_start;
 }
 Lua_global_add_cfunc(CCopyIndexBuffer)
+
+inline void CMoveFloat2(LuacObj<CBuffer> src, int src_pos, size_t count, float x, float y, LuacObj<CBuffer> dst, int dst_wp)
+{
+	BufferWriter<float2> bw_src(*src, count, src_pos);
+	BufferWriter<float2> bw_dst(*dst, count, dst_wp);
+
+	for (size_t i = 0; i < count; i++)
+		bw_dst[i] = { bw_src[i].x + x, bw_src[i].y + y };
+}
+Lua_global_add_cfunc(CMoveFloat2)
+
+inline void CScaleFloat2(LuacObj<CBuffer> src, int src_pos, size_t count, float sx, float sy, LuacObj<CBuffer> dst, int dst_wp)
+{
+	BufferWriter<float2> bw_src(*src, count, src_pos);
+	BufferWriter<float2> bw_dst(*dst, count, dst_wp);
+
+	for (size_t i = 0; i < count; i++)
+		bw_dst[i] = { bw_src[i].x * sx, bw_src[i].y * sy };
+}
+Lua_global_add_cfunc(CScaleFloat2)
+
+inline std::tuple<size_t, size_t> CTransformFloat2(LuacObj<CBuffer> src, int src_pos, size_t count, LuacObj<CMatrix2D> m, LuacObj<CBuffer> dst, int dst_wp)
+{
+	BufferWriter<float2> bw_src(*src, count, src_pos);
+	BufferWriter<float2> bw_dst(*dst, count, dst_wp);
+
+	float w = 0, h = 0;
+	for (size_t i = 0; i < count; i++)
+	{
+		bw_dst[i] = bw_src[i] * *m;
+		w = bw_dst[i].x > w ? bw_dst[i].x : w;
+		h = bw_dst[i].y > h ? bw_dst[i].y : h;
+	}
+	return { w, h };
+}
+Lua_global_add_cfunc(CTransformFloat2)
 
 class CList
 {

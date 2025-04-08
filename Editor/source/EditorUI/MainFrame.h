@@ -22,5 +22,15 @@ public:
 		m_nb->AddPage(w, _(title));
 	}
 
+	void Accept() override
+	{
+		Close();
+	}
+
+	void Reject() override
+	{
+		Close();
+	}
+
 	FloatableNotebook* m_nb;
 };

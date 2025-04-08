@@ -31,8 +31,8 @@ namespace Engine
 	public:
 		virtual ~StreamOutput() {};
 		virtual bool IsValid() = 0;
-		virtual bool OutputUtf8(const char* str) = 0;
-		Lua_wrap_cpp_class(StreamOutput, Lua_abstract, Lua_mf(IsValid), Lua_mf(OutputUtf8))
+		virtual bool WriteUtf8(const char* str) = 0;
+		Lua_wrap_cpp_class(StreamOutput, Lua_abstract, Lua_mf(IsValid), Lua_mf(WriteUtf8))
 	};
 	Lua_global_add_cpp_class(StreamOutput);
 
@@ -160,7 +160,7 @@ namespace Engine
 		{
 			return m_ofs.is_open();
 		}
-		bool OutputUtf8(const char* buff) override
+		bool WriteUtf8(const char* buff) override
 		{
 			return m_ofs.write(buff, strlen(buff)).good();
 		}
