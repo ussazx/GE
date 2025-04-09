@@ -1313,7 +1313,13 @@ function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 		CMoveFloat2(g_innerPolyVB, self.poly.vb_offset, n, self.location.x, self.location.y, vbPos, wpPos)
 	end
 	CAddFloat3(vbUVW, wpUVW, n, self.font.pixels, 0, 0)
-	CAddUByte4(vbColor, wpColor, n, self.color.r, self.color.g, self.color.b, self.color.a)
+	for k, v in pairs(self.poly.colors) do
+		if (k > 1) then
+			wpColor = APPEND
+		end
+		local c = v[2]
+		CAddUByte4(vbColor, wpColor, v[1], c.r, c.g, c.b, c.a)
+	end
 	return n
 end
 

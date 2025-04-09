@@ -22,11 +22,8 @@ function GridLayoutTest(w)
 	
 	local grid = GridLayout()
 	local scrollPanel = UiScrollPanel(grid)
-	g_sp = scrollPanel
 	scrollPanel.plate.cpuClip = true
 	scrollPanel.plate.gpuClip = true
-	g_g = grid
-	g_p = scrollPanel.plate
 	layout:AddChild(scrollPanel, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
 	for i = 1, 100 do
 		local ww = UiWidget(150, 150)

@@ -14,7 +14,7 @@ g_innerPolyIB = CMBuffer(1024)
 g_innerPolyIB.offset = 0
 
 function AddPoly2D(...)
-	local o = {}
+	local o = {colors = {}}
 	o.w = 0
 	o.h = 0
 	o.vtx_count = 0
@@ -23,28 +23,42 @@ function AddPoly2D(...)
 	o.ib_offset = g_innerPolyIB.offset
 	for _, v in pairs({...}) do
 		local nv = 0
-		for _, w in pairs(v) do
-			nv = nv + 1
-			CAddFloat2(g_innerPolyVB, APPEND, 1, w[1], w[2])
-			if (o.w < w[1]) then
-				o.w = w[1]
-			end
-			if (o.h < w[2]) then
-				o.h = w[2]
+		local nvc = 0
+		for i = 1, #v  do
+			local w = v[i]
+			if (w == 1) then
+				o.idx_count = o.idx_count + CAddConvexPolyIndex(g_innerPolyIB, APPEND, 1, o.vtx_count, nv)
+				o.vtx_count = o.vtx_count + nv
+				nvc = nvc + nv
+				nv = 0
+			else
+				nv = nv + 1
+				CAddFloat2(g_innerPolyVB, APPEND, 1, w[1], w[2])
+				if (o.w < w[1]) then
+					o.w = w[1]
+				end
+				if (o.h < w[2]) then
+					o.h = w[2]
+				end
 			end
 		end
-		o.idx_count = o.idx_count + CAddConvexPolyIndex(g_innerPolyIB, APPEND, 1, o.vtx_count, nv)
-		o.vtx_count = o.vtx_count + nv
+		if (nv > 0) then
+			o.idx_count = o.idx_count + CAddConvexPolyIndex(g_innerPolyIB, APPEND, 1, o.vtx_count, nv)
+			o.vtx_count = o.vtx_count + nv
+			nvc = nvc + nv
+		end
+		table.insert(o.colors, {nvc, v.color or Color(150, 150, 150, 255)})
 	end
 	g_innerPolyVB.offset = g_innerPolyVB.offset + SIZE_FLOAT2 * o.vtx_count
 	g_innerPolyIB.offset = g_innerPolyIB.offset + SIZE_UINT1 * o.idx_count
 	return o
 end
 
-g_iconFolder = AddPoly2D({{5, 0}, {50, 0}, {55, 5}, {0, 5}}, 
-						{{0, 5}, {110, 5}, {110, 10}, {0, 10}}, 
-						{{0, 12}, {110, 12}, {110, 62}, {0, 62}})
+g_iconFolder = AddPoly2D({{5, 0}, {50, 0}, {55, 5}, {0, 5}, 1,
+						{0, 5}, {110, 5}, {110, 10}, {0, 10}, 1,
+						{0, 12}, {110, 12}, {110, 62}, {0, 62}})
 
+g_iconHome = AddPoly2D({{0, 20}, {10, 0}, {20, 10}})
 
 -- TargetViewDescs = {view1 = {samples = 1, format = FORMAT}}
 
