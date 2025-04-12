@@ -526,9 +526,9 @@ end
 
 function UiWidget:FillRectVB(color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 	if (self.cr) then
-		CAddRectFloat2(vbPos, wpPos, self.cr.x, self.cr.y, self.cr.w, self.cr.h)
+		CAddRectFloat3(vbPos, wpPos, self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D)
 	else
-		CAddRectFloat2(vbPos, wpPos, self.location.x, self.location.y, self.rect.w, self.rect.h)
+		CAddRectFloat3(vbPos, wpPos, self.location.x, self.location.y, self.rect.w, self.rect.h, Z_2D)
 	end
 	CAddFloat3(vbUVW, wpUVW, 4, self.font.pixels, 0, 0)
 	CAddUByte4(vbColor, wpColor, 4, color.r, color.g, color.b, color.a)
@@ -667,9 +667,9 @@ function UiText:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 	if (self.cr) then
 		n = CAddTextClip(vbPos, wpPos, vbUVW, wpUVW, self.font,
 		self.location.x - self.cr.x, self.location.y - self.cr.y + self.font.fontSize + self.font.descender,
-			self.cr.x, self.cr.y, self.cr.w, self.cr.h, self.text)
+			self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D, self.text)
 	else
-		n = CAddText(vbPos, wpPos, vbUVW, wpUVW, self.font, self.location.x, self.location.y + self.rect.h + self.font.descender, self.text)
+		n = CAddText(vbPos, wpPos, vbUVW, wpUVW, self.font, self.location.x, self.location.y + self.rect.h + self.font.descender, Z_2D, self.text)
 	end
 	
 	CAddUByte4(vbColor, wpColor, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
@@ -1087,7 +1087,7 @@ function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 		elseif (self.selected_x >= rect.w) then
 			w = rect.w - self.caret.rect.x
 		end
-		CAddRectFloat2(vbPos, wpPos, math.max(self.location.x + x, rect.x), rect.y, w, rect.h)
+		CAddRectFloat3(vbPos, wpPos, math.max(self.location.x + x, rect.x), rect.y, w, rect.h, Z_2D)
 		CAddFloat3(vbUVW, wpUVW, 4, self.font.pixels, 0, 0)
 		CAddUByte4(vbColor, wpColor, 4, self.selectedColor.r, self.selectedColor.g, self.selectedColor.b, self.selectedColor.a)
 		n0 = 1
@@ -1096,7 +1096,7 @@ function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 		wpColor = APPEND
 	end
 	local n = CAddTextClip(vbPos, wpPos, vbUVW, wpUVW, self.font, self.textOffset, self.rect.h + self.font.descender, 
-	rect.x, rect.y, rect.w, rect.h, self.text)
+	rect.x, rect.y, rect.w, rect.h, Z_2D, self.text)
 	CAddUByte4(vbColor, wpColor, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
 	n = n + n0
 	self.nText = n
@@ -1290,7 +1290,8 @@ function UiPolyIcon:ctor(iconPoly, stretch, w, h)
 	self.poly = iconPoly
 	self.scale = stretch
 	if (stretch) then
-		self.mat2d = CMatrix2D()
+		self.mat3d = CMatrix3D()
+		self.mat3d:SetD2(0, 0, 1)
 		self:SetSize(w, h)
 	else
 		self:SetSize(iconPoly.w, iconPoly.h)
@@ -1302,15 +1303,15 @@ function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 	local n = self.poly.vtx_count
 	if (self.scale) then
 		if (self.sized) then
-			self.mat2d:SetD0(self.rect.w / self.poly.w, 0)
-			self.mat2d:SetD1(0, self.rect.h / self.poly.h)
+			self.mat3d:SetD0(self.rect.w / self.poly.w, 0, 0)
+			self.mat3d:SetD1(0, self.rect.h / self.poly.h, 0)
 		end
 		if (self.moved) then
-			self.mat2d:SetD2(self.location.x, self.location.y) 			
+			self.mat3d:SetD3(self.location.x, self.location.y, 0) 			
 		end
-		CTransformFloat2(g_innerPolyVB, self.poly.vb_offset, n, self.mat2d, vbPos, wpPos)
+		CTransformFloat3(g_innerPolyVB, self.poly.vb_offset, n, self.mat3d, vbPos, wpPos)
 	else
-		CMoveFloat2(g_innerPolyVB, self.poly.vb_offset, n, self.location.x, self.location.y, vbPos, wpPos)
+		CMoveFloat3(g_innerPolyVB, self.poly.vb_offset, n, self.location.x, self.location.y, 0, vbPos, wpPos)
 	end
 	CAddFloat3(vbUVW, wpUVW, n, self.font.pixels, 0, 0)
 	for k, v in pairs(self.poly.colors) do

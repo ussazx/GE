@@ -36,10 +36,13 @@ function GridLayoutTest(w)
 		
 		ww = UiPolyIcon(g_iconFolder, true, 80, 45)
 		layout:AddChild(ww, 1, 0, 5, 5, 5, 5)
+		
 		-- ww = UiPolyIcon(g_iconFolder, true)
 		-- layout:AddChild(ww, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 5, 5, 5, 5)
+		
 		--ww = UiPolyIcon(g_iconFolder)
 		--layout:AddChild(ww, 1, 0, 5, 5, 5, 5)
+		
 		local t = UiText('abcdef')
 		layout:AddChild(t)
 	end

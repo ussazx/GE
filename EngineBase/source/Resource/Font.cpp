@@ -13,7 +13,7 @@ struct GlyphTable
 };
 Lua_global_add_cpp_class(GlyphTable)
 
-bool AddGlyph(BufferWriter<float2>& pos, BufferWriter<float3>& uvw, const GlyphInfo& g, const Point& pt, const Bound* scissor)
+bool AddGlyph(BufferWriter<float3>& pos, BufferWriter<float3>& uvw, const GlyphInfo& g, const Point& pt, const Bound* scissor, float z = 0)
 {
 	float x = pt.x;
 	float y = pt.y;
@@ -65,15 +65,15 @@ bool AddGlyph(BufferWriter<float2>& pos, BufferWriter<float3>& uvw, const GlyphI
 	uvw[3].y = y1;
 	uvw[3].z = g.width;
 
-	pos[0] = { x, y };
-	pos[1] = { x + width, y };
-	pos[2] = { x + width, y + height };
-	pos[3] = { x, y + height };
+	pos[0] = { x, y, z };
+	pos[1] = { x + width, y, z };
+	pos[2] = { x + width, y + height, z };
+	pos[3] = { x, y + height, z };
 
 	return true;
 }
 
-bool AddGlyphClip(BufferWriter<float2>& pos, BufferWriter<float3>& uvw, GlyphInfo& g, Point offset, const Rect& clipRect)
+bool AddGlyphClip(BufferWriter<float3>& pos, BufferWriter<float3>& uvw, GlyphInfo& g, Point offset, const Rect& clipRect, float z = 0)
 {
 	if (offset.x + (int)g.width <= 0 || offset.x - (int)clipRect.w >= 0
 		|| offset.y + (int)g.height <= 0 || offset.y - (int)clipRect.h >= 0)
@@ -102,7 +102,7 @@ bool AddGlyphClip(BufferWriter<float2>& pos, BufferWriter<float3>& uvw, GlyphInf
 			scissor.bottom = bottom - clipRect.h;
 	}
 
-	return AddGlyph(pos, uvw, g, p, &scissor);
+	return AddGlyph(pos, uvw, g, p, &scissor, z);
 }
 
 std::tuple<uint32_t, uint32_t> MeasureText(const std::wstring& s, GlyphTable& table, int maxIndex = -1, int range = -1)
@@ -131,12 +131,12 @@ std::tuple<uint32_t, uint32_t> CMeasureText(LString s, int maxIndex, int range, 
 }
 Lua_global_add_cfunc(CMeasureText);
 
-std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, int x, int y, LString s)
+std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, int x, int y, float z, LString s)
 {
 	if (s.length() == 0)
 		return { 0, x };
 
-	BufferWriter<float2> pos(*vb_pos, s.length(), wp_pos);
+	BufferWriter<float3> pos(*vb_pos, s.length(), wp_pos);
 	BufferWriter<float3> uvw(*vb_uv, s.length(), wp_uv);
 
 	int n = 0;
@@ -152,7 +152,7 @@ std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuff
 		if (index < table->glyphs.size())
 		{
 			GlyphInfo& g = table->glyphs[index];
-			if (g.hasImage && AddGlyph(pos, uvw, g, { x + g.xOffset, y - g.yOffset }, {}))
+			if (g.hasImage && AddGlyph(pos, uvw, g, { x + g.xOffset, y - g.yOffset }, {}, z))
 				n++;
 			x += g.xAdvance;
 
@@ -166,12 +166,12 @@ std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuff
 }
 Lua_global_add_cfunc(CAddText);
 
-std::tuple<int, int> CAddTextClip(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, int offset_x, int offset_y, int rect_x, int rect_y, int rect_w, int rect_h, LString s)
+std::tuple<int, int> CAddTextClip(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, int offset_x, int offset_y, int rect_x, int rect_y, int rect_w, int rect_h, float z, LString s)
 {
 	if (s.length() == 0)
 		return { 0, offset_x };
 
-	BufferWriter<float2> pos(*vb_pos, s.length(), wp_pos);
+	BufferWriter<float3> pos(*vb_pos, s.length(), wp_pos);
 	BufferWriter<float3> uvw(*vb_uv, s.length(), wp_uv);
 
 	int n = 0, x = 0;
@@ -189,7 +189,7 @@ std::tuple<int, int> CAddTextClip(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<C
 			GlyphInfo& g = table->glyphs[index];
 
 			Rect clip{ rect_x, rect_y, rect_w, rect_h };
-			if (g.hasImage && AddGlyphClip(pos, uvw, g, { offset_x + x + g.xOffset, offset_y - g.yOffset }, { rect_x, rect_y, rect_w, rect_h }))
+			if (g.hasImage && AddGlyphClip(pos, uvw, g, { offset_x + x + g.xOffset, offset_y - g.yOffset }, { rect_x, rect_y, rect_w, rect_h }, z))
 				n++;
 
 			x += g.xAdvance;

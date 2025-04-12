@@ -8,26 +8,11 @@ typedef int int1;
 
 typedef unsigned int uint1;
 
-struct float2
-{
-	float x;
-	float y;
-};
-
-struct float3
-{
-	float x;
-	float y;
-	float z;
-};
-
-struct float4
-{
-	float x;
-	float y;
-	float z;
-	float w;
-};
+//struct float2
+//{
+//	float x;
+//	float y;
+//};
 
 struct Point
 {

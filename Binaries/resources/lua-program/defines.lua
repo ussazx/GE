@@ -16,7 +16,7 @@ local function Define_VB_Element(name, num)
 end
 
 Define_VB_Element('VB_ELEM_FLOAT1', 4)
-Define_VB_Element('VB_ELEM_FLOAT2', 4)
+--Define_VB_Element('VB_ELEM_FLOAT2', 4)
 Define_VB_Element('VB_ELEM_FLOAT3', 4)
 Define_VB_Element('VB_ELEM_FLOAT4', 4)
 Define_VB_Element('VB_ELEM_INT1', 4)
@@ -41,9 +41,11 @@ VB_ELEM_ID = VB_ELEM_UINT1_0
 
 APPEND = -1
 
+Z_2D = 0
+
 g_sizeFunc = {}
 g_sizeFunc[CAddFloat1] = 4
-g_sizeFunc[CAddFloat2] = 8
+--g_sizeFunc[CAddFloat2] = 8
 g_sizeFunc[CAddFloat3] = 12
 g_sizeFunc[CAddFloat4] = 16
 g_sizeFunc[CAddInt1] = 4

@@ -27,13 +27,15 @@ function AddPoly2D(...)
 		for i = 1, #v  do
 			local w = v[i]
 			if (w == 1) then
-				o.idx_count = o.idx_count + CAddConvexPolyIndex(g_innerPolyIB, APPEND, 1, o.vtx_count, nv)
+				--CAddConvexPolyIndex(g_innerPolyIB, APPEND, 1, o.vtx_count, nv)
+				o.idx_count = o.idx_count + CAddPolyIndex(1, g_innerPolyVB, 
+					g_innerPolyVB.offset + SIZE_FLOAT3 * o.vtx_count, nv, g_innerPolyIB, APPEND, o.vtx_count, true)
 				o.vtx_count = o.vtx_count + nv
 				nvc = nvc + nv
 				nv = 0
 			else
 				nv = nv + 1
-				CAddFloat2(g_innerPolyVB, APPEND, 1, w[1], w[2])
+				CAddFloat3(g_innerPolyVB, APPEND, 1, w[1], w[2], Z_2D)
 				if (o.w < w[1]) then
 					o.w = w[1]
 				end
@@ -43,19 +45,20 @@ function AddPoly2D(...)
 			end
 		end
 		if (nv > 0) then
-			o.idx_count = o.idx_count + CAddConvexPolyIndex(g_innerPolyIB, APPEND, 1, o.vtx_count, nv)
+			o.idx_count = o.idx_count + CAddPolyIndex(1, g_innerPolyVB, 
+				g_innerPolyVB.offset + SIZE_FLOAT3 * o.vtx_count, nv, g_innerPolyIB, APPEND, o.vtx_count, true)
 			o.vtx_count = o.vtx_count + nv
 			nvc = nvc + nv
 		end
 		table.insert(o.colors, {nvc, v.color or Color(150, 150, 150, 255)})
 	end
-	g_innerPolyVB.offset = g_innerPolyVB.offset + SIZE_FLOAT2 * o.vtx_count
+	g_innerPolyVB.offset = g_innerPolyVB.offset + SIZE_FLOAT3 * o.vtx_count
 	g_innerPolyIB.offset = g_innerPolyIB.offset + SIZE_UINT1 * o.idx_count
 	return o
 end
 
-g_iconFolder = AddPoly2D({{5, 0}, {50, 0}, {55, 5}, {0, 5}, 1,
-						{0, 5}, {110, 5}, {110, 10}, {0, 10}, 1,
+g_iconFolder = AddPoly2D({{5, 0}, {50, 0}, {55, 5},
+						{110, 5}, {110, 10}, {0, 10}, {0, 5}, 1,
 						{0, 12}, {110, 12}, {110, 62}, {0, 62}})
 
 g_iconHome = AddPoly2D({{0, 20}, {10, 0}, {20, 10}})
@@ -127,7 +130,7 @@ cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POL
 cParamPipeline:SetDethStencilStates(true, true, true, cGI.COMPARE_OP_LESS_OR_EQUAL, false)
 cParamPipeline:SetBlendState(0, true)
 cParamPipeline:SetBsColorBlendOp(0, cGI.BLEND_FACTOR_SRC_ALPHA, cGI.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, cGI.BLEND_OP_ADD)
-cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32_SFLOAT, SIZE_FLOAT2)
+cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
 cParamPipeline:AddVertexElement(1, 1, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
 cParamPipeline:AddVertexElement(2, 2, cGI.FORMAT_R8G8B8A8_UNORM, SIZE_UINT1)
 g_plUi = cGI:NewPipeline(g_rp0, 0, 1, ui_vs, 'main', ui_ps, 'main', cParamPipeline)
@@ -136,13 +139,13 @@ cParamPipeline:Reset()
 cParamPipeline:AddResourceLayout(g_rl0)
 cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_BACK_BIT, true, false, false, false)
 cParamPipeline:SetDethStencilStates(true, true, true, cGI.COMPARE_OP_LESS_OR_EQUAL, false)
-cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT2)
+cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
 cParamPipeline:AddVertexElement(3, 1, cGI.FORMAT_WRITE_ID, SIZE_WRITE_ID)
 cParamPipeline:SetVertexInputRate(3, true)
 g_plId2D = cGI:NewPipeline(g_rp0, 1, 1, id_ui_vs, 'main', id_ui_ps, 'main', cParamPipeline)
 
 g_mtlUi = {}
-g_mtlUi.vtxInput = NewVtxInput(SIZE_FLOAT2, SIZE_FLOAT3, SIZE_UINT1)
+g_mtlUi.vtxInput = NewVtxInput(SIZE_FLOAT3, SIZE_FLOAT3, SIZE_UINT1)
 g_mtlUi.slot = {}
 g_mtlUi.slot[1] = 1
 g_mtlUi.slot[2] = 2

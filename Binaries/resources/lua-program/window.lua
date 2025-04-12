@@ -17,7 +17,7 @@ function Window:ctor()
 	
 	self.cmd = Command.New()
 	 
-	self.cbWnd = ResBuffer(self.cmd, CAddFloat2)
+	self.cbWnd = ResBuffer(self.cmd, CAddFloat3)
 	self.res_set = g_rl0:NewResourceSet()
 	self.res_set:ResBuffer(self.cbWnd, 0)
 	
@@ -163,7 +163,7 @@ function Window:resize(w, h)
 	end
 	
 	cGI:DeviceWaitIdle()
-	self.cbWnd:Set(1, self.rect.w, self.rect.h)
+	self.cbWnd:Set(1, self.rect.w, self.rect.h, 1)
 	self.sizegroup:resize(w, h)
 	
 	self.copyParam.w = w
