@@ -390,8 +390,7 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 		float3 v0 = float3::Vector(p1, p2, inv_y);
 		float3 v1 = float3::Vector(p2, p3, inv_y);
 
-		float c = Cross2D(v0.x, v0.y, v1.x, v1.y);
-		if (c > 0)
+		if (Cross2D(v0.x, v0.y, v1.x, v1.y) > 0)
 			concaveFound = true;
 		else
 			firstConvexFound = true;
@@ -399,25 +398,48 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 	if (i == vnum && !concaveFound)
 		return AddConvexPolyIndex(ibw, vtx_seq, idx_offset, vnum);
 
+	float3 pc = {};
+	float3 v0 = {};
+	float3 v1 = {};
 	concaveFound = false;
-	for (i = 0; i < vnum; i++, i0 = i1, i1 = i2, i2 = i3, i3 = ++i3 % vnum)
+	for (i = 0; i < vnum; i++, i1 = i2, i2 = i3, i3 = ++i3 % vnum)
 	{
 		float3& p1 = vbw[vtx_seq[i1]];
 		float3& p2 = vbw[vtx_seq[i2]];
 		float3& p3 = vbw[vtx_seq[i3]];
 
-		float3 v0 = float3::Vector(p1, p2, inv_y);
-		float3 v1 = float3::Vector(p2, p3, inv_y);
+		v0 = float3::Vector(p1, p2, inv_y);
+		v1 = float3::Vector(p2, p3, inv_y);
 
-		float c = Cross2D(v0.x, v0.y, v1.x, v1.y);
-		if (c > 0)
+		if (Cross2D(v0.x, v0.y, v1.x, v1.y) > 0)
 		{
 			concaveFound = true;
+			pc = p2;
 			break;
 		}
 	}
 	if (!concaveFound)
 		return AddConvexPolyIndex(ibw, vtx_seq, idx_offset, vnum);
+
+	float3 v = float3::Vector(pc, vbw[vtx_seq[i0]], true);
+	if (Cross2D(v0.x, v0.y, v.x, v.y) > 0)
+	{
+		for (i0 = ++i0 % vnum; i0 != i1; i0 = ++i0 % vnum)
+		{
+			v = float3::Vector(vbw[vtx_seq[i0]], pc, true);
+			if (Cross2D(v0.x, v0.y, v.x, v.y) <= 0)
+				break;
+		}
+	}
+	else if (Cross2D(-v.x, -v.y, v1.x, v1.y) > 0)
+	{
+		for (i0 = (i0 == 0) ? vnum - 1 : i0--; i0 != i3; i0 = (i0 == 0) ? vnum - 1 : i0--)
+		{
+			v = float3::Vector(vbw[vtx_seq[i0]], pc, true);
+			if (Cross2D(v.x, v.y, v1.x, v1.y) <= 0)
+				break;
+		}
+	}
 
 	for (i1 = i2, i2 = i3, i3 = ++i3 % vnum; i3 != i0; i2 = i3, i3 = ++i3 % vnum)
 	{
