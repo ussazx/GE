@@ -337,10 +337,10 @@ inline size_t AddConvexPolyIndex(BufferWriter<uint1>& ibw, int idx_offset, uint3
 	return n;
 }
 
-inline size_t AddConvexPolyIndex(BufferWriter<uint1>& ibw, std::vector<uint1>& vtx_seq, int idx_offset, uint32_t num_vtx)
+inline size_t AddConvexPolyIndex(BufferWriter<uint1>& ibw, std::vector<uint1>& vtx_seq, int idx_offset)
 {
 	size_t n = 0;
-	for (size_t i = 1; i < num_vtx - 1; i++)
+	for (size_t i = 1; i < vtx_seq.size() - 1; i++)
 	{
 		ibw[n++] = vtx_seq[0] + idx_offset;
 		ibw[n++] = vtx_seq[i] + idx_offset;
@@ -396,7 +396,7 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 			firstConvexFound = true;
 	}
 	if (i == vnum && !concaveFound)
-		return AddConvexPolyIndex(ibw, vtx_seq, idx_offset, vnum);
+		return AddConvexPolyIndex(ibw, vtx_seq, idx_offset);
 
 	float3 pc = {};
 	float3 v0 = {};
@@ -419,11 +419,13 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 		}
 	}
 	if (!concaveFound)
-		return AddConvexPolyIndex(ibw, vtx_seq, idx_offset, vnum);
+		return AddConvexPolyIndex(ibw, vtx_seq, idx_offset);
 
+	bool halfConvex = true;
 	float3 v = float3::Vector(pc, vbw[vtx_seq[i0]], true);
 	if (Cross2D(v0.x, v0.y, v.x, v.y) > 0)
 	{
+		halfConvex = false;
 		for (i0 = ++i0 % vnum; i0 != i1; i0 = ++i0 % vnum)
 		{
 			v = float3::Vector(vbw[vtx_seq[i0]], pc, true);
@@ -433,6 +435,7 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 	}
 	else if (Cross2D(-v.x, -v.y, v1.x, v1.y) > 0)
 	{
+		halfConvex = false;
 		for (i0 = (i0 == 0) ? vnum - 1 : i0--; i0 != i3; i0 = (i0 == 0) ? vnum - 1 : i0--)
 		{
 			v = float3::Vector(vbw[vtx_seq[i0]], pc, true);
@@ -450,6 +453,7 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 		auto t = CIntersect2D(p0.x, p0.y, p1.x, p1.y, false, p2.x, p2.y, p3.x, p3.y, true, false);
 		if (std::get<0>(t))
 		{
+			halfConvex = false;
 			i0 = i3;
 			break;
 		}
@@ -462,7 +466,7 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 		if (i == i1)
 			break;
 	}
-	size_t n = AddPolyIndex(vbw, vtx_seq0, ibw, idx_offset, inv_y);
+	size_t n = halfConvex ? AddConvexPolyIndex(ibw, vtx_seq0, idx_offset) : AddPolyIndex(vbw, vtx_seq0, ibw, idx_offset, inv_y);
 	ibw.SkipUsed();
 
 	std::vector<uint1> vtx_seq1;
