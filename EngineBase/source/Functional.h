@@ -378,6 +378,8 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 		return 3;
 	}
 
+	float3 v0 = {};
+	float3 v1 = {};
 	bool firstConvexFound = false;
 	bool concaveFound = false;
 	size_t i = 0, i0 = 0, i1 = 0, i2 = 1, i3 = 2;
@@ -387,8 +389,8 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 		float3& p2 = vbw[vtx_seq[i2]];
 		float3& p3 = vbw[vtx_seq[i3]];
 
-		float3 v0 = float3::Vector(p1, p2, inv_y);
-		float3 v1 = float3::Vector(p2, p3, inv_y);
+		v0 = float3::Vector(p1, p2, inv_y);
+		v1 = float3::Vector(p2, p3, inv_y);
 
 		if (Cross2D(v0.x, v0.y, v1.x, v1.y) > 0)
 			concaveFound = true;
@@ -399,8 +401,6 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 		return AddConvexPolyIndex(ibw, vtx_seq, idx_offset);
 
 	float3 pc = {};
-	float3 v0 = {};
-	float3 v1 = {};
 	concaveFound = false;
 	for (i = 0; i < vnum; i++, i1 = i2, i2 = i3, i3 = ++i3 % vnum)
 	{
@@ -421,43 +421,51 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 	if (!concaveFound)
 		return AddConvexPolyIndex(ibw, vtx_seq, idx_offset);
 
+	if (i0 == i2 || i0 == i3)
+		i0 = (i0 + 2) % vnum;
+
 	bool halfConvex = true;
 	float3 v = float3::Vector(pc, vbw[vtx_seq[i0]], true);
 	if (Cross2D(v0.x, v0.y, v.x, v.y) > 0)
 	{
-		halfConvex = false;
-		for (i0 = ++i0 % vnum; i0 != i1; i0 = ++i0 % vnum)
+		for (i = (i0 + 1) % vnum; i != i1; i = ++i % vnum)
 		{
 			v = float3::Vector(vbw[vtx_seq[i0]], pc, true);
 			if (Cross2D(v0.x, v0.y, v.x, v.y) <= 0)
+			{
+				i0 = i;
 				break;
+			}
 		}
 	}
 	else if (Cross2D(-v.x, -v.y, v1.x, v1.y) > 0)
 	{
 		halfConvex = false;
-		for (i0 = (i0 == 0) ? vnum - 1 : i0--; i0 != i3; i0 = (i0 == 0) ? vnum - 1 : i0--)
+		for (i = (i0 == 0) ? vnum - 1 : i0 - 1; i != i3; i = (i == 0) ? vnum - 1 : --i)
 		{
 			v = float3::Vector(vbw[vtx_seq[i0]], pc, true);
 			if (Cross2D(v.x, v.y, v1.x, v1.y) <= 0)
+			{
+				i0 = i;
 				break;
+			}
 		}
 	}
 
-	for (i1 = i2, i2 = i3, i3 = ++i3 % vnum; i3 != i0; i2 = i3, i3 = ++i3 % vnum)
+	for (i = i0, i1 = i2, i2 = i3, i3 = ++i3 % vnum; i3 != i0; i2 = i3, i3 = ++i3 % vnum)
 	{
 		float3& p0 = vbw[vtx_seq[i1]];
-		float3& p1 = vbw[vtx_seq[i0]];
+		float3& p1 = vbw[vtx_seq[i]];
 		float3& p2 = vbw[vtx_seq[i2]];
 		float3& p3 = vbw[vtx_seq[i3]];
 		auto t = CIntersect2D(p0.x, p0.y, p1.x, p1.y, false, p2.x, p2.y, p3.x, p3.y, true, false);
 		if (std::get<0>(t))
 		{
 			halfConvex = false;
-			i0 = i3;
-			break;
+			i = i3;
 		}
 	}
+	i0 = i;
 
 	std::vector<uint1> vtx_seq0;
 	for (size_t i = i0; ; i = ++i % vnum)
