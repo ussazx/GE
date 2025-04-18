@@ -85,12 +85,10 @@ function Widget2D:Update(...)
 				self.moved = self.parent.moved
 			end
 		end
-		self:UpdateChildren(self:DoUpdate(...))
-		if (self.abortUpdate) then
-			return
+		if (self:UpdateChildren(self:DoUpdate(...))) then
+			self.moved = false
+			self.sized = false
 		end
-		self.moved = false
-		self.sized = false
 	else
 		self:SetWindow()
 	end
@@ -106,16 +104,16 @@ function Widget2D:SetWindow()
 end
 
 function Widget2D:DoUpdate(...)
-	return ...
+	return true, ...
 end
 
-function Widget2D:UpdateChildren(...)
-	if (self.abortUpdate) then
-		return
+function Widget2D:UpdateChildren(b, ...)
+	if (b) then
+		for v in self:ChildrenPairs() do
+			v:Update(...)
+		end
 	end
-	for v in self:ChildrenPairs() do
-		v:Update(...)
-	end
+	return b
 end
 
 local function FilterShown(c, allowHided)
@@ -244,7 +242,7 @@ function Layout:DoUpdate(...)
 	elseif(self.update) then
 		self:SetSize()
 	end
-	return ...
+	return true, ...
 end
 
 local function InitBoxLayoutProp(o, ratio, align, gapLeft, gapRight, gapTop, gapBottom)
@@ -310,7 +308,7 @@ local function VerticalLayout(box, w, h)
 	for v in box:ChildrenPairs() do
 		local prop = box.props[v]
 		
-		local rh = prop.ratio // total * n
+		local rh = math.floor(prop.ratio / total * n)
 		if (prop.ratio > 0 and (prop.h_expand or prop.v_expand)) then
 			local rw
 			if (prop.h_expand) then
@@ -388,7 +386,7 @@ function HorizontalLayout(box, w, h)
 	for v in box:ChildrenPairs() do
 		local prop = box.props[v]
 		
-		local rw = prop.ratio // total * n
+		local rw = math.floor(prop.ratio / total * n)
 		if (prop.ratio > 0 and (prop.h_expand or prop.v_expand)) then
 			local rh
 			if (prop.v_expand) then
@@ -458,6 +456,9 @@ function GridLayout:Layout(w, h)
 		v:SetSize()
 		gw = math.max(gw, prop.gapLeft + v.rect.w + prop.gapRight)
 		gh = math.max(gh, prop.gapTop + v.rect.h + prop.gapBottom)
+	end
+	if (gw == 0 or gh == 0) then
+		return
 	end
 	local col = self.col
 	if (col == nil) then
@@ -551,37 +552,46 @@ function UiWidget:FillClipRectIB(ib, ib_start, wp)
 	return CAddConvexPolyIndex(ib, wp, 1, ib_start, 4)
 end
 
-function UiWidget:DoUpdate(cpuClip, cr)
-	local crNew
-	local crCpu
+function UiWidget:DoUpdate(crCpu, crGpu)
+	local crCpuNew
+	local crGpuNew
 	if (self.cpuClip or self.gpuClip) then
-		crNew = Rect(self.location.x, self.location.y, self.rect.w, self.rect.h)
-		if (cr ~= nil and (cpuClip or self.gpuClip)) then
-			crNew = crNew:intersect(cr)
-			if (crNew == nil) then
-				self.abortUpdate = true
-				return
+		local crNew = Rect(self.location.x, self.location.y, self.rect.w, self.rect.h)
+		if (self.cpuClip) then
+			if (crCpu) then
+				crCpuNew = crNew:intersect(crCpu)
+				if (crCpuNew == nil) then
+					return false
+				end
+			else
+				crCpuNew = crNew
 			end
 		end
 		if (self.gpuClip) then
-			DrawcallList.cr = crNew
-		else
-			crCpu = crNew
-			if (cr and not cpuClip) then
-				DrawcallList.cr = cr
+			if (crCpuNew and (crCpu == crGpu or crGpu == nil)) then
+				crGpuNew = crCpuNew
+			elseif (crGpu or crCpu) then
+				crGpuNew = crNew:intersect(crGpu or crCpu)
+				if (crGpuNew == nil) then
+					return false
+				end
+			else
+				crGpuNew = crNew
 			end
 		end
-	elseif (cpuClip) then
-		crCpu = cr
-	elseif (cr) then
-		DrawcallList.cr = cr
+	end
+	crCpuNew = crCpuNew or crCpu
+	crGpuNew = crGpuNew or crGpu
+
+	if (crGpuNew) then
+		DrawcallList.cr = crGpuNew
 	end
 	
 	local changed = self.mesh.doCache and (self.mesh.update or (self.moved or self.sized or
-	((self.cr or crCpu) and ((self.cr == nil and crCpu) or (self.cr and crCpu == nil) or
-	(self.cr.x ~= crCpu.x or self.cr.y ~= crCpu.y or self.cr.w ~= crCpu.w or self.cr.h ~= crCpu.h)))))
+	((self.cr or crCpuNew) and ((self.cr == nil and crCpuNew) or (self.cr and crCpuNew == nil) or
+	(self.cr.x ~= crCpuNew.x or self.cr.y ~= crCpuNew.y or self.cr.w ~= crCpuNew.w or self.cr.h ~= crCpuNew.h)))))
 	
-	self.cr = crCpu
+	self.cr = crCpuNew
 	
 	local d
 	if (self.writeId ~= true) then
@@ -594,31 +604,20 @@ function UiWidget:DoUpdate(cpuClip, cr)
 	self.mesh.update = changed
 	self.mesh:Render(d)
 	
-	if (self.cpuClip or self.gpuClip) then
-		return self.cpuClip, crNew
-	end
-	return cpuClip, cr
+	return true, crCpuNew, crGpuNew
 end
 
------Button-----
-UiButton = class(UiWidget)
+-----UiButtonBase-----
+UiButtonBase = class(UiWidget)
 
-function UiButton:ctor(w, h, s, font)
-	self.color:set(70, 70, 70, 255)
-	self.rect:set(0, 0, w, h)
-	self.layout = BoxLayout()
-	self:AddChild(self.layout)
-	self.text = UiText(s, font)
-	self.text.writeId = false
-	self.layout:AddChild(self.text, 1)
-	
-	self:bind_event(EVT.MOVE_IN, self, UiButton.OnMouse)
-	self:bind_event(EVT.MOVE_OUT, self, UiButton.OnMouse)
-	self:bind_event(EVT.LEFT_DOWN, self, UiButton.OnMouse)
-	self:bind_event(EVT.LEFT_UP, self, UiButton.OnMouse)
+function UiButtonBase:ctor()
+	self:bind_event(EVT.MOVE_IN, self, UiButtonBase.OnMouse)
+	self:bind_event(EVT.MOVE_OUT, self, UiButtonBase.OnMouse)
+	self:bind_event(EVT.LEFT_DOWN, self, UiButtonBase.OnMouse)
+	self:bind_event(EVT.LEFT_UP, self, UiButtonBase.OnMouse)
 end
 
-function UiButton:OnMouse(e)
+function UiButtonBase:OnMouse(e)
 	if (e == EVT.LEFT_DOWN) then
 		self.down = true
 	elseif (e == EVT.LEFT_UP) then
@@ -631,14 +630,64 @@ function UiButton:OnMouse(e)
 	end
 	
 	if (self.down) then
-		self.color:set(150, 150, 150, 255)
+		self:OnPressing()
+		
 	elseif (self.hovering) then
-		self.color:set(100, 100, 100, 255)
+		self:OnHovering()
 	else
-		self.color:set(70, 70, 70, 255)
+		self:OnDefault()
 	end
 	
 	self:Refresh()
+end
+
+function UiButtonBase:OnDefault()
+end
+
+function UiButtonBase:OnHovering()
+end
+
+function UiButtonBase:OnPressing()
+end
+
+-----UiButton-----
+UiButton = class(UiButtonBase)
+
+function UiButton:ctor(w, h, s, font)
+	self.rect:set(0, 0, w, h)
+	self.color0 = Color(70, 70, 70, 255)
+	self.color1 = Color(100, 100, 100, 255)
+	self.color2 = Color(150, 150, 150, 255)
+	self.color = self.color0
+	self.layout = BoxLayout()
+	self:AddChild(self.layout)
+	self.text = UiText(s, font)
+	self.text.writeId = false
+	self.layout:AddChild(self.text, 1)
+end
+
+function UiButton:OnDefault()
+	self.color = self.color0
+end
+
+function UiButton:OnHovering()
+	self.color = self.color1
+end
+
+function UiButton:OnPressing()
+	self.color = self.color2
+end
+
+function UiButton:SetDefaultColor(r, g, b, a)
+	self.color0:set(r, g, b, a)
+end
+
+function UiButton:SetHoveringColor(r, g, b, a)
+	self.color1:set(r, g, b, a)
+end
+
+function UiButton:SetPressingColor(r, g, b, a)
+	self.color2:set(r, g, b, a)
 end
 
 -----Text-----
@@ -654,6 +703,7 @@ end
 function UiText:SetText(s, font)
 	s = s or ''
 	font = font or uiFont
+	self:Show(s ~= '')
 	if (self.text ~= s or self.font ~= font) then
 		self.text:set(s)
 		self.font = font
@@ -712,7 +762,7 @@ function UiTextInput:ctor(w, h, font)
 	self.crColor:set(100, 100, 100, 100)
 	self.selectedColor = Color(0, 130, 255, 100)
 	
-	self.caret = UiWidget(0, 0, 1, self.rect.h)
+	self.caret = UiWidget(1, self.rect.h)
 	self.caret.writeId = false
 	self.caret:Show(false)
 	self:AddChild(self.caret)
@@ -1117,29 +1167,20 @@ function UiSlideBar:ctor(vertical, length, width)
 	self.pos = 0
 	self.vertical = vertical
 	if (vertical) then
-		self.slider = UiWidget(math.max(1, width), 0)
+		self.slider = UiButton(math.max(1, width), 0)
 		self:SetSize(width, length)
 	else
-		self.slider = UiWidget(0, math.max(1, width))
+		self.slider = UiButton(0, math.max(1, width))
 		self:SetSize(length, width)
 	end
+	self.slider:SetDefaultColor(150, 150, 150, 255)
+	self.slider:SetHoveringColor(200, 200, 200, 255)
+	self.slider:SetPressingColor(230, 230, 230, 255)
 	
 	self:AddChild(self.slider)
-	self.slider.color:set(150, 150, 150, 255)
-	self.slider:bind_event(EVT.MOVE_IN, self, UiSlideBar.OnSlideBarHovered)
-	self.slider:bind_event(EVT.MOVE_OUT, self, UiSlideBar.OnSlideBarHovered)
 	self.slider:bind_event(EVT.LEFT_DOWN, self, UiSlideBar.OnSliderMouseButton)
 	self.slider:bind_event(EVT.LEFT_UP, self, UiSlideBar.OnSliderMouseButton)
 	self.slider:bind_event(EVT.MOTION, self, UiSlideBar.OnSliding)
-end
-
-function UiSlideBar:OnSlideBarHovered(e)
-	if (e == EVT.MOVE_IN) then
-		self.slider.color:set(200, 200, 200, 255)
-	else
-		self.slider.color:set(150, 150, 150, 255)
-	end
-	self:Refresh()
 end
 
 function UiSlideBar:SetScale(scale, sliderScale)
@@ -1228,23 +1269,27 @@ function UiSlideBar:OnSized()
 end
 
 -----UiScrollPanel-----
-UiScrollPanel = class(BoxLayout)
+UiScrollPanel = class(UiWidget)
 UiScrollPanel.barWidth = 12
 
-function UiScrollPanel:ctor(widget)
-	self.Layout = VerticalLayout
+function UiScrollPanel:ctor(widget, w, h)
+	self:SetSize(w, h)
+	self.color:set(0 ,0, 0, 0)
 	self:bind_event(EVT.MOUSEWHEEL, self, UiScrollPanel.OnMouseWheel)
 	
+	local vLayout = BoxLayout(true)
+	self:AddChild(vLayout)
+	
 	local hLayout = BoxLayout(false)
-	Widget2D.AddChild(self, hLayout, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	vLayout:AddChild(hLayout, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	
 	self.plate = UiWidget()
 	self.plate.color:set(0, 0, 0, 0)
 	hLayout:AddChild(self.plate, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	
 	self.widget = widget
-	self.plate:AddChild(widget)
 	self.widget:bind_event(EVT.SIZE, self, UiScrollPanel.OnWidgetSize)
+	self.plate:AddChild(widget)
 	
 	self.vScrollBar = UiSlideBar(true, 0, UiScrollPanel.barWidth)
 	self.vScrollBar:bind_event(EVT.SLIDE_BAR, self, UiScrollPanel.OnVScroll)
@@ -1254,7 +1299,7 @@ function UiScrollPanel:ctor(widget)
 	self.hScrollBar = UiSlideBar(false, 0, UiScrollPanel.barWidth)
 	self.hScrollBar:bind_event(EVT.SLIDE_BAR, self, UiScrollPanel.OnHScroll)
 	self.hScrollBar:Show(false)
-	Widget2D.AddChild(self, self.hScrollBar, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, UiScrollPanel.barWidth, 0, 0)
+	vLayout:AddChild(self.hScrollBar, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, UiScrollPanel.barWidth, 0, 0)
 	
 	self:SetSize()
 end
@@ -1281,13 +1326,17 @@ function UiScrollPanel:OnMouseWheel(e, x, y, n)
 end
 
 -----UiPolyIcon-----
-UiPolyIcon = class(UiWidget)
+UiPolyIcon = class(UiButtonBase)
 UiPolyIcon.cpuClip = false
 UiPolyIcon.cached = false
-UiPolyIcon.drawClipRect = false
+UiPolyIcon.drawClipRect = true
 
 function UiPolyIcon:ctor(iconPoly, stretch, w, h)
 	self.poly = iconPoly
+	self.colors0 = {}
+	self.colors1 = {}
+	self.colors2 = {}
+	self.colors = self.colors0
 	self.scale = stretch
 	if (stretch) then
 		self.mat3d = CMatrix3D()
@@ -1296,7 +1345,43 @@ function UiPolyIcon:ctor(iconPoly, stretch, w, h)
 	else
 		self:SetSize(iconPoly.w, iconPoly.h)
 	end
-	self.color:set(150, 150, 150, 255)
+	self.crColor:set(0, 0, 0, 0)
+end
+
+function UiPolyIcon:OnDefault()
+	self.colors = self.colors0
+end
+
+function UiPolyIcon:OnHovering()
+	self.colors = self.colors1
+end
+
+function UiPolyIcon:OnPressing()
+	self.colors = self.colors2
+end
+
+function UiPolyIcon:SetDefaultColor(idx, r, g, b, a)
+	if (self.colors0[idx]) then
+		self.colors0[idx]:set(r, g, b, a)
+	else
+		self.colors0[idx] = Color(r, g, b, a)
+	end
+end
+
+function UiPolyIcon:SetHoveringColor(idx, r, g, b, a)
+	if (self.colors1[idx]) then
+		self.colors1[idx]:set(r, g, b, a)
+	else
+		self.colors1[idx] = Color(r, g, b, a)
+	end
+end
+
+function UiPolyIcon:SetPressingColor(idx, r, g, b, a)
+	if (self.colors2[idx]) then
+		self.colors2[idx]:set(r, g, b, a)
+	else
+		self.colors2[idx] = Color(r, g, b, a)
+	end
 end
 
 function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
@@ -1318,7 +1403,7 @@ function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 		if (k > 1) then
 			wpColor = APPEND
 		end
-		local c = v[2]
+		local c = self.colors[k] or v[2]
 		CAddUByte4(vbColor, wpColor, v[1], c.r, c.g, c.b, c.a)
 	end
 	return n
@@ -1329,6 +1414,39 @@ function UiPolyIcon:FillIB(ib, ib_start, wp)
 	return self.poly.idx_count
 end
 
+-----UiFoldableTree-----
+UiFoldableTree = class(UiWidget)
+
+function UiFoldableTree:ctor(w, h)
+	self:SetSize(w, h)
+	self.highLight = UiWidget()
+	self.highLight.color:set(0, 130, 255, 100)
+	self.highLight:Show(false)
+	self:AddChild(self.highLight)
+end
+
+function UiFoldableTree:AddItem(id, item)
+	local box = BoxLayout(false)
+	
+	local iconFold = UiPolyIcon(g_iconFold)
+	iconFold:SetDefaultColor(150, 150, 150, 255)
+	iconFold:SetHoveringColor(200, 200, 200, 255)
+	iconFold:SetPressingColor(230, 230, 230, 255)
+	iconFold:Show(false)
+	iconFold:bind_event(EVT.LEFT_UP, self, OnFold)
+	box:AddChild(iconFold, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 2, 2, 1, 1)
+	
+	iconExpand = UiPolyIcon(g_iconExpand) 
+	iconExpand:SetDefaultColor(150, 150, 150, 255)
+	iconExpand:SetHoveringColor(200, 200, 200, 255)
+	iconExpand:SetPressingColor(230, 230, 230, 255)
+	iconExpand:Show(false)
+	iconExpand:bind_event(EVT.LEFT_UP, self, OnExpand)
+	box:AddChild(iconFold, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 2, 2, 1, 1)
+
+end
+	
+	
 	
 	
 	

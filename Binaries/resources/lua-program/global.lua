@@ -61,7 +61,10 @@ g_iconFolder = AddPoly2D({{5, 0}, {50, 0}, {55, 5},
 						{110, 5}, {110, 10}, {0, 10}, {0, 5}, 1,
 						{0, 12}, {110, 12}, {110, 62}, {0, 62}})
 
-g_iconHome = AddPoly2D({{0, 20}, {10, 0}, {20, 10}})
+local v = 10
+local w = v * v
+g_iconFold = AddPoly2D({{0, 0}, {math.sqrt(w - math.sqrt(2 * w) / 2), math.sqrt(2 * w) / 2}, {0, math.sqrt(2 * w)}})
+g_iconExpand = AddPoly2D({{0, v}, {v, 0}, {v, v}})
 
 -- TargetViewDescs = {view1 = {samples = 1, format = FORMAT}}
 

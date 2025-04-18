@@ -538,7 +538,7 @@ function FramePipeline:UpdateLayouts()
 			dcList:Reset()
 		end
 		g_dcLists = dcLists
-		layout:Update(layout.cpuClip, layout.rect)
+		layout:Update(nil, layout.rect)
 	end
 end
 
