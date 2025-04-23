@@ -353,7 +353,7 @@ local function RenderMesh(mesh, disables)
 	mesh.vbDst = mtl.vtxInput[g_cmd][g_cmd.rIdx].vb
 	local draw = true
 	for spId, func in pairs(mtl.func) do
-		if (disables[spId] ~= true and g_dcLists[spId]) then
+		if (not disables[spId] and g_dcLists[spId]) then
 			local dcList = g_dcLists[spId]
 			if (dcList.spId ~= spId) then
 				func(dcList)
@@ -384,7 +384,7 @@ local function RenderMeshCached(mesh, disables)
 	mesh.vbDst = mtl.vtxInput[g_cmd][g_cmd.rIdx].vb
 	local draw = false
 	for spId, func in pairs(mtl.func) do
-		if (disables[spId] ~= true and g_dcLists[spId]) then
+		if (not disables[spId] and g_dcLists[spId]) then
 			local dcList = g_dcLists[spId]
 			if (dcList.spId ~= spId) then
 				func(dcList)
@@ -528,17 +528,16 @@ function FramePipeline:AddCopyImage(params)
 	table.insert(self.cmdList, {type = 1, params = params})
 end
 
-function FramePipeline:UpdateLayouts()
-	for param, dcLists in pairs(self.foParams) do
-		local layout = param.layout
-		DrawcallList.vp = layout.rect
-		DrawcallList.cr = layout.rect
+function FramePipeline:UpdateSurfaces()
+	for surface, dcLists in pairs(self.foParams) do
+		DrawcallList.vp = surface.rect
+		DrawcallList.cr = surface.rect
 		
 		for _, dcList in pairs(dcLists) do
 			dcList:Reset()
 		end
 		g_dcLists = dcLists
-		layout:Update(nil, layout.rect)
+		surface:Update(nil, surface.rect)
 	end
 end
 
@@ -563,9 +562,9 @@ function FramePipeline:Bake()
 				end
 				
 				c.dcLists[k] = c.dcLists[k] or DrawcallList()
-				local dcLists = self.foParams[param] or {}
+				local dcLists = self.foParams[param.surface] or {}
 				dcLists[param.spId] = c.dcLists[k]
-				self.foParams[param] = dcLists
+				self.foParams[param.surface] = dcLists
 			end
 			code = code..'cmd:RenderEnd()\n'
 		elseif (c.type == 1) then

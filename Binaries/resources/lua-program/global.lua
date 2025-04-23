@@ -29,7 +29,7 @@ function AddPoly2D(...)
 			if (w == 1) then
 				--CAddConvexPolyIndex(g_innerPolyIB, APPEND, 1, o.vtx_count, nv)
 				o.idx_count = o.idx_count + CAddPolyIndex(1, g_innerPolyVB, 
-					g_innerPolyVB.offset + SIZE_FLOAT3 * o.vtx_count, nv, g_innerPolyIB, APPEND, o.vtx_count, true)
+					o.vb_offset + SIZE_FLOAT3 * o.vtx_count, nv, g_innerPolyIB, APPEND, o.vtx_count, true)
 				o.vtx_count = o.vtx_count + nv
 				nvc = nvc + nv
 				nv = 0
@@ -46,7 +46,7 @@ function AddPoly2D(...)
 		end
 		if (nv > 0) then
 			o.idx_count = o.idx_count + CAddPolyIndex(1, g_innerPolyVB, 
-				g_innerPolyVB.offset + SIZE_FLOAT3 * o.vtx_count, nv, g_innerPolyIB, APPEND, o.vtx_count, true)
+				o.vb_offset + SIZE_FLOAT3 * o.vtx_count, nv, g_innerPolyIB, APPEND, o.vtx_count, true)
 			o.vtx_count = o.vtx_count + nv
 			nvc = nvc + nv
 		end

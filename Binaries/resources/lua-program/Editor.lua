@@ -21,9 +21,9 @@ function GridLayoutTest(w)
 	
 	
 	local grid = GridLayout()
-	local scrollPanel = UiScrollPanel(grid)
+	local scrollPanel = UiScrollPanel()
+	scrollPanel:SetWidget(grid)
 	scrollPanel.plate.cpuClip = true
-	scrollPanel.plate.gpuClip = true
 	layout:AddChild(scrollPanel, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
 	for i = 1, 100 do
 		local ww = UiWidget(150, 150)
@@ -110,9 +110,20 @@ end
 function NewWindow_CreateProj()
 	local w = Window()
 	
+	local layout = BoxLayout(true)
+	w:AddChild(layout)
+	
 	local b = UiButton(100 ,30, _('Create'))
 	b:bind_event(EVT.LEFT_UP, nil, OnCreateProj)
-	w:AddChild(b, 20, 20)
+	layout:AddChild(b, 0, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 0, 10, 10)
+	
+	local t = UiTreeList()
+	--t.color:set(200, 200, 200, 100)
+	local n = t:AddNode(nil, g_iconFolder, 'main')
+	n = t:AddNode(n, g_iconFolder, 'sub')
+	t:AddNode(n, g_iconFolder, 'sub1')
+	layout:AddChild(t, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
+	
 	return w
 end
 

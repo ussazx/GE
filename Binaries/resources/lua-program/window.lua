@@ -35,7 +35,7 @@ function Window:dtor()
 end
 
 function Window:OnWidgetShow(w, show)
-	if (show ~= true) then
+	if (not show) then
 		if (self.captured == w) then
 			w:process_event(EVT.CAPTURE_LOST)
 			self.captured = nil
@@ -105,8 +105,8 @@ function Window:init(t, hwnd, w, h)
 	self.sizegroup:add_rtv(self.idTexture, true)
 	
 	self.fp = FramePipeline()
-	local fpParam0 = {spId = SubpassId(g_rp0, 0), layout = self}
-	local fpParam1 = {spId = SubpassId(g_rp0, 1), layout = self}
+	local fpParam0 = {spId = SubpassId(g_rp0, 0), surface = self}
+	local fpParam1 = {spId = SubpassId(g_rp0, 1), surface = self}
 	self.copyParam = {srcView = self.idTargetView, srcLayer = 0, src_x = 0, src_y = 0,
 					dstView = self.idTexture, dstLayer = 0, dst_x = 0, dst_y = 0, 
 					numLayers = 1, w = self.rect.w, h = self.rect.h}
@@ -134,15 +134,15 @@ function Window:on_idle(t, onTimer, show)
 			g_cmd:Flip()
 			self.rendered = false
 		end
-		g_cmd:Prepare()
 		
 		ui_resourceSet = self.res_set
 		g_dcLists = self.dcLists
 		
 		self.update = true
 		while (self.update) do
+			g_cmd:Prepare()
 			self.update = false
-			self.fp:UpdateLayouts()
+			self.fp:UpdateSurfaces()
 		end
 		
 		self.sized = false

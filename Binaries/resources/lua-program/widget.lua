@@ -67,39 +67,32 @@ function Widget2D:Show(show)
 			self.window.update = true
 		end
 		if (self.inLayout) then
-			self.inLayout.update = true
+			self.inLayout:SetUpdate()
 		end
 		self.show = show
 	end
 end
 
 function Widget2D:Update(...)
-	if (self.show) then
-		self.abortUpdate = false
-		self.location.x = self.rect.x
-		self.location.y = self.rect.y
-		if (self.parent) then
-			self.window = self.parent.window
-			self.location:move(self.parent.location.x, self.parent.location.y)
-			if (self.moved == false) then
-				self.moved = self.parent.moved
-			end
-		end
-		if (self:UpdateChildren(self:DoUpdate(...))) then
-			self.moved = false
-			self.sized = false
-		end
-	else
-		self:SetWindow()
-	end
-end
-
-function Widget2D:SetWindow()
-	if (self.parent and self.window ~= self.parent.window) then
+	self.location.x = self.rect.x
+	self.location.y = self.rect.y
+	if (self.parent) then
 		self.window = self.parent.window
-		for w in self.children:pairs() do
-			w:SetWindow()
+		self.location:move(self.parent.location.x, self.parent.location.y)
+		if (self.moved == false) then
+			self.moved = self.parent.moved
 		end
+	end
+
+	self.moving = false
+	self.sizing = false
+	if (self.show) then
+		self.updating = true
+		if (self:UpdateChildren(self:DoUpdate(...))) then
+			self.moved = self.moving
+			self.sized = self.sizing
+		end
+		self.updating = false
 	end
 end
 
@@ -109,8 +102,8 @@ end
 
 function Widget2D:UpdateChildren(b, ...)
 	if (b) then
-		for v in self:ChildrenPairs() do
-			v:Update(...)
+		for w in self.children:pairs() do
+			w:Update(...)
 		end
 	end
 	return b
@@ -140,7 +133,8 @@ function Widget2D:DoSetPos(x, y)
 	if (self.rect.x ~= x or self.rect.y ~= y) then
 		self.rect.x = x
 		self.rect.y = y
-		self.moved = true
+		self.moved = not self.updating
+		self.moving = self.updating
 		if (self.OnMoved) then
 			self:OnMoved()
 		end
@@ -148,26 +142,7 @@ function Widget2D:DoSetPos(x, y)
 end
 
 function Widget2D:Move(x, y)
-	if (self.inLayout and self.inLayout.update == false) then
-		return
-	end
-	self:DoMove(x, y)
-	if (self.window) then
-		self.window.update = true
-	end
-end
-
-function Widget2D:DoMove(x, y)
-	x = x or 0
-	y = y or 0
-	if (x ~= 0 or y ~= 0) then
-		self.rect.x = self.rect.x + x
-		self.rect.y = self.rect.y + y
-		self.moved = true
-		if (self.OnMoved) then
-			self:OnMoved()
-		end
-	end
+	self:SetPos(self.rect.x + x, self.rect.y + y)
 end
 
 function Widget2D:SetSize(w, h)
@@ -181,12 +156,13 @@ function Widget2D:SetSize(w, h)
 	
 	self.rect.w = w
 	self.rect.h = h
-	self.sized = true
+	self.sized = not self.updating
+	self.sizing = self.updating
 	
 	self:process_event(EVT.SIZE, w0, h0)
 	
 	if (self.inLayout) then
-		self.inLayout.update = true
+		self.inLayout:SetUpdate()
 	end
 	
 	if (self.OnSized) then
@@ -204,6 +180,7 @@ Layout.ALIGN_BOTTOM = 8
 function Layout:ctor()
 	self.props = setmetatable({}, {__mode = 'k'})
 	self.update = true
+	self.sized = false
 end
 
 function Layout:SetSize(w, h)
@@ -224,16 +201,25 @@ end
 
 function Layout:OnAddChild(w, ...)
 	w.inLayout = self
-	self.update = true
+	self:SetUpdate()
 	local o = {}
 	self.props[w] = o
 	self.InitProp(o, ...)
 	return o
 end
 
+function Layout:SetUpdate()
+	if (not self.update) then
+		self.update = true
+		if (self.inLayout) then
+			self.inLayout:SetUpdate()
+		end
+	end
+end
+
 function Layout:OnRemoveChild(w)
 	self.props[w] = nil
-	self.update = true
+	self:SetUpdate()
 end
 
 function Layout:DoUpdate(...)
@@ -591,10 +577,14 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 	((self.cr or crCpuNew) and ((self.cr == nil and crCpuNew) or (self.cr and crCpuNew == nil) or
 	(self.cr.x ~= crCpuNew.x or self.cr.y ~= crCpuNew.y or self.cr.w ~= crCpuNew.w or self.cr.h ~= crCpuNew.h)))))
 	
-	self.cr = crCpuNew
+	if (self.cpuClip) then
+		self.cr = crCpuNew
+	else
+		self.cr = nil
+	end
 	
 	local d
-	if (self.writeId ~= true) then
+	if (not self.writeId) then
 		d = self.renderDisables
 	end
 	
@@ -1100,7 +1090,7 @@ function UiTextInput:RestrictCaretPos(x, remainCaret)
 	end
 	self.caret:SetPos(x)
 	self:Refresh()
-	if (remainCaret ~= true) then
+	if (not remainCaret) then
 		self:ResetCaret()
 	end
 end
@@ -1272,7 +1262,7 @@ end
 UiScrollPanel = class(UiWidget)
 UiScrollPanel.barWidth = 12
 
-function UiScrollPanel:ctor(widget, w, h)
+function UiScrollPanel:ctor(w, h)
 	self:SetSize(w, h)
 	self.color:set(0 ,0, 0, 0)
 	self:bind_event(EVT.MOUSEWHEEL, self, UiScrollPanel.OnMouseWheel)
@@ -1285,11 +1275,8 @@ function UiScrollPanel:ctor(widget, w, h)
 	
 	self.plate = UiWidget()
 	self.plate.color:set(0, 0, 0, 0)
+	self.plate.gpuClip = true
 	hLayout:AddChild(self.plate, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
-	
-	self.widget = widget
-	self.widget:bind_event(EVT.SIZE, self, UiScrollPanel.OnWidgetSize)
-	self.plate:AddChild(widget)
 	
 	self.vScrollBar = UiSlideBar(true, 0, UiScrollPanel.barWidth)
 	self.vScrollBar:bind_event(EVT.SLIDE_BAR, self, UiScrollPanel.OnVScroll)
@@ -1302,6 +1289,16 @@ function UiScrollPanel:ctor(widget, w, h)
 	vLayout:AddChild(self.hScrollBar, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, UiScrollPanel.barWidth, 0, 0)
 	
 	self:SetSize()
+end
+
+function UiScrollPanel:SetWidget(widget)
+	if (self.widget) then
+		self.widget:unbind_event(EVT.SIZE, self, UiScrollPanel.OnWidgetSize)
+		self.plate:RemoveChild(widget)
+	end
+	self.widget = widget
+	self.widget:bind_event(EVT.SIZE, self, UiScrollPanel.OnWidgetSize)
+	self.plate:AddChild(widget)
 end
 
 function UiScrollPanel:OnWidgetSize()
@@ -1340,7 +1337,6 @@ function UiPolyIcon:ctor(iconPoly, stretch, w, h)
 	self.scale = stretch
 	if (stretch) then
 		self.mat3d = CMatrix3D()
-		self.mat3d:SetD2(0, 0, 1)
 		self:SetSize(w, h)
 	else
 		self:SetSize(iconPoly.w, iconPoly.h)
@@ -1414,38 +1410,131 @@ function UiPolyIcon:FillIB(ib, ib_start, wp)
 	return self.poly.idx_count
 end
 
------UiFoldableTree-----
-UiFoldableTree = class(UiWidget)
+-----UiTreeList-----
+UiTreeList = class(UiScrollPanel)
 
-function UiFoldableTree:ctor(w, h)
+function UiTreeList:ctor(w, h)
 	self:SetSize(w, h)
+	
+	self.vScrollBar:bind_event(EVT.SLIDE_BAR, self, UiTreeList.OnVScroll)
+	
 	self.highLight = UiWidget()
+	self.highLight.writeId = false
 	self.highLight.color:set(0, 130, 255, 100)
 	self.highLight:Show(false)
-	self:AddChild(self.highLight)
+	self.plate:AddChild(self.highLight)
+	self.plate:bind_event(EVT.LEFT_DOWN, self, UiTreeList.OnMouse)
+	
+	self.list = BoxLayout(true)
+	self:SetWidget(self.list)
+	
+	self.nodes = {}
 end
 
-function UiFoldableTree:AddItem(id, item)
-	local box = BoxLayout(false)
-	
-	local iconFold = UiPolyIcon(g_iconFold)
-	iconFold:SetDefaultColor(150, 150, 150, 255)
-	iconFold:SetHoveringColor(200, 200, 200, 255)
-	iconFold:SetPressingColor(230, 230, 230, 255)
-	iconFold:Show(false)
-	iconFold:bind_event(EVT.LEFT_UP, self, OnFold)
-	box:AddChild(iconFold, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 2, 2, 1, 1)
-	
-	iconExpand = UiPolyIcon(g_iconExpand) 
-	iconExpand:SetDefaultColor(150, 150, 150, 255)
-	iconExpand:SetHoveringColor(200, 200, 200, 255)
-	iconExpand:SetPressingColor(230, 230, 230, 255)
-	iconExpand:Show(false)
-	iconExpand:bind_event(EVT.LEFT_UP, self, OnExpand)
-	box:AddChild(iconFold, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 2, 2, 1, 1)
-
+function UiTreeList:OnVScroll(e, pos)
+	if (self.selected) then
+		self.highLight:Move(0, -pos - self.hpos)
+		self.hpos = -pos
+	end
 end
+
+function UiTreeList.Pick(list, y)
+	for node in list:ChildrenPairs() do
+		local ny = node.title.location.y
+		if (y >= ny and y <= ny + node.title.rect.h) then
+			return node
+		end
+		if (node.list.show) then
+			node = UiTreeList.Pick(node.list, y)
+			if (node) then
+				return node
+			end
+		end
+	end
+end
+
+function UiTreeList:OnMouse(e, x, y, n)
+	local node = self.Pick(self.list, y)
+	if (node == nil) then
+		return
+	end
+	if (e == EVT.LEFT_DOWN) then
+		self.hpos = self.list.rect.y
+		self.highLight:SetPos(0, node.title.location.y - self.plate.location.y)
+		self.highLight:SetSize(self.plate.rect.w, node.title.rect.h)
+		self.highLight:Show(true)
+		self.selected = node
+	end
+end
+
+function UiTreeList:AddNode(nodeId, icon, text)
+	local node = BoxLayout(true)
+	node.fold = true
+	local superior = self.nodes[nodeId]
+	if (superior) then
+		superior.list:AddChild(node)
+		if (superior.fold) then
+			superior.iconFold:Show(true)
+			superior.spacer:Show(false)
+		end
+	else
+		self.list:AddChild(node, 0, Layout.ALIGN_LEFT)
+	end
+	self.nodes[node.id] = node
 	
+	node.title = BoxLayout(false)
+	node:AddChild(node.title, 0, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 0, 1, 1)
+	
+	node.iconFold = UiPolyIcon(g_iconFold, true, 12, 12)
+	node.iconFold.node = node
+	node.iconFold:SetDefaultColor(1, 150, 150, 150, 255)
+	node.iconFold:SetHoveringColor(1, 200, 200, 200, 255)
+	node.iconFold:SetPressingColor(1, 230, 230, 230, 255)
+	node.iconFold:Show(false)
+	node.iconFold.Expand = UiTreeList.Expand
+	node.iconFold:bind_event(EVT.LEFT_UP, node.iconFold, node.iconFold.Expand)
+	node.title:AddChild(node.iconFold, 0, Layout.ALIGN_LEFT, 2, 0, 0, 0)
+	
+	node.iconExpand = UiPolyIcon(g_iconExpand, true, 12, 12)
+	node.iconExpand.node = node
+	node.iconExpand:SetDefaultColor(1, 150, 150, 150, 255)
+	node.iconExpand:SetHoveringColor(1, 200, 200, 200, 255)
+	node.iconExpand:SetPressingColor(1, 230, 230, 230, 255)
+	node.iconExpand:Show(false)
+	node.iconExpand.Fold = UiTreeList.Fold
+	node.iconExpand:bind_event(EVT.LEFT_UP, node.iconExpand, node.iconExpand.Fold)
+	node.title:AddChild(node.iconExpand, 0, Layout.ALIGN_LEFT, 2, 0, 0, 0)
+	
+	node.spacer = BoxLayout()
+	node.spacer:Show(true)
+	node.title:AddChild(node.spacer, 0, Layout.ALIGN_LEFT, 12, 0, 0, 0)
+	
+	node.icon = UiPolyIcon(icon, true, 20, 14)
+	node.icon.writeId = false
+	node.title:AddChild(node.icon, 0, Layout.ALIGN_LEFT|Layout.ALIGN_BOTTOM, 5, 0, 0, 4)
+	
+	node.text = UiText(text)
+	node.text.writeId = false
+	node.title:AddChild(node.text, 0, Layout.ALIGN_LEFT, 5, 0, 0, 0)
+	
+	node.list = BoxLayout(true)
+	node.list:Show(false)
+	node:AddChild(node.list, 0, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 17, 0, 1, 1)
+	
+	return node.id
+end
+
+function UiTreeList.Expand(icon)
+	icon.node.iconFold:Show(false)
+	icon.node.iconExpand:Show(true)
+	icon.node.list:Show(true)
+end
+
+function UiTreeList.Fold(icon)
+	icon.node.iconExpand:Show(false)
+	icon.node.iconFold:Show(true)
+	icon.node.list:Show(false)
+end
 	
 	
 	
