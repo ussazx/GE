@@ -138,15 +138,15 @@ function NewWindow_LoadProj()
 	--VLayoutTest(w)
 	--HLayoutTest(w)
 	GridLayoutTest(w)
-	--w:AddChild(UiWidget(0, 0, 150, 130))
-	--w:AddChild(UiWidget(200, 0, 150, 130))
+	--w:AddChild(UiWidget(150, 130), 0, 0)
+	--w:AddChild(UiWidget(150, 130), 200, 0)
 	
-	--w:AddChild(UiTextInput(10, 10, 100, uiFont.fontSize))
+	--w:AddChild(UiTextInput(100, uiFont.fontSize), 10, 10)
+	--w:AddChild(UiTextInput(100, uiFont.fontSize), 10, 100)
 	
-	--w:AddChild(UiTextInput(10, 100, 100, uiFont.fontSize))
-	
-	--w:AddChild(UiText(0, 0, 'abcdef'))
-	--w:AddChild(UiText(100, 0, 'abcdef'))
+	--w:AddChild(UiText('abcdef'), 0, 0)
+	--w:AddChild(UiText('abcdef'), 100, 0)
+	--w:AddChild(UiText('abcdef'), 200, 0)
 	
 	w.OnLeftDown = WindowOnLeftDown
 	--w:bind_event(EVT.LEFT_DOWN, w, w.OnLeftDown)

@@ -15,11 +15,11 @@ function Window:ctor()
 	self.sysCaptured = false
 	self.keyDowns = {}
 	
-	self.cmd = Command.New()
+	self.cmd = Command.NewRenderCmd()
 	 
 	self.cbWnd = ResBuffer(self.cmd, CAddFloat3)
-	self.res_set = g_rl0:NewResourceSet()
-	self.res_set:ResBuffer(self.cbWnd, 0)
+	self.res_set = ResourceSetNew(g_rl0)
+	self.res_set:BindResBuffer(self.cbWnd, 0)
 	
 	--self.cmdList = CmdList()
 	
@@ -30,7 +30,7 @@ end
 
 function Window:dtor()
 	if (Window.recycle) then
-		Command.Recycle(self.cmd)
+		RenderCommand.Recycle(self.cmd)
 	end
 end
 
@@ -129,22 +129,14 @@ function Window:on_idle(t, onTimer, show)
 	end
 		
 	if(show and (self.update or self.sized)) then
-		g_cmd = self.cmd
-		if (self.rendered) then
-			g_cmd:Flip()
-			self.rendered = false
-		end
 		
 		ui_resourceSet = self.res_set
-		g_dcLists = self.dcLists
 		
 		self.update = true
 		while (self.update) do
-			g_cmd:Prepare()
+			self.fp:UpdateSurface(self.cmd:Prepare())
 			self.update = false
-			self.fp:UpdateSurfaces()
 		end
-		
 		self.sized = false
 		
 		if (self.rect.w > 0 and self.rect.h > 0) then
@@ -169,7 +161,6 @@ function Window:resize(w, h)
 	self.copyParam.w = w
 	self.copyParam.h = h
 	
-	g_cmd = self.cmd
 	if (render) then
 		self:render()
 	end
@@ -181,13 +172,8 @@ function Window:render()
 		self.sizegroup:resize(self.rect.w, self.rect.h)
 	end
 	
-	self.cmd:WaitFinish()
-	
 	self.fp:FillCommand(self.cmd)
-	
 	self.cmd:Execute()
-	
-	self.rendered = true
 end
 
 function Window:CaptureMouse(w)

@@ -148,7 +148,7 @@ cParamPipeline:SetVertexInputRate(3, true)
 g_plId2D = cGI:NewPipeline(g_rp0, 1, 1, id_ui_vs, 'main', id_ui_ps, 'main', cParamPipeline)
 
 g_mtlUi = {}
-g_mtlUi.vtxInput = NewVtxInput(SIZE_FLOAT3, SIZE_FLOAT3, SIZE_UINT1)
+g_mtlUi.vtxLayout = NewVtxLayout(SIZE_FLOAT3, SIZE_FLOAT3, SIZE_UINT1)
 g_mtlUi.slot = {}
 g_mtlUi.slot[1] = 1
 g_mtlUi.slot[2] = 2
@@ -157,7 +157,7 @@ g_mtlUi.insSlot = {}
 g_mtlUi.insSlot[SubpassId(g_rp0, 0)] = 1
 g_mtlUi.insSlot[SubpassId(g_rp0, 1)] = 2
 
-uiFont.res = g_rl1:NewResourceSet()
+uiFont.res = ResourceSetNew(g_rl1)
 uiFont.res:BindTexelView(uiFont.view)
 
 g_mtlUi.func = {}
@@ -165,12 +165,12 @@ g_mtlUi.func = {}
 g_mtlUi.func[SubpassId(g_rp0, 0)] = function(dcList)
 	dcList:AddResourceSet(ui_resourceSet)
 	dcList:AddResourceSet(uiFont.res)
-	dcList:SetPipeline(g_plUi, g_mtlUi.vtxInput, 0)
+	dcList:SetPipeline(g_plUi, g_mtlUi.vtxLayout, 0)
 end
 
 g_mtlUi.func[SubpassId(g_rp0, 1)] = function(dcList)
 	dcList:AddResourceSet(ui_resourceSet)  
-	dcList:SetPipeline(g_plId2D, g_mtlUi.vtxInput, 0)
+	dcList:SetPipeline(g_plId2D, g_mtlUi.vtxLayout, 0)
 	dcList:SetInsVB(g_idVbSet, 3)
 end
 
