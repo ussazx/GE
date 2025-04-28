@@ -132,7 +132,11 @@ std::tuple<uint32_t, uint32_t> CMeasureText(LString s, int maxIndex, int range, 
 }
 Lua_global_add_cfunc(CMeasureText);
 
+<<<<<<< HEAD
 std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, float x, float y, float z, LString s)
+=======
+std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, int x, int y, float z, LString s)
+>>>>>>> 69b82914a9d0489595157320489e529e4dd61279
 {
 	if (s.length() == 0)
 		return { 0, x };
@@ -167,7 +171,11 @@ std::tuple<int, int> CAddText(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuff
 }
 Lua_global_add_cfunc(CAddText);
 
+<<<<<<< HEAD
 std::tuple<int, int> CAddTextClip(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, float offset_x, float offset_y, float rect_x, float rect_y, float rect_w, float rect_h, float z, LString s)
+=======
+std::tuple<int, int> CAddTextClip(LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv, LuacObj<GlyphTable> table, int offset_x, int offset_y, int rect_x, int rect_y, int rect_w, int rect_h, float z, LString s)
+>>>>>>> 69b82914a9d0489595157320489e529e4dd61279
 {
 	if (s.length() == 0)
 		return { 0, offset_x };

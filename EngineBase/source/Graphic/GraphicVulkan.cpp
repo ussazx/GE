@@ -688,7 +688,11 @@ void VKCommand::SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding
 	vkCmdBindVertexBuffers(m_cmd, firstBinding, s->m_set.size(), s->m_set.data(), s->m_offsets.data());
 }
 
+<<<<<<< HEAD
 void VKCommand::DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t firstInst, uint32_t instCount)
+=======
+void VKCommand::DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount)
+>>>>>>> 69b82914a9d0489595157320489e529e4dd61279
 {
 	VKPipeline* p = (VKPipeline*)pipeline;
 	vkCmdBindPipeline(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->m_pipeline);
@@ -696,7 +700,11 @@ void VKCommand::DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int
 		vkCmdBindDescriptorSets(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->m_layout, 0, min(p->m_resCount, m_resources.size()), m_resources.data(), 0, NULL);
 
 	vkCmdBindIndexBuffer(m_cmd, ((VKBuffer*)ib)->m_buffer, 0, VK_INDEX_TYPE_UINT32);
+<<<<<<< HEAD
 	vkCmdDrawIndexed(m_cmd, indexCount, instCount, firstIndex, vtxOffset, firstInst);
+=======
+	vkCmdDrawIndexed(m_cmd, indexCount, 1, firstIndex, vtxOffset, 0);
+>>>>>>> 69b82914a9d0489595157320489e529e4dd61279
 }
 
 void VKCommand::DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count)

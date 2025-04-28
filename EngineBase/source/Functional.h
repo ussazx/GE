@@ -468,7 +468,10 @@ inline size_t CAddPolyIndex(size_t count, LuacObj<CBuffer> vb, int vpos, uint32_
 	for (uint1 i = 0; i < vnum; i++)
 		vtx_seq[i] = i;
 	size_t n = AddPolyIndex(vbw, vtx_seq, ibw, idx_offset, inv_y);
+<<<<<<< HEAD
 	vbw[vnum - 1];
+=======
+>>>>>>> 69b82914a9d0489595157320489e529e4dd61279
 
 	idx_offset += vnum;
 	for (size_t i = 1; i < count; i++, idx_offset += vnum)

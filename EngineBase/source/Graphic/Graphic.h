@@ -180,7 +180,11 @@ public:
 
 	virtual void SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding) = 0;
 
+<<<<<<< HEAD
 	virtual void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t firstInst, uint32_t instCount) = 0;
+=======
+	virtual void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount) = 0;
+>>>>>>> 69b82914a9d0489595157320489e529e4dd61279
 
 	virtual void DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count) = 0;
 
