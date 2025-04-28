@@ -306,11 +306,7 @@ public:
 
 	void SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding) override;
 
-<<<<<<< HEAD
 	void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t firstInst, uint32_t instCount) override;
-=======
-	void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount) override;
->>>>>>> 69b82914a9d0489595157320489e529e4dd61279
 
 	void DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count) override;
 
