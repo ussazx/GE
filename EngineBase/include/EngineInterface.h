@@ -9,6 +9,12 @@
 #define DECLSPEC_C extern "C" __declspec(dllimport)
 #endif
 
+#ifdef WIN32
+#define DEBUG_PRINT OutputDebugStringA
+#else
+#define DEBUG_PRINT
+#endif
+
 namespace Engine
 {
 	enum SeekPos
@@ -37,8 +43,16 @@ namespace Engine
 			return missingFail && n < sizeof(T) ? 0 : n;
 		}
 	};
+	DECLSPEC class StreamOutput
+	{
+	public:
+		virtual ~StreamOutput() {};
+		virtual bool IsValid() = 0;
+		virtual bool WriteUtf8(const char* str) = 0;
+	};
 #else
 	class StreamInput;
+	class StreamOutput;
 #endif
 
 	enum ValueType

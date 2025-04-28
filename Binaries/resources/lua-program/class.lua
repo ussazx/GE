@@ -1,4 +1,20 @@
 ---class---
+local function assign(o, c)
+	if (c._base) then
+		o = assign(o, c._base)
+	end
+	return setmetatable(o, c._class)
+end
+
+local function ctor(o, c, ...)
+	if (c._base) then
+		ctor(o, c._base)
+	end
+	if (c.ctor and (c._base == nil or c.ctor ~= c._base.ctor)) then
+		c.ctor(o, ...)
+	end
+end
+
 local function dtor(o)
 	local c = o
 	while (c ~= nil) do
@@ -9,71 +25,71 @@ local function dtor(o)
 	end
 end
 
-local function instantiate(c, ...)
-	local o = setmetatable({}, getmetatable(c).class)
-	
-	if (o.ctor) then
-		o:ctor(...)
-	end
-	return o
-end
-
-local function instantiate_d(c, base, ...)
+local function instantiate(c, base, ...)
 	local o
 	local b = getmetatable(base)
-	if (b and b.__index == c._base) then
-		o = setmetatable(base, getmetatable(c).class)
-		if (o.ctor and o.ctor ~= o._base.ctor) then
+	if (b and c._base and b == c._base._class) then
+		o = setmetatable(base, c._class)
+		if (o.ctor and o.ctor ~= base.ctor) then
 			o:ctor(...)
 		end
 	else
-		o = {}
-		local bases = getmetatable(c).bases
-		for _, b in pairs(bases) do
-			o = setmetatable(o, b.class)
-		end
-		o = setmetatable(o, getmetatable(c).class)
-		
-		for _, b in pairs(bases) do
-			if (b.ctor) then
-				b.ctor(o)
-			end
-		end
-		
-		if (o.ctor and o.ctor ~= o._base.ctor) then
-			o:ctor(base, ...)
-		end
+		o = assign({}, c)
+		ctor(o, c, base, ...)
 	end
-	
 	return o
 end
 
-local function _clone(o)
-	local c = getmetatable(o).__index()
-	for k, v in pairs(o) do
-		c[k] = v
-	end
+function class(base_class)
+	local c = setmetatable({_base = base_class}, {__index = base_class, __call = instantiate})
+	c._class = {__index = c, __gc = dtor}
 	return c
 end
 
-function class(base_class)
-	local bases = {}
-	_call = instantiate
-	if (base_class) then
-		_call = instantiate_d
-		for _, b in pairs(getmetatable(base_class).bases) do
-			table.insert(bases, b)
-		end
-		local b_ctor
-		if (base_class.ctor and (base_class._base == nil or base_class.ctor ~= base_class._base.ctor)) then
-			b_ctor = base_class.ctor
-		end
-		table.insert(bases, {class = getmetatable(base_class).class, ctor = b_ctor})
-	end
-	local c = setmetatable({_base = base_class, clone = _clone}, {__index = base_class, __call = _call})
-	c._class = c
-	local m = getmetatable(c)
-	m.class = {__index = c, __gc = dtor}
-	m.bases = bases
-	return c
-end
+-- local function assign(o, c)
+	-- if (c._base) then
+		-- assign(o, c._base)
+	-- end
+	-- for k, v in pairs(c) do
+		-- o[k] = v
+	-- end
+-- end
+
+-- local function ctor(o, c, ...)
+	-- if (c._base) then
+		-- ctor(o, c._base)
+	-- end
+	-- if (c.ctor) then
+		-- c.ctor(o, ...)
+	-- end
+-- end
+
+-- local function dtor(o)
+	-- if (o.dtor) then
+		-- o.dtor(o)
+	-- end
+	-- if (o._base) then
+		-- o._base.dtor(o)
+	-- end
+-- end
+
+-- local function instantiate(c, base, ...)
+	-- local m = getmetatable(base)
+	-- if (m and m == c._base) then
+		-- for k, v in pairs(c) do
+			-- base[k] = v
+		-- end
+		-- if (c.ctor) then
+			-- c.ctor(base, ...)
+		-- end
+		-- return base
+	-- end
+	-- local o = setmetatable({}, c)
+	-- assign(o, c)
+	-- ctor(o, c, base, ...)
+	-- return o
+-- end		
+
+-- function class(base_class)
+	-- return setmetatable({_base = base_class, __gc = dtor}, {__call = instantiate})
+-- end

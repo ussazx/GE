@@ -1,19 +1,22 @@
 #pragma once
-#include "LuaUtils.h"
+#include "LuaFunctional.h"
 #include <vector>
+#include <functional>
 
 #define LuaMultiArg(name) \
 template<typename ...T> \
 struct name##Arg \
 { \
-	name##Arg(const T&... tt) : t(tt...) {} \
-	std::tuple<const T&...> t; \
+	name##Arg(T&&... tt) : t(std::forward<T>(tt)...) {} \
+	std::tuple<std::_Unrefwrap_t<T>...> t; \
 }; \
 template<typename ...T> \
-name##Arg<const T&...> name(const T&... args) \
+name##Arg<T...> name(T&&... args) \
 { \
-	return name##Arg<const T&...>(args...); \
+	return name##Arg<T...>(std::forward<T>(args)...); \
 }
+
+LuaMultiArg(LuaGet)
 
 LuaMultiArg(LuaCall)
 
@@ -21,18 +24,33 @@ LuaMultiArg(LuaObjCall)
 
 LuaMultiArg(LuaSetTo)
 
-template<typename ...T>
-std::tuple<const T&...> LuaSub(const T&... args)
-{
-	return std::tuple<const T&...>(args...);
-}
+//template<typename ...T>
+//std::tuple<T...> LuaSub(const T&... args)
+//{
+//	return std::tuple<T...>(args...);
+//}
 
-struct LuaLoad 
+#define LuaSub(...) std::make_tuple(__VA_ARGS__)
+
+struct LuaLoad
 {
-	LuaLoad(const char* c, int n = 0) : code(c), len(n == 0 ? strlen(c) : n) {}
+	LuaLoad(void* c, size_t n = 0) : code((char*)c), len(n == 0 ? strlen((char*)c) : n) {}
 	const char* code;
 	size_t len;
 };
+
+class LuaState;
+
+typedef std::function<void(const LuaState&, const lua_Idx&)> LuaCustomSet;
+
+template<typename ...T>
+inline LuaCustomSet LuaDataSet(T&& ...t)
+{
+	return[t...](const LuaState& state, const lua_Idx& idx)
+	{
+		state.SetValue(idx, t...);
+	};
+}
 
 class LuaState
 {
@@ -99,6 +117,61 @@ public:
 		lua_pop(m_lua, 1);
 	}
 
+	void SetValue(const char* k, const LuaCustomSet& cs) const
+	{
+		lua_getglobal(m_lua, k);
+		if (lua_type(m_lua, -1) == LUA_TTABLE)
+		{
+			cs(*this, lua_Idx(GetTop()));
+			lua_pop(m_lua, 1);
+		}
+		else
+		{
+			cs(*this, lua_Idx(GetTop()));
+			lua_setglobal(m_lua, k);
+		}
+	}
+
+	void SetValue(const lua_Idx& idx, const LuaCustomSet& cs) const
+	{
+			cs(*this, lua_Idx(Lua_T(idx.idx, GetTop())));
+	}
+
+	template<typename T>
+	void SetValue(const lua_Idx& idx, const T& k, const LuaCustomSet& cs) const
+	{
+		int i = idx.idx;
+		LuaGetTable(m_lua, i);
+		LuaGetTableTable(m_lua, i, k);
+		cs(*this, lua_Idx(GetTop()));
+		lua_pop(m_lua, 1);
+	}
+
+	template<typename ...T>
+	void SetValue(const char* k, const LuaGetArg<T...>& get) const
+	{
+		lua_pushnil(m_lua);
+		GetValue(std::tuple_cat(get.t, std::make_tuple(LuaSetTo(lua_Idx(GetTop())))));
+		lua_setglobal(m_lua, k);
+	}
+
+	template<typename ...T>
+	void SetValue(const lua_Idx& idx, const LuaGetArg<T...>& get) const
+	{
+		GetValue(std::tuple_cat(get.t, std::make_tuple(LuaSetTo(lua_Idx(Lua_T(idx.idx, GetTop()))))));
+	}
+
+	template<typename T0, typename ...T1>
+	void SetValue(const lua_Idx& idx, const T0& k, const LuaGetArg<T1...>& get) const
+	{
+		int i = idx.idx;
+		LuaGetTable(m_lua, i);
+		LuaPushValue(m_lua, k);
+		lua_pushnil(m_lua);
+		GetValue(std::tuple_cat(get.t, std::make_tuple(LuaSetTo(lua_Idx(GetTop())))));
+		lua_settable(m_lua, Lua_I(i, 2));
+	}
+
 	template<typename T0, typename T1>
 	void SetValue(const lua_Idx& idx, const T0& k, const T1& v) const
 	{
@@ -116,27 +189,57 @@ public:
 		lua_pop(m_lua, 1);
 	}
 
-	void SetValue(const lua_Idx& dst, const LuaMeta& m, const lua_Idx& src) const
+	void SetValue(const lua_Idx& dst, const LuaMeta&, const lua_Idx& src) const
 	{
 		int srci = src.idx;
 		if (lua_type(m_lua, srci) == LUA_TTABLE)
 		{	
-			int dsti = dst.idx;
-			LuaGetTable(m_lua, dsti);
+			LuaGetTable(m_lua, dst.idx);
 			lua_pushvalue(m_lua, srci);
-			lua_setmetatable(m_lua, Lua_I(dsti, 1));
+			lua_setmetatable(m_lua, Lua_I(dst.idx, 1));
 		}
 	}
 
-	void SetValue(const lua_Idx& dst, const LuaMeta& m, const char* src) const
+	void SetValue(const lua_Idx& dst, const LuaMeta&, const char* src) const
 	{
 		lua_getglobal(m_lua, src);
 		if (lua_type(m_lua, -1) == LUA_TTABLE)
 		{
-			int dsti = dst.idx;
+			int dsti = Lua_I(dst.idx, 1);
 			LuaGetTable(m_lua, dsti);
-			lua_setmetatable(m_lua, Lua_I(dsti, 1));
+			lua_setmetatable(m_lua, dsti);
 		}
+		else
+			lua_pop(m_lua, 1);
+	}
+
+	template<typename ...T>
+	void SetValue(const lua_Idx& dst, const LuaMeta&, const LuaGetArg<T...>& get) const
+	{
+		lua_pushnil(m_lua);
+		GetValue(std::tuple_cat(get.t, std::make_tuple(LuaSetTo(lua_Idx(GetTop())))));
+		if (lua_type(m_lua, -1) == LUA_TTABLE)
+		{
+			int dsti = Lua_I(dst.idx, 1);
+			LuaGetTable(m_lua, dsti);
+			lua_setmetatable(m_lua, dsti);
+		}
+		else
+			lua_pop(m_lua, 1);
+	}
+
+	void SetValue(const lua_Idx& dst, const LuaMeta&, const LuaCustomSet& cs) const
+	{
+		lua_pushnil(m_lua);
+		cs(*this, lua_Idx(GetTop()));
+		if (lua_type(m_lua, -1) == LUA_TTABLE)
+		{
+			int dsti = Lua_I(dst.idx, 1);
+			LuaGetTable(m_lua, dsti);
+			lua_setmetatable(m_lua, dsti);
+		}
+		else
+			lua_pop(m_lua, 1);
 	}
 
 	void SetValue(const char* k, luaL_Reg* v) const
@@ -221,6 +324,12 @@ public:
 		SetValue(idx, t0);
 		SetValue(idx, t1);
 	}
+	template<typename ...T>
+	void SetValue(const lua_Idx& idx, const std::tuple<T...>& t, const LuaCustomSet& cs) const
+	{
+		SetValue(idx, t);
+		cs(*this, idx);
+	}
 
 	template<typename ...T>
 	void SetValue(const lua_Idx& idx, const std::tuple<T...>& t0, luaL_Reg* t1) const
@@ -245,13 +354,21 @@ public:
 
 	void SetValue(const char* k, const LuaLoad& v) const
 	{
-		luaL_loadbuffer(m_lua, v.code, v.len, v.code);
+		if (luaL_loadbuffer(m_lua, v.code, v.len, v.code) != 0)
+		{
+			lua_pop(m_lua, 1);
+			lua_pushnil(m_lua);
+		}
 		lua_setglobal(m_lua, k);
 	}
 
 	void SetValue(const lua_Idx& idx, const LuaLoad& v) const
 	{
-		luaL_loadbuffer(m_lua, v.code, v.len, v.code);
+		if (luaL_loadbuffer(m_lua, v.code, v.len, v.code) != 0)
+		{
+			lua_pop(m_lua, 1);
+			lua_pushnil(m_lua);
+		}
 		lua_copy(m_lua, -1, Lua_I(idx.idx, 1));
 		lua_pop(m_lua, 1);
 	}
@@ -306,6 +423,14 @@ public:
 	}
 
 	int GetValue(const lua_Idx& idx, uint32_t* v) const
+	{
+		int i = idx.idx;
+		if (lua_type(m_lua, i) == LUA_TNUMBER)
+			*v = lua_tointeger(m_lua, i);
+		return lua_type(m_lua, i);
+	}
+
+	int GetValue(const lua_Idx& idx, uint64_t* v) const
 	{
 		int i = idx.idx;
 		if (lua_type(m_lua, i) == LUA_TNUMBER)
@@ -395,6 +520,18 @@ public:
 		int t = GetValue(lua_Idx(GetTop()), kn...);
 		lua_pop(m_lua, 1);
 		return t;
+	}
+
+	template<typename ...T>
+	int GetValue(const std::tuple<T...>& t) const
+	{
+		return GetValue(t, std::make_index_sequence<std::tuple_size<std::tuple<T...>>::value>());
+	}
+
+	template<typename ...T, size_t ...I>
+	int GetValue(const std::tuple<T...>& t, std::index_sequence<I...>) const
+	{
+		return GetValue(std::get<I>(t)...);
 	}
 
 	template<typename T>

@@ -3,30 +3,7 @@
 
 Graphic* g_graphic;
 
-void(*g_addEvent)(const char* name, int id);
-void(*g_flushStdout)(void);
-void(*g_flushStderr)(void);
-
-inline void CAddEvent(const char* name, int id)
-{
-	if (g_addEvent)
-		g_addEvent(name, id);
-}
-Lua_global_add_cfunc(CAddEvent)
-
-inline void CFlushStdout()
-{
-	if (g_flushStdout)
-		g_flushStdout();
-}
-Lua_global_add_cfunc(CFlushStdout)
-
-inline void CFlushStderr()
-{
-	if (g_flushStderr)
-		g_flushStderr();
-}
-Lua_global_add_cfunc(CFlushStderr)
+using namespace Engine;
 
 bool Engine::Initialize(const InitParam& param)
 {
@@ -42,13 +19,10 @@ void Engine::CleanUp()
 	delete Graphic::Vulkan();
 }
 
-void Engine::LuaRegister(lua_State* L, const TerminalNotification& n)
+void Engine::LuaRegister(lua_State* L)
 {
 	LuaState lua(L);
-	g_addEvent = n.addEvent;
-	g_flushStdout = n.flushStdout;
-	g_flushStderr = n.flushStderr;
-	LuaRegGlobalCollected(&lua);
+	LuaRegGlobalReflected(&lua);
 
 	Graphic::RegisterVulkanDefines(lua);
 	g_graphic = Graphic::Vulkan();

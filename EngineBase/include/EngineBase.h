@@ -27,14 +27,7 @@ namespace Engine
 #endif
 	};
 
-	struct TerminalNotification
-	{
-		void(*addEvent)(const char* name, int id);
-		void(*flushStdout)(void);
-		void(*flushStderr)(void);
-	};
-
-	DECLSPEC void LuaRegister(lua_State* L, const TerminalNotification& n);
+	DECLSPEC void LuaRegister(lua_State* L);
 
 	DECLSPEC bool Initialize(const InitParam& param);
 	DECLSPEC void CleanUp();

@@ -1,11 +1,11 @@
 #pragma once
-#include "common/uiutils.h"
-#include "../Global.h"
 #include "wx/clipbrd.h"
 #include <string>
 #include <codecvt>
 #include <unordered_map>
 #include <memory>
+#include "common/uiutils.h"
+#include "../../../Generic/Terminal.h"
 
 extern wxStockCursor g_cursor;
 
@@ -54,23 +54,15 @@ public:
 
 		m_timer.Bind(wxEVT_TIMER, &vmWindow::OnTimer, this);
 
-		g_vm->SetValue(GetName(), Lua_set_cobj(this));
+		Terminal::Lua().SetValue(GetName(), Lua_set_cobj(this));
 		int t{};
-		g_vm->GetValue(GetName(), "init", LuaObjCall(clock(), GetHWND(), GetRect().GetWidth(), GetRect().GetHeight()), &t);
+		Terminal::Lua().GetValue(GetName(), "init", LuaObjCall(clock(), GetHWND(), GetRect().GetWidth(), GetRect().GetHeight()), &t);
 		HandleTimer(t);
 	}
 
 	~vmWindow()
 	{
-		g_vm->GetValue(GetName(), "delist", LuaObjCall());
-		g_vm->SetValue(GetName(), nullptr);
-	}
-
-	static void AddEvent(const char* name, int id)
-	{
-		auto it = m_eventName.find(name);
-		if (it != m_eventName.end())
-			m_eventId[it->second] = id;
+		Terminal::Lua().SetValue(GetName(), nullptr);
 	}
 
 	static int GetEventId(const wxEventType& e)
@@ -101,6 +93,13 @@ public:
 		m_eventName.emplace("EVT_MAGNIFY", wxEVT_MAGNIFY);
 	}
 
+	static void AddEvent(const char* name, int id)
+	{
+		auto it = m_eventName.find(name);
+		if (it != m_eventName.end())
+			m_eventId[it->second] = id;
+	}
+
 	Lua_wrap_cpp_class(vmWindow, Lua_abstract, Lua_mf(Capture));
 private:
 	void Capture(bool b)
@@ -117,7 +116,7 @@ private:
 	void OnCaptureLost(wxMouseCaptureLostEvent&)
 	{
 		int t{};
-		g_vm->GetValue(GetName(), "on_capture_lost", LuaObjCall(clock()), &t);
+		Terminal::Lua().GetValue(GetName(), "on_capture_lost", LuaObjCall(clock()), &t);
 		HandleTimer(t);
 	}
 
@@ -129,28 +128,27 @@ private:
 	void OnTimer(wxTimerEvent&)
 	{
 		int t{};
-		g_vm->GetValue(GetName(), "on_idle", LuaObjCall(clock(), true, IsShown()), &t);
+		Terminal::Lua().GetValue(GetName(), "on_idle", LuaObjCall(clock(), true, IsShown()), &t);
 		HandleTimer(t);
 	}
 	void OnIdle(wxIdleEvent& e)
 	{
 		int t{};
 		auto i = GetTickCount();
-		g_vm->GetValue(GetName(), "on_idle", LuaObjCall(clock(), false, IsShown()), &t);
+		Terminal::Lua().GetValue(GetName(), "on_idle", LuaObjCall(clock(), false, IsShown()), &t);
 		//DebugLog(L"idle [ %u ]\n", GetTickCount() - i);
+		Terminal::Lua().SetValue(GetName(), "idle_cost", (uint32_t)(GetTickCount() - i));
 		HandleTimer(t);
 	}
 	void OnPaint(wxPaintEvent&)
 	{
-		g_vm->GetValue(GetName(), "render", LuaObjCall());
+		Terminal::Lua().GetValue(GetName(), "render", LuaObjCall());
 	}
 	void OnSize(wxSizeEvent& e)
 	{
-		if (e.GetSize().x < 1 || e.GetSize().y < 1)
-			return;
 		auto i = GetTickCount();
-		g_vm->GetValue(GetName(), "resize", LuaObjCall(e.GetSize().x, e.GetSize().y));
-		DebugLog(L"resize [ %u ]\n", GetTickCount() - i);
+		Terminal::Lua().GetValue(GetName(), "resize", LuaObjCall(e.GetSize().x, e.GetSize().y));
+		//DebugLog(L"resize [ %u ]\n", GetTickCount() - i);
 	}
 	void OnCharEvent(wxKeyEvent& e)
 	{
@@ -193,11 +191,11 @@ private:
 		case 27:  // Ctrl [
 		case 28:  // Ctrl \ 
 		case 29:  // Ctrl ]
-			g_vm->GetValue(GetName(), "on_acc_key", LuaObjCall(clock(), e.GetUnicodeKey()), &t);
+			Terminal::Lua().GetValue(GetName(), "on_acc_key", LuaObjCall(clock(), e.GetUnicodeKey()), &t);
 			break;
 		default:
 			swprintf_s(c, L"%c", e.GetUnicodeKey());
-			g_vm->GetValue(GetName(), "on_char", LuaObjCall(clock(), conv.to_bytes(c).c_str()), &t);
+			Terminal::Lua().GetValue(GetName(), "on_char", LuaObjCall(clock(), conv.to_bytes(c).c_str()), &t);
 			break;
 		}
 		HandleTimer(t);
@@ -225,7 +223,7 @@ private:
 			break;
 		}
 		int t{};
-		g_vm->GetValue(GetName(), "on_key_down", LuaObjCall(clock(), k, left, right), &t);
+		Terminal::Lua().GetValue(GetName(), "on_key_down", LuaObjCall(clock(), k, left, right), &t);
 		HandleTimer(t);
 		e.Skip();
 	}
@@ -233,7 +231,7 @@ private:
 	void OnKeyUp(wxKeyEvent& e)
 	{
 		int t{};
-		g_vm->GetValue(GetName(), "on_key_up", LuaObjCall(clock(), e.GetRawKeyCode()), &t);
+		Terminal::Lua().GetValue(GetName(), "on_key_up", LuaObjCall(clock(), e.GetRawKeyCode()), &t);
 		HandleTimer(t);
 		e.Skip();
 	}
@@ -241,7 +239,7 @@ private:
 	void OnMouseEvent(wxMouseEvent& e)
 	{
 		int t{}, c{};
-		g_vm->GetValue(GetName(), "on_mouse", LuaObjCall(clock(), GetEventId(e.GetEventType()), e.GetX(), e.GetY(), e.GetWheelRotation()), &t, &c);
+		Terminal::Lua().GetValue(GetName(), "on_mouse", LuaObjCall(clock(), GetEventId(e.GetEventType()), e.GetX(), e.GetY(), e.GetWheelRotation()), &t, &c);
 		HandleTimer(t);
 		g_cursor = (wxStockCursor)c;
 	}
@@ -269,34 +267,16 @@ public:
 	
 	void AddPageWindow(const char* name, const char* title, LuaIdx wnd)
 	{
-		g_vm->SetValue(name, wnd);
+		Terminal::Lua().SetValue(name, wnd);
 		AddPageWnd(new vmWindow(m_self, name), _(title));
 	}
 
 	virtual void AddPageWnd(vmWindow*, const char* title) = 0;
 
-	Lua_wrap_cpp_class(vmFrame, Lua_abstract, Lua_mf(AddPageWindow));
+	virtual void Accept() = 0;
+	virtual void Reject() = 0;
+
+	Lua_wrap_cpp_class(vmFrame, Lua_abstract, Lua_mf(AddPageWindow), Lua_mf(Accept), Lua_mf(Reject));
 private:
 	wxWindow* m_self{};
 };
-
-inline const char* CGetClipboardText()
-{
-	static wxTextDataObject data;
-	if (wxTheClipboard->GetData(data))
-	{
-		static std::string s;
-		static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-		s = conv.to_bytes(data.GetText().wc_str());
-		return s.c_str();
-	}
-	return {};
-}
-Lua_global_add_cfunc(CGetClipboardText);
-
-inline void CSetClipboardText(const char* s)
-{
-	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
-	wxTheClipboard->SetData(new wxTextDataObject(conv.from_bytes(s)));
-}
-Lua_global_add_cfunc(CSetClipboardText);

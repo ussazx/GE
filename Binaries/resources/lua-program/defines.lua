@@ -16,13 +16,15 @@ local function Define_VB_Element(name, num)
 end
 
 Define_VB_Element('VB_ELEM_FLOAT1', 4)
-Define_VB_Element('VB_ELEM_FLOAT2', 4)
+--Define_VB_Element('VB_ELEM_FLOAT2', 4)
 Define_VB_Element('VB_ELEM_FLOAT3', 4)
 Define_VB_Element('VB_ELEM_FLOAT4', 4)
 Define_VB_Element('VB_ELEM_INT1', 4)
 Define_VB_Element('VB_ELEM_UINT1', 4)
 
 Define_VB_Element('VB_ELEM_MAX', 1)
+
+SIZE_INDEX = SIZE_UINT1
 
 SIZE_WRITE_ID = SIZE_USHORT1
 
@@ -38,6 +40,18 @@ PickByTexture = CPickByTextureU16
 VB_ELEM_ID = VB_ELEM_UINT1_0
 
 APPEND = -1
+
+Z_2D = 0
+
+g_sizeFunc = {}
+g_sizeFunc[CAddFloat1] = 4
+--g_sizeFunc[CAddFloat2] = 8
+g_sizeFunc[CAddFloat3] = 12
+g_sizeFunc[CAddFloat4] = 16
+g_sizeFunc[CAddInt1] = 4
+g_sizeFunc[CAddUInt1] = 4
+g_sizeFunc[CAddUShort1] = 2
+g_sizeFunc[CAddUByte4] = 4
 
 -- SIZE_FLOAT1 = 4
 -- SIZE_FLOAT2 = 8

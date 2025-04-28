@@ -134,9 +134,9 @@ bool VKSwapchain::Acquire()
 	VkResult res = vkAcquireNextImageKHR(g->device, m_swapchain, UINT64_MAX,
 		m_vSemaphore[++m_semaIndex %= m_scci.minImageCount], VK_NULL_HANDLE, &m_imageIndex);
 
-	char s[128]{};
-	sprintf_s(s, "---Acquire %u %d\n", m_imageIndex, res);
-	OutputDebugStringA(s);
+	//char s[128]{};
+	//sprintf_s(s, "---Acquire %u %d\n", m_imageIndex, res);
+	//DEBUG_PRINT(s);
 
 	if (res == VK_ERROR_OUT_OF_DATE_KHR)
 		return false;
@@ -419,25 +419,39 @@ VKResourceSet::~VKResourceSet()
 	vkDestroyDescriptorPool(g->device, m_pool, {});
 }
 
-void VKResourceSet::BindBuffer(LuacObj<CBuffer> buffer, uint32_t binding, uint32_t bufferType)
+void VKResourceSet::BindBuffer(LuacObj<CBuffer> buffer, uint64_t offset, uint64_t range, uint32_t binding, uint32_t bufferType)
 {
 	VKBuffer* b = (VKBuffer*)buffer;
-	VkDescriptorBufferInfo dbi{};
-	dbi.range = VK_WHOLE_SIZE;
-	dbi.buffer = b->m_buffer;
+	auto& info = m_bufferInfo[b][binding];
 
-	VkWriteDescriptorSet wds[1]{};
-	wds[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	wds[0].descriptorType = (VkDescriptorType)bufferType;
-	wds[0].dstBinding = binding;
-	wds[0].pBufferInfo = &dbi;
-	wds[0].descriptorCount = 1;
-	wds[0].dstSet = m_set;
-	wds[0].dstBinding = 0;
-	if (wds[0].descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER ||
-		wds[0].descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER)
-		wds[0].pTexelBufferView = &b->m_view;
-	vkUpdateDescriptorSets(g->device, 1, wds, 0, NULL);
+	VkDescriptorBufferInfo& dbi = std::get<0>(info);
+	dbi = {};
+	dbi.offset = offset;
+	dbi.range = range;
+	dbi.buffer = b->m_buffer;
+	VkWriteDescriptorSet& wds = std::get<1>(info);
+	wds = {};
+	wds.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	wds.descriptorType = (VkDescriptorType)bufferType;
+	wds.dstBinding = binding;
+	wds.pBufferInfo = &dbi;
+	wds.descriptorCount = 1;
+	wds.dstSet = m_set;
+	if (wds.descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER ||
+		wds.descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER)
+		wds.pTexelBufferView = &b->m_view;
+	vkUpdateDescriptorSets(g->device, 1, &wds, 0, NULL);
+
+	b->m_holders.insert(this);
+}
+
+void VKResourceSet::OnBufferResized(VKBuffer* b)
+{
+	for (auto& i : m_bufferInfo[b])
+	{
+		std::get<0>(i.second).buffer = b->m_buffer;
+		vkUpdateDescriptorSets(g->device, 1, &std::get<1>(i.second), 0, NULL);
+	}
 }
 
 void VKResourceSet::BindImageWithSampler(LuacObj<Texture> image, LuacObj<Sampler> sampler, uint32_t binding)
@@ -451,7 +465,6 @@ void VKResourceSet::BindImageWithSampler(LuacObj<Texture> image, LuacObj<Sampler
 	wds[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	wds[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	wds[0].dstBinding = binding;
-	wds[0].dstBinding = 1;
 	wds[0].descriptorCount = 1;
 	wds[0].pImageInfo = &dii;
 	wds[0].dstSet = m_set;
@@ -468,7 +481,6 @@ void VKResourceSet::BindInputAttachment(LuacObj<Texture> image, uint32_t binding
 	wds[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	wds[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
 	wds[0].dstBinding = binding;
-	wds[0].dstBinding = 1;
 	wds[0].descriptorCount = 1;
 	wds[0].pImageInfo = &dii;
 	wds[0].dstSet = m_set;
@@ -611,8 +623,6 @@ void VKCommand::Wait()
 
 void VKCommand::RenderBegin(LuacObj<FrameBuffer> fb, bool secondary)
 {
-	Wait();
-
 	VKFrameBuffer* vfb = (VKFrameBuffer*)fb;
 
 	if (vfb->m_swapchain)
@@ -672,30 +682,31 @@ void VKCommand::SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx)
 	m_resources[idx] = ((VKResourceSet*)set)->m_set;
 }
 
-void VKCommand::DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t doneOffset)
+void VKCommand::SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding)
+{
+	VKBufferSet* s = (VKBufferSet*)vbSet;
+	vkCmdBindVertexBuffers(m_cmd, firstBinding, s->m_set.size(), s->m_set.data(), s->m_offsets.data());
+}
+
+void VKCommand::DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t firstInst, uint32_t instCount)
 {
 	VKPipeline* p = (VKPipeline*)pipeline;
 	vkCmdBindPipeline(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->m_pipeline);
 	if (p->m_resCount > 0 && m_resources.size() > 0)
 		vkCmdBindDescriptorSets(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->m_layout, 0, min(p->m_resCount, m_resources.size()), m_resources.data(), 0, NULL);
 
-	VKBufferSet* s = (VKBufferSet*)vbSet;
-
-	vkCmdBindVertexBuffers(m_cmd, 0, s->m_set.size(), s->m_set.data(), s->m_offsets.data());
 	vkCmdBindIndexBuffer(m_cmd, ((VKBuffer*)ib)->m_buffer, 0, VK_INDEX_TYPE_UINT32);
-	vkCmdDrawIndexed(m_cmd, indexCount, 1, firstIndex, 0, 0);
-
-	s->AddDrawOffset(p, doneOffset);
+	vkCmdDrawIndexed(m_cmd, indexCount, instCount, firstIndex, vtxOffset, firstInst);
 }
 
-void VKCommand::DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count)
+void VKCommand::DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count)
 {
-	vkCmdBindPipeline(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ((VKPipeline*)pipeline)->m_pipeline);
-
-	VKBufferSet* s = (VKBufferSet*)vbSet;
+	VKPipeline* p = (VKPipeline*)pipeline;
+	vkCmdBindPipeline(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->m_pipeline);
+	if (p->m_resCount > 0 && m_resources.size() > 0)
+		vkCmdBindDescriptorSets(m_cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, p->m_layout, 0, min(p->m_resCount, m_resources.size()), m_resources.data(), 0, NULL);
+	
 	VKDrawIndirectCmd* d = (VKDrawIndirectCmd*)indirect;
-
-	vkCmdBindVertexBuffers(m_cmd, 0, s->m_set.size(), s->m_set.data(), s->m_offsets.data());
 	vkCmdBindIndexBuffer(m_cmd, ((VKBuffer*)ib)->m_buffer, 0, VK_INDEX_TYPE_UINT32);
 	vkCmdDrawIndexedIndirect(m_cmd, d->m_buffer.m_buffer, sizeof(VkDrawIndexedIndirectCommand) * start, count, sizeof(VkDrawIndexedIndirectCommand));
 }
@@ -703,8 +714,6 @@ void VKCommand::DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<BufferSe
 void VKCommand::CopyImage(LuacObj<Texture> src, int src_base_layer, int src_x, int src_y,
 	LuacObj<Texture> dst, int dst_base_layer, int dst_x, int dst_y, int num_layers, uint32_t w, uint32_t h)
 {
-	Wait();
-
 	VKTexture* s = (VKTexture*)src;
 	VKTexture* d = (VKTexture*)dst;
 	m_imb[0].oldLayout = m_imb[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -753,7 +762,6 @@ void VKCommand::CopyImage(LuacObj<Texture> src, int src_base_layer, int src_x, i
 
 void VKCommand::Execute()
 {
-	Wait();
 	vkEndCommandBuffer(m_cmd);
 	m_executing = true;
 
@@ -785,8 +793,6 @@ void VKCommand::Execute()
 		si.pSignalSemaphores = &m_completeSema;
 		si.signalSemaphoreCount = 1;
 		vkQueueSubmit(g->queueG, 1, &si, m_fence);
-
-		auto xx = m_fb;
 
 		VkPresentInfoKHR pi{};
 		pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -1061,7 +1067,7 @@ LuacObjNew<BufferSet> VKGraphic::NewBufferSet(LuaIdx t, uint32_t n)
 	for (size_t i = 1; i <= n; i++)
 	{
 		VKBuffer* b{};
-		t.state.GetValue(t, i, 0, (void**)&b);
+		t.GetValue(i, 0, (void**)&b);
 		s->Add(b);
 	}
 	return s;
@@ -1135,8 +1141,8 @@ bool VKBuffer::Resize(uint32_t size)
 		vkCreateBufferView(g->device, &bvci, {}, &m_view);
 	}
 
-	if (m_set)
-		m_set->m_set[m_setIdx] = m_buffer;
+	for (auto i : m_holders)
+		i->OnBufferResized(this);
 
 	return true;
 }
@@ -1159,19 +1165,14 @@ void Graphic::RegisterVulkanDefines(LuaState& lua)
 	SET_DEFINE("SHADER_STAGE_VERTEX_BIT", VK_SHADER_STAGE_VERTEX_BIT);
 	SET_DEFINE("SHADER_STAGE_FRAGMENT_BIT", VK_SHADER_STAGE_FRAGMENT_BIT);
 
+	SET_DEFINE("WHOLE_SIZE", VK_WHOLE_SIZE);
+
 	SET_DEFINE("VERTEX_BUFFER", VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	SET_DEFINE("INDEX_BUFFER", VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 	SET_DEFINE("UNIFORM_BUFFER", VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
 	SET_DEFINE("STORAGE_BUFFER", VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	SET_DEFINE("UNIFORM_TEXEL_BUFFER", VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT);
 	SET_DEFINE("STORAGE_TEXEL_BUFFER", VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT);
-
-	SET_DEFINE("RESOURCE_UNIFORM_BUFFER", VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-	SET_DEFINE("RESOURCE_STORAGE_BUFFER", VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-	SET_DEFINE("RESOURCE_UNIFORM_TEXEL_BUFFER", VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER);
-	SET_DEFINE("RESOURCE_STORAGE_TEXEL_BUFFER", VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER);
-
-	SET_DEFINE("INDIRECT_BUFFER", VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT);
 
 	SET_DEFINE("SAMPLE_COUNT_1_BIT", VK_SAMPLE_COUNT_1_BIT);
 	SET_DEFINE("SAMPLE_COUNT_2_BIT", VK_SAMPLE_COUNT_2_BIT);
@@ -1181,7 +1182,7 @@ void Graphic::RegisterVulkanDefines(LuaState& lua)
 	SET_DEFINE("VK_SAMPLE_COUNT_32_BIT", VK_SAMPLE_COUNT_32_BIT);
 	SET_DEFINE("VK_SAMPLE_COUNT_64_BIT", VK_SAMPLE_COUNT_64_BIT);
 	
-	SET_DEFINE("FORMAT_SWAPCHAIN", g->defaultFormat);
+	SET_DEFINE("FORMAT_PRESENT", g->defaultFormat);
 	SET_DEFINE("FORMAT_R16_UINT", VK_FORMAT_R16_UINT);
 	SET_DEFINE("FORMAT_R32_SINT", VK_FORMAT_R32_SINT);
 	SET_DEFINE("FORMAT_R32_SFLOAT", VK_FORMAT_R32_SFLOAT);

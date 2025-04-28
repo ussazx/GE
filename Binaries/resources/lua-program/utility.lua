@@ -1,11 +1,9 @@
 ---utility.lua---
-require 'class'
+require 'object'
 
 function Print(...)
 	print(...)
-	if (CFlushStdout) then
-		CFlushStdout()
-	end
+	cTerminal:FlushStdout()
 end
 
 function _(s)
@@ -18,7 +16,7 @@ function tcount(t)
 	return #t
 end
 
-function Text(o)
+local function Text(o)
 	t = type(o)
 	if (t == 'number') then
 		return ''..o
@@ -132,6 +130,32 @@ end
 
 function Rect:diff(rect)
 	return self.x ~= rect.x or self.y ~= rect.y or self.w ~= rect.w or self.h ~= rect.h
+end
+
+Color = class()
+function Color:ctor(r, g, b, a)
+	self.r = r or 0
+	self.g = g or 0
+	self.b = b or 0
+	self.a = a or 0
+end
+
+function Color:read(color)
+	self.r = color.r or self.r
+	self.g = color.r or self.g
+	self.b = color.r or self.b
+	self.a = color.r or self.a
+end
+
+function Color:diff(color)
+	return self.r ~= rect.r or self.g ~= rect.g or self.b ~= rect.b or self.a ~= rect.a
+end
+
+function Color:set(r, g, b, a)
+	self.r = r or 0
+	self.g = g or 0
+	self.b = b or 0
+	self.a = a or 0
 end
 
 function Copy(src, dst)
@@ -249,52 +273,45 @@ function Recorder:Redo()
 end
 
 --ObjectArray---
-ObjectArray = class(object)
-function ObjectArray:ctor()
-	self.n = 0
-	self.obj_count = setmetatable({}, {__mode = 'k'})
+local objNotifier = Object()
+
+function DelistObject(obj)
+	objNotifier:process_event(EVT.DELIST, obj)
+	obj:delist()
 end
 
-function ObjectArray:on_object_delisted(e, obj)
+ObjectArray = class(Object)
+function ObjectArray:ctor(mode)
+	self.n = 0
+	objNotifier:bind_event(EVT.DELIST, self, ObjectArray.on_obj_delist)
+end
+
+function ObjectArray:on_object_delist(e, obj)
 	self:remove_obj(obj)
 end
 
 function ObjectArray:insert(obj, idx)
-	self.obj_count[obj] = self.obj_count[obj] or 0
-	if (self.obj_count[obj] == 0) then
-		obj:bind_event(EVT.DELISTED, self, ObjectArray.on_object_delisted)
-	end
-	table.insert(self, idx or self.n + 1, obj)
 	self.n = self.n + 1
-	self.obj_count[obj] = self.obj_count[obj] + 1
+	table.insert(self, idx or self.n, obj)
+	return idx or self.n
 end
 
 function ObjectArray:remove_idx(idx)
 	local obj = self[idx]
 	if (obj) then
 		table.remove(self, idx)
-		self.obj_count[obj] = self.obj_count[obj] - 1
 		self.n = self.n - 1
 	end
 	return obj
 end
 
 function ObjectArray:remove_obj(obj)
-	local count = self.obj_count[obj]
-	if (count == nil or count < 1) then
-		return
-	end
 	for v, i in self:pairs() do
 		if (obj == v) then
 			table.remove(self, i)
-			count = count - 1
 			self.n = self.n - 1
-			if (count == 0) then
-				break
-			end
 		end
 	end
-	self.obj_count[obj] = count
 end
 
 function ObjectArray:back()

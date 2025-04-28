@@ -1,7 +1,7 @@
 ---widget---
 require 'object'
-require 'render'
 require 'utility'
+require 'global'
 
 -----Widget2D-----
 Widget2D = class(Object)
@@ -16,7 +16,14 @@ function Widget2D:ctor(parent)
 	self.location = Point()
 	self.moved = true
 	self.sized = true
+	self.show = true
 end
+
+function Widget2D:dtor()
+	if (g_actWindow) then
+		g_actWindow:OnWidgetShow(self, show)
+	end
+end	
 
 function Widget2D:AddChild(widget, ...)
 	if (widget.parent) then
@@ -26,31 +33,25 @@ function Widget2D:AddChild(widget, ...)
 		widget.parent:RemoveChild(widget)
 	end
 	widget.parent = self
-	self.children:insert(widget)
-	widget:bind_event(EVT.DELISTED, self, Widget2D.OnChildDelisted)
+	widget.window = self.window
+	widget.w_idx = self.children:insert(widget)
 	if (self.window) then
-		self.window:OnAddChild(widget)
+		self.window.update = true
 	end
-	if (self.OnAddChild) then
-		return self:OnAddChild(widget, ...)
-	end
+	return self:OnAddChild(widget, ...)
+end
+
+function Widget2D:OnAddChild(w, x, y)
+	w:SetPos(x, y)
 end
 
 function Widget2D:RemoveChild(widget)
 	if (widget.parent == self) then
 		widget.parent = nil
-		self.children:remove_obj(widget)
-		if (self.OnRemoveChild) then
-			self:OnRemoveChild(widget)
-		end
-	end
-end
-
-function Widget2D:OnChildDelisted(e, widget)
-	if (widget.parent == self) then
-		widget.parent = nil
-		if (self.window) then
-			self.window:OnRemoveChild(w)
+		widget.window = nil
+		self.children:remove_idx(widget.w_idx)
+		if (g_actWindow) then
+			g_actWindow:OnWidgetShow(self, show)
 		end
 		if (self.OnRemoveChild) then
 			self:OnRemoveChild(widget)
@@ -60,21 +61,19 @@ end
 
 function Widget2D:Show(show)
 	if (self.show ~= show) then
-		if (self.window) then
+		if (g_actWindow) then
+			g_actWindow:OnWidgetShow(self, show)
+		elseif(self.window) then
 			self.window.update = true
 		end
 		if (self.inLayout) then
-			self.inLayout.update = true
-		end		
+			self.inLayout:SetUpdate()
+		end
 		self.show = show
 	end
 end
 
 function Widget2D:Update(...)
-	if (self.show == false) then
-		return
-	end
-	self.abortUpdate = false
 	self.location.x = self.rect.x
 	self.location.y = self.rect.y
 	if (self.parent) then
@@ -84,33 +83,34 @@ function Widget2D:Update(...)
 			self.moved = self.parent.moved
 		end
 	end
-	self:UpdateChildren(self:DoUpdate(...))
-	if (self.abortUpdate) then
-		return
+
+	self.moving = false
+	self.sizing = false
+	if (self.show) then
+		self.updating = true
+		if (self:UpdateChildren(self:DoUpdate(...))) then
+			self.moved = self.moving
+			self.sized = self.sizing
+		end
+		self.updating = false
 	end
-	
-	self.moved = false
-	self.sized = false
 end
 
 function Widget2D:DoUpdate(...)
-	return ...
+	return true, ...
 end
 
-function Widget2D:UpdateChildren(...)
-	if (self.abortUpdate) then
-		return
+function Widget2D:UpdateChildren(b, ...)
+	if (b) then
+		for w in self.children:pairs() do
+			w:Update(...)
+		end
 	end
-	for v in self:ChildrenPairs() do
-		v:Update(...)
-	end
+	return b
 end
 
 local function FilterShown(c, allowHided)
-	if (allowHided) then
-		return true
-	end
-	return c.show
+	return allowHided or c.show
 end
 
 function Widget2D:ChildrenPairs()
@@ -122,6 +122,9 @@ function Widget2D:SetPos(x, y)
 		return
 	end
 	self:DoSetPos(x, y)
+	if (self.window) then
+		self.window.update = true
+	end
 end
 
 function Widget2D:DoSetPos(x, y)
@@ -130,7 +133,8 @@ function Widget2D:DoSetPos(x, y)
 	if (self.rect.x ~= x or self.rect.y ~= y) then
 		self.rect.x = x
 		self.rect.y = y
-		self.moved = true
+		self.moved = not self.updating
+		self.moving = self.updating
 		if (self.OnMoved) then
 			self:OnMoved()
 		end
@@ -138,23 +142,7 @@ function Widget2D:DoSetPos(x, y)
 end
 
 function Widget2D:Move(x, y)
-	if (self.inLayout and self.inLayout.update == false) then
-		return
-	end
-	self:DoMove(x, y)
-end
-
-function Widget2D:DoMove(x, y)
-	x = x or 0
-	y = y or 0
-	if (x ~= 0 or y ~= 0) then
-		self.rect.x = self.rect.x + x
-		self.rect.y = self.rect.y + y
-		self.moved = true
-		if (self.OnMoved) then
-			self:OnMoved()
-		end
-	end
+	self:SetPos(self.rect.x + x, self.rect.y + y)
 end
 
 function Widget2D:SetSize(w, h)
@@ -168,12 +156,13 @@ function Widget2D:SetSize(w, h)
 	
 	self.rect.w = w
 	self.rect.h = h
-	self.sized = true
+	self.sized = not self.updating
+	self.sizing = self.updating
 	
 	self:process_event(EVT.SIZE, w0, h0)
 	
 	if (self.inLayout) then
-		self.inLayout.update = true
+		self.inLayout:SetUpdate()
 	end
 	
 	if (self.OnSized) then
@@ -191,6 +180,7 @@ Layout.ALIGN_BOTTOM = 8
 function Layout:ctor()
 	self.props = setmetatable({}, {__mode = 'k'})
 	self.update = true
+	self.sized = false
 end
 
 function Layout:SetSize(w, h)
@@ -211,16 +201,25 @@ end
 
 function Layout:OnAddChild(w, ...)
 	w.inLayout = self
-	self.update = true
+	self:SetUpdate()
 	local o = {}
 	self.props[w] = o
 	self.InitProp(o, ...)
 	return o
 end
 
+function Layout:SetUpdate()
+	if (not self.update) then
+		self.update = true
+		if (self.inLayout) then
+			self.inLayout:SetUpdate()
+		end
+	end
+end
+
 function Layout:OnRemoveChild(w)
 	self.props[w] = nil
-	self.update = true
+	self:SetUpdate()
 end
 
 function Layout:DoUpdate(...)
@@ -229,7 +228,7 @@ function Layout:DoUpdate(...)
 	elseif(self.update) then
 		self:SetSize()
 	end
-	return ...
+	return true, ...
 end
 
 local function InitBoxLayoutProp(o, ratio, align, gapLeft, gapRight, gapTop, gapBottom)
@@ -249,10 +248,10 @@ local function InitGridLayoutProp(o, gapLeft, gapRight, gapTop, gapBottom)
 end
 
 local function CaculateLayoutProp(prop)
-	prop.left = prop.gapLeft * (prop.align & Layout.ALIGN_LEFT) / Layout.ALIGN_LEFT
-	prop.top = prop.gapTop * (prop.align & Layout.ALIGN_TOP) / Layout.ALIGN_TOP
-	prop.right = prop.gapRight * (prop.align & Layout.ALIGN_RIGHT) / Layout.ALIGN_RIGHT
-	prop.bottom = prop.gapBottom * (prop.align & Layout.ALIGN_BOTTOM) / Layout.ALIGN_BOTTOM
+	prop.left = prop.gapLeft * (prop.align & Layout.ALIGN_LEFT) // Layout.ALIGN_LEFT
+	prop.top = prop.gapTop * (prop.align & Layout.ALIGN_TOP) // Layout.ALIGN_TOP
+	prop.right = prop.gapRight * (prop.align & Layout.ALIGN_RIGHT) // Layout.ALIGN_RIGHT
+	prop.bottom = prop.gapBottom * (prop.align & Layout.ALIGN_BOTTOM) // Layout.ALIGN_BOTTOM
 	prop.h_expand = prop.align & (Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT) == Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT
 	prop.v_expand = prop.align & (Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM) == Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM
 end
@@ -295,7 +294,7 @@ local function VerticalLayout(box, w, h)
 	for v in box:ChildrenPairs() do
 		local prop = box.props[v]
 		
-		local rh = prop.ratio // total * n
+		local rh = math.floor(prop.ratio / total * n)
 		if (prop.ratio > 0 and (prop.h_expand or prop.v_expand)) then
 			local rw
 			if (prop.h_expand) then
@@ -373,7 +372,7 @@ function HorizontalLayout(box, w, h)
 	for v in box:ChildrenPairs() do
 		local prop = box.props[v]
 		
-		local rw = prop.ratio // total * n
+		local rw = math.floor(prop.ratio / total * n)
 		if (prop.ratio > 0 and (prop.h_expand or prop.v_expand)) then
 			local rh
 			if (prop.v_expand) then
@@ -444,6 +443,9 @@ function GridLayout:Layout(w, h)
 		gw = math.max(gw, prop.gapLeft + v.rect.w + prop.gapRight)
 		gh = math.max(gh, prop.gapTop + v.rect.h + prop.gapBottom)
 	end
+	if (gw == 0 or gh == 0) then
+		return
+	end
 	local col = self.col
 	if (col == nil) then
 		col = math.max(1, (w or 0) // gw)
@@ -472,32 +474,30 @@ end
 UiWidget = class(Widget2D)
 UiWidget.pipeline = g_plUi
 UiWidget.font = uiFont
-UiWidget.baked = false
-UiWidget.doClip = true
+UiWidget.cached = false
+UiWidget.cpuClip = true
+UiWidget.gpuClip = false
 UiWidget.bakeCount = 4
 UiWidget.writeId = true
 UiWidget.drawClipRect = false
 UiWidget.acceptFocus = true
+UiWidget.show = true
 
-function UiWidget:ctor(x, y, w, h)
-	self.rect:set(x, y, w, h)
+function UiWidget:ctor(w, h)
+	self.rect:set(0, 0, w, h)
 	self.crColor = Color()
 	self.color = Color(255, 255, 255, 255)
-	self.show = true
-	self.fill = true
-	self.gpuClip = false
+	self.renderDisables = {[SubpassId(g_rp0, 1)] = true}
 	
-	if (self.baked) then
-		self.vb = {}
-		self.vb.pos = CMBuffer(SIZE_FLOAT2 * self.bakeCount)
-		self.vb.uvw = CMBuffer(SIZE_FLOAT3 * self.bakeCount)
-		self.vb.color = CMBuffer(SIZE_UINT1 * self.bakeCount)
-		self.ib = CMBuffer(SIZE_UINT1 * self.bakeCount)
-	end
+	self.mesh = Mesh(self.FillVB, self.FillIB, self, self.cached, 1|2|4)
+	self.mesh:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
+	
+	self.rcMesh = Mesh(self.FillClipRectVB, self.FillClipRectIB, self, false, 1|2|4)
+	self.rcMesh:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
 end
 
 function UiWidget:Refresh()
-	self.fill = true
+	self.mesh.update = true
 	if (self.window) then
 		self.window.update = true
 	end
@@ -511,136 +511,224 @@ function UiWidget:OnSized()
 	self:Refresh()
 end
 
-function UiWidget:FillDrawInput(vbPos, vbUVW, vbColor, ib, ib_start, wp)
-	if (self.clipRect) then
-		CAddRectFloat2(vbPos, wp, self.clipRect.x, self.clipRect.y, self.clipRect.w, self.clipRect.h)
+function UiWidget:FillRectVB(color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+	if (self.cr) then
+		CAddRectFloat3(vbPos, wpPos, self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D)
 	else
-		CAddRectFloat2(vbPos, wp, self.location.x, self.location.y, self.rect.w, self.rect.h)
+		CAddRectFloat3(vbPos, wpPos, self.location.x, self.location.y, self.rect.w, self.rect.h, Z_2D)
 	end
-	CAddFloat3(vbUVW, wp, 4, self.font.pixels, 0, 0)
-	CAddUByte4(vbColor, wp, 4, self.color.r, self.color.g, self.color.b, self.color.a)
-	return 4, CAddConvexPolyIndex(ib, wp, 1, ib_start, 4)
+	CAddFloat3(vbUVW, wpUVW, 4, self.font.pixels, 0, 0)
+	CAddUByte4(vbColor, wpColor, 4, color.r, color.g, color.b, color.a)
+	return 4
 end
 
-function UiWidget:DoUpdate(vsInput, clipRect)
-	local clipRectNew
-	if (self.doClip or clipRect) then
-		clipRectNew = Rect(self.location.x, self.location.y, self.rect.w, self.rect.h)
-		if (clipRect) then
-			clipRectNew = clipRectNew:intersect(clipRect)
-			if (clipRectNew == nil) then
-				self.abortUpdate = true
-				return
+function UiWidget:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+	return self:FillRectVB(self.color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+end
+
+function UiWidget:FillIB(ib, ib_start, wp)
+	return CAddConvexPolyIndex(ib, wp, 1, ib_start, 4)
+end
+
+function UiWidget:FillClipRectVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+	return self:FillRectVB(self.crColor, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+end
+
+function UiWidget:FillClipRectIB(ib, ib_start, wp)
+	return CAddConvexPolyIndex(ib, wp, 1, ib_start, 4)
+end
+
+function UiWidget:DoUpdate(crCpu, crGpu)
+	local crCpuNew
+	local crGpuNew
+	if (self.cpuClip or self.gpuClip) then
+		local crNew = Rect(self.location.x, self.location.y, self.rect.w, self.rect.h)
+		if (self.cpuClip) then
+			if (crCpu) then
+				crCpuNew = crNew:intersect(crCpu)
+				if (crCpuNew == nil) then
+					return false
+				end
+			else
+				crCpuNew = crNew
 			end
 		end
 		if (self.gpuClip) then
-			g_drawCmdMgr:SetClipRect(clipRectNew)
-		end
-		if (self.doClip) then
-			clipRect = clipRectNew
+			if (crCpuNew and (crCpu == crGpu or crGpu == nil)) then
+				crGpuNew = crCpuNew
+			elseif (crGpu or crCpu) then
+				crGpuNew = crNew:intersect(crGpu or crCpu)
+				if (crGpuNew == nil) then
+					return false
+				end
+			else
+				crGpuNew = crNew
+			end
 		end
 	end
-	
-	local clipRectChanged = false
-	if (clipRectNew) then
-		clipRectChanged = self.clipRect == nil or clipRectNew.x ~= self.clipRect.x or clipRectNew.y ~= self.clipRect.y
-		or clipRectNew.w ~= self.clipRect.w or clipRectNew.h ~= self.clipRect.h
-	elseif (self.clipRect) then
-		clipRectChanged = true
-	end
-	self.clipRect = clipRectNew
-	
-	g_drawCmdMgr:AddResourceSet(ui_resourceSet)
-	g_drawCmdMgr:AddResourceSet(self.font.res)
-	g_drawCmdMgr:SetPipeline(self.pipeline)
-	g_drawCmdMgr:CommitStates()
-	
-	local n_vtxCr = 0
-	local n_idxCr = 0
-	if (self.doClip and self.drawClipRect) then
-		CAddRectFloat2(vsInput[VB_ELEM_FLOAT2_0], APPEND, clipRectNew.x, clipRectNew.y, clipRectNew.w, clipRectNew.h)
-		CAddFloat3(vsInput[VB_ELEM_FLOAT3_0], APPEND, 4, self.font.pixels, 0, 0)
-		CAddUByte4(vsInput[VB_ELEM_FLOAT4_0], APPEND, 4, self.crColor.r, self.crColor.g, self.crColor.b, self.crColor.a)
-		n_idxCr = CAddConvexPolyIndex(vsInput.ib, APPEND, 1, g_drawCmdMgr.vtxOffset, 4)
-		n_vtxCr = 4
+	crCpuNew = crCpuNew or crCpu
+	crGpuNew = crGpuNew or crGpu
+
+	if (crGpuNew) then
+		DrawcallList.cr = crGpuNew
 	end
 	
-	--draw self
-	if (self.baked) then
-		if (self.fill or self.moved or clipRectChanged) then
-			self.n_vtx, self.n_idx = self:FillDrawInput(self.vb.pos, self.vb.uvw, self.vb.color, self.ib, 0, 0)
-			self.fill = false
-		end
-		CBufferCopy(self.vb.pos, 0, self.n_vtx * SIZE_FLOAT2, vsInput[VB_ELEM_FLOAT2_0], APPEND)
-		CBufferCopy(self.vb.uvw, 0, self.n_vtx * SIZE_FLOAT3, vsInput[VB_ELEM_FLOAT3_0], APPEND)
-		CBufferCopy(self.vb.color, 0, self.n_vtx * SIZE_UINT1, vsInput[VB_ELEM_FLOAT4_0], APPEND)
-		CCopyIndexBuffer(self.ib, 0, self.n_idx, g_drawCmdMgr.vtxOffset + n_vtxCr, vsInput.ib, APPEND)
+	local changed = self.mesh.doCache and (self.mesh.update or (self.moved or self.sized or
+	((self.cr or crCpuNew) and ((self.cr == nil and crCpuNew) or (self.cr and crCpuNew == nil) or
+	(self.cr.x ~= crCpuNew.x or self.cr.y ~= crCpuNew.y or self.cr.w ~= crCpuNew.w or self.cr.h ~= crCpuNew.h)))))
+	
+	if (self.cpuClip) then
+		self.cr = crCpuNew
 	else
-		self.n_vtx, self.n_idx = self:FillDrawInput(vsInput[VB_ELEM_FLOAT2_0], vsInput[VB_ELEM_FLOAT3_0], vsInput[VB_ELEM_FLOAT4_0], vsInput.ib, g_drawCmdMgr.vtxOffset + n_vtxCr, APPEND)
+		self.cr = nil
 	end
 	
-	if (self.writeId) then
-		g_drawCmdMgr:Draw(n_vtxCr + self.n_vtx, n_idxCr + self.n_idx, self.id)
-	else
-		g_drawCmdMgr:Draw(n_vtxCr + self.n_vtx, n_idxCr + self.n_idx)
+	local d
+	if (not self.writeId) then
+		d = self.renderDisables
 	end
 	
-	return vsInput, clipRect
+	if (self.drawClipRect) then
+		self.rcMesh:Render(d)
+	end
+	self.mesh.update = changed
+	self.mesh:Render(d)
+	
+	return true, crCpuNew, crGpuNew
 end
 
------Button-----
-UiButton = class(UiWidget)
+-----UiButtonBase-----
+UiButtonBase = class(UiWidget)
 
-function UiButton:ctor(x, y, w, h, s, font)
-	self.color:set(70, 70, 70, 255)
-	self.rect:set(x, y, w, h)
+function UiButtonBase:ctor()
+	self:bind_event(EVT.MOVE_IN, self, UiButtonBase.OnMouse)
+	self:bind_event(EVT.MOVE_OUT, self, UiButtonBase.OnMouse)
+	self:bind_event(EVT.LEFT_DOWN, self, UiButtonBase.OnMouse)
+	self:bind_event(EVT.LEFT_UP, self, UiButtonBase.OnMouse)
+end
+
+function UiButtonBase:OnMouse(e)
+	if (e == EVT.LEFT_DOWN) then
+		self.down = true
+	elseif (e == EVT.LEFT_UP) then
+		self.down = false
+	elseif (e == EVT.MOVE_IN) then
+		self.hovering = true
+	elseif (e == EVT.MOVE_OUT) then
+		self.down = false
+		self.hovering = false
+	end
+	
+	if (self.down) then
+		self:OnPressing()
+		
+	elseif (self.hovering) then
+		self:OnHovering()
+	else
+		self:OnDefault()
+	end
+	
+	self:Refresh()
+end
+
+function UiButtonBase:OnDefault()
+end
+
+function UiButtonBase:OnHovering()
+end
+
+function UiButtonBase:OnPressing()
+end
+
+-----UiButton-----
+UiButton = class(UiButtonBase)
+
+function UiButton:ctor(w, h, s, font)
+	self.rect:set(0, 0, w, h)
+	self.color0 = Color(70, 70, 70, 255)
+	self.color1 = Color(100, 100, 100, 255)
+	self.color2 = Color(150, 150, 150, 255)
+	self.color = self.color0
 	self.layout = BoxLayout()
 	self:AddChild(self.layout)
-	self.text = UiText(0, 0, s, font)
+	self.text = UiText(s, font)
+	self.text.writeId = false
 	self.layout:AddChild(self.text, 1)
+end
+
+function UiButton:OnDefault()
+	self.color = self.color0
+end
+
+function UiButton:OnHovering()
+	self.color = self.color1
+end
+
+function UiButton:OnPressing()
+	self.color = self.color2
+end
+
+function UiButton:SetDefaultColor(r, g, b, a)
+	self.color0:set(r, g, b, a)
+end
+
+function UiButton:SetHoveringColor(r, g, b, a)
+	self.color1:set(r, g, b, a)
+end
+
+function UiButton:SetPressingColor(r, g, b, a)
+	self.color2:set(r, g, b, a)
 end
 
 -----Text-----
 UiText = class(UiWidget)
-UiText.baked = true
-UiText.doClip = false
+UiText.cached = true
+UiText.cpuClip = false
 
-function UiText:ctor(x, y, s, font)
-	self:SetPos(x, y)
+function UiText:ctor(s, font)
+	self.text = LString('')
 	self:SetText(s, font)
 end
 
 function UiText:SetText(s, font)
 	s = s or ''
 	font = font or uiFont
+	self:Show(s ~= '')
 	if (self.text ~= s or self.font ~= font) then
-		self.text = s
+		self.text:set(s)
 		self.font = font
 		self:SetSize(CMeasureText(s, -1, -1, font), font.fontSize)
+		self:Refresh()
 	end
 end
 
-function UiText:FillDrawInput(vbPos, vbUVW, vbColor, ib, ib_start, wp)
+function UiText:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 	local n
-	if (self.clipRect) then
-		n = CAddTextClip(vbPos, vbUVW, wp, self.font,
-		self.location.x - self.clipRect.x, self.location.y - self.clipRect.y + self.font.fontSize + self.font.descender,
-			self.clipRect.x, self.clipRect.y, self.clipRect.w, self.clipRect.h, self.text)
+	if (self.cr) then
+		n = CAddTextClip(vbPos, wpPos, vbUVW, wpUVW, self.font,
+		self.location.x - self.cr.x, self.location.y - self.cr.y + self.font.fontSize + self.font.descender,
+			self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D, self.text)
 	else
-		n = CAddText(vbPos, vbUVW, wp, self.font, self.location.x, self.location.y + self.rect.h + self.font.descender, self.text)
+		n = CAddText(vbPos, wpPos, vbUVW, wpUVW, self.font, self.location.x, self.location.y + self.rect.h + self.font.descender, Z_2D, self.text)
 	end
 	
-	CAddUByte4(vbColor, wp, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
-	return 4 * n, CAddConvexPolyIndex(ib, wp, n, ib_start, 4)
+	CAddUByte4(vbColor, wpColor, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
+	self.nText = n
+	return 4 * n
+end
+
+function UiText:FillIB(ib, ib_start, wp)
+	return CAddConvexPolyIndex(ib, wp, self.nText, ib_start, 4)
 end
 
 -----TextInput-----
 UiTextInput = class(UiWidget)
-UiTextInput.baked = true
+UiTextInput.cached = true
+UiTextInput.cpuClip = true
 UiTextInput.drawClipRect = true
 
 local function TextInputAssign(a, b)
-	a.text = b.text
+	a.text = LString(b.text)
 	a.font = b.font
 	a.textWidth = b.textWidth
 	a.insertIdx = b.insertIdx
@@ -658,13 +746,13 @@ local function TextInputAssign(a, b)
 	end
 end
 
-function UiTextInput:ctor(x, y, w, h, font)
-	self.rect:set(x, y, w, h)
+function UiTextInput:ctor(w, h, font)
+	self.rect:set(0, 0, w, h)
 	
 	self.crColor:set(100, 100, 100, 100)
 	self.selectedColor = Color(0, 130, 255, 100)
 	
-	self.caret = UiWidget(0, 0, 1, self.rect.h)
+	self.caret = UiWidget(1, self.rect.h)
 	self.caret.writeId = false
 	self.caret:Show(false)
 	self:AddChild(self.caret)
@@ -675,9 +763,11 @@ function UiTextInput:ctor(x, y, w, h, font)
 	self.textWidth = 0
 	self.textOffset = 0
 	self.insertIdx = 0
+	
+	self.text = LString('')
 	self:SetText('', font or uiFont)
 	
-	self.timer = self:auto_del(Timer())
+	self.timer = Timer()
 	self.timer:bind_event(EVT.TIMER, self, UiTextInput.OnTimer)
 	
 	self:bind_event(EVT.FOCUS_IN, self, UiTextInput.OnFocus)
@@ -715,9 +805,9 @@ end
 
 function UiTextInput:OnMoveInOut(e)
 	if (e == EVT.MOVE_IN) then
-		self.window.cursor = SYS.CURSOR_IBEAM
+		g_actWindow.cursor = SYS.CURSOR_IBEAM
 	elseif (e == EVT.MOVE_OUT) then
-		self.window.cursor = SYS.CURSOR_ARROW
+		g_actWindow.cursor = SYS.CURSOR_ARROW
 	end
 end
 
@@ -731,7 +821,7 @@ end
 function UiTextInput:ResetCaret()
 	if (self.hasFocus) then
 		self.caret:Show(true)
-		self.timer:Start(self.window, 500, true)
+		self.timer:Start(500, true)
 	end
 end
 
@@ -783,7 +873,7 @@ function UiTextInput:OnSized()
 end
 
 function UiTextInput:SelectAll()
-	if (self.text == '') then
+	if (self.text:length() == 0) then
 		return
 	end
 	self.selectedIdx = 0
@@ -802,15 +892,15 @@ function UiTextInput:OnMouseDown(e, x)
 	
 		self.selectedIdx = self.insertIdx
 		self.selected_x = self.caret.rect.x
-		self.window:CaptureMouse(self)
+		g_actWindow:CaptureMouse(self)
 	elseif(e == EVT.LEFT_DCLICK) then
 		self:SelectAll()
 	end
 end
 
 function UiTextInput:OnMouseUp(e, x)
-	if (self.window.captured == self) then
-		self.window:ReleaseCaptured()
+	if (g_actWindow.captured == self) then
+		g_actWindow:ReleaseCaptured()
 	end
 end
 
@@ -819,7 +909,7 @@ function UiTextInput:OnCaptureLost()
 end
 
 function UiTextInput:OnMouseMotion(e, x)
-	if (self.window.captured == self) then
+	if (g_actWindow.captured == self) then
 		x = x - self.location.x - self.textOffset
 		if (x < 0) then
 			x = 0
@@ -844,10 +934,10 @@ function UiTextInput:OnChar(e, c)
 	if (count > 0) then
 		self:RemoveText(idx, count, true)
 	end
-	local w, n
-	self.text, w, n = CTextInsert(self.text, self.insertIdx, c, self.font)
+	
+	local w = CMeasureText(c, -1, -1, self.font)
+	self.insertIdx = self.insertIdx + self.text:insert(self.insertIdx, c)
 	self.textWidth = self.textWidth + w
-	self.insertIdx = self.insertIdx + n
 	self:RestrictCaretPos(self.caret.rect.x + w)
 	self:ClearSelected()
 	
@@ -855,11 +945,12 @@ function UiTextInput:OnChar(e, c)
 end
 
 function UiTextInput:RemoveText(idx, count, recorded)
-	self.text, d = CTextRemove(self.text, idx, count, self.font)
-	if (d == 0) then
+	local s = self.text:substr(idx, count)
+	if (s:length() == 0) then
 		return
 	end
-	
+	self.text:erase(idx, count)
+	local d = CMeasureText(s, -1, -1, self.font)
 	self.textWidth = self.textWidth - d
 	if (self.textOffset + d > 0) then
 		if (self.insertIdx == idx) then
@@ -880,11 +971,12 @@ function UiTextInput:RemoveText(idx, count, recorded)
 	if (recorded == nil) then
 		self:Record()
 	end
+	return s
 end
 
 function UiTextInput:OnKeyDown(e, k)
 	local x
-	local shiftDown = self.window.keyDowns[SYS.VK_SHIFT] or false
+	local shiftDown = g_actWindow.keyDowns[SYS.VK_SHIFT] or false
 	if (k == SYS.VK_SHIFT) then
 		if (self.selectedIdx < 0) then
 			self.selectedIdx = self.insertIdx
@@ -964,13 +1056,18 @@ function UiTextInput:OnAccKey(e, k)
 		local idx, count = self:GetSelectedRange()
 		if (count == 0) then
 		return end
-		CSetClipboardText(CTextSubstr(self.text, idx, count))
+		local s
 		if (k == SYS.VK_CTRL_X) then
-			self:RemoveText(idx, count)
+			s = self:RemoveText(idx, count)
+		else
+			s = self.text:substr(idx, count)
+		end
+		if (s) then
+			cTerminal.SetClipboardText(s)
 		end
 	
 	elseif (k == SYS.VK_CTRL_V) then
-		local s = CGetClipboardText()
+		local s = cTerminal.GetClipboardText()
 		if (s) then
 			self:OnChar(0, s)
 		end
@@ -993,7 +1090,7 @@ function UiTextInput:RestrictCaretPos(x, remainCaret)
 	end
 	self.caret:SetPos(x)
 	self:Refresh()
-	if (remainCaret ~= true) then
+	if (not remainCaret) then
 		self:ResetCaret()
 	end
 end
@@ -1002,7 +1099,7 @@ function UiTextInput:SetText(s, font)
 	s = s or ''
 	font = font or uiFont
 	if (self.text ~= s or self.font ~= font) then
-		self.text = s
+		self.text:set(s)
 		self.font = font
 		self.insertIdx = 0
 		self.caret:SetSize(1, font.fontSize)
@@ -1015,9 +1112,8 @@ function UiTextInput:SetText(s, font)
 	end
 end
 
-function UiTextInput:FillDrawInput(vbPos, vbUVW, vbColor, ib, ib_start, wp)
-	local rect = self.clipRect or self.rect
-	local wp0 = wp
+function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+	local rect = self.cr or self.rect
 	local n0 = 0
 	if (self.selectedIdx >= 0 and self.selectedIdx ~= self.insertIdx) then
 		local w = self.selected_x - self.caret.rect.x
@@ -1031,53 +1127,50 @@ function UiTextInput:FillDrawInput(vbPos, vbUVW, vbColor, ib, ib_start, wp)
 		elseif (self.selected_x >= rect.w) then
 			w = rect.w - self.caret.rect.x
 		end
-		CAddRectFloat2(vbPos, wp, math.max(self.location.x + x, rect.x), rect.y, w, rect.h)
-		CAddFloat3(vbUVW, wp, 4, self.font.pixels, 0, 0)
-		CAddUByte4(vbColor, wp, 4, self.selectedColor.r, self.selectedColor.g, self.selectedColor.b, self.selectedColor.a)
+		CAddRectFloat3(vbPos, wpPos, math.max(self.location.x + x, rect.x), rect.y, w, rect.h, Z_2D)
+		CAddFloat3(vbUVW, wpUVW, 4, self.font.pixels, 0, 0)
+		CAddUByte4(vbColor, wpColor, 4, self.selectedColor.r, self.selectedColor.g, self.selectedColor.b, self.selectedColor.a)
 		n0 = 1
-		wp = APPEND
+		wpPos = APPEND
+		wpUVW = APPEND
+		wpColor = APPEND
 	end
-	local n = CAddTextClip(vbPos, vbUVW, wp, self.font, self.textOffset, self.rect.h + self.font.descender, 
-	rect.x, rect.y, rect.w, rect.h, self.text)
-	CAddUByte4(vbColor, wp, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
+	local n = CAddTextClip(vbPos, wpPos, vbUVW, wpUVW, self.font, self.textOffset, self.rect.h + self.font.descender, 
+	rect.x, rect.y, rect.w, rect.h, Z_2D, self.text)
+	CAddUByte4(vbColor, wpColor, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
 	n = n + n0
-	return 4 * n, CAddConvexPolyIndex(ib, wp0, n, ib_start, 4)
+	self.nText = n
+	return 4 * n
+end
+
+function UiTextInput:FillIB(ib, ib_start, wp)
+	return CAddConvexPolyIndex(ib, wp, self.nText, ib_start, 4)
 end
 
 UiSlideBar = class(UiWidget)
 
-function UiSlideBar:ctor(vertical, x, y, length, width)
+function UiSlideBar:ctor(vertical, length, width)
 	self.color:set(100, 100, 100, 100)
-	self:SetPos(x, y)
 	self.scale = 1
 	self.slScale = 1
 	self.step = 1
 	self.pos = 0
 	self.vertical = vertical
 	if (vertical) then
-		self.slider = UiWidget(x, 0, math.max(1, width), 0)
+		self.slider = UiButton(math.max(1, width), 0)
 		self:SetSize(width, length)
 	else
-		self.slider = UiWidget(0, y, 0, math.max(1, width))
+		self.slider = UiButton(0, math.max(1, width))
 		self:SetSize(length, width)
 	end
+	self.slider:SetDefaultColor(150, 150, 150, 255)
+	self.slider:SetHoveringColor(200, 200, 200, 255)
+	self.slider:SetPressingColor(230, 230, 230, 255)
 	
 	self:AddChild(self.slider)
-	self.slider.color:set(150, 150, 150, 255)
-	self.slider:bind_event(EVT.MOVE_IN, self, self.OnSlideBarHovered)
-	self.slider:bind_event(EVT.MOVE_OUT, self, self.OnSlideBarHovered)
-	self.slider:bind_event(EVT.LEFT_DOWN, self, self.OnSliderMouseButton)
-	self.slider:bind_event(EVT.LEFT_UP, self, self.OnSliderMouseButton)
-	self.slider:bind_event(EVT.MOTION, self, self.OnSliding)
-end
-
-function UiSlideBar:OnSlideBarHovered(e)
-	if (e == EVT.MOVE_IN) then
-		self.slider.color:set(200, 200, 200, 255)
-	else
-		self.slider.color:set(150, 150, 150, 255)
-	end
-	self:Refresh()
+	self.slider:bind_event(EVT.LEFT_DOWN, self, UiSlideBar.OnSliderMouseButton)
+	self.slider:bind_event(EVT.LEFT_UP, self, UiSlideBar.OnSliderMouseButton)
+	self.slider:bind_event(EVT.MOTION, self, UiSlideBar.OnSliding)
 end
 
 function UiSlideBar:SetScale(scale, sliderScale)
@@ -1108,16 +1201,16 @@ function UiSlideBar:OnSliderMouseButton(e, x, y)
 		else
 			self.slStart = x
 		end
-		self.window:CaptureMouse(self.slider)
+		g_actWindow:CaptureMouse(self.slider)
 	elseif (e == EVT.LEFT_UP) then
-		if (self.window.captured == self.slider) then
-			self.window:ReleaseCaptured()
+		if (g_actWindow.captured == self.slider) then
+			g_actWindow:ReleaseCaptured()
 		end
 	end
 end
 
 function UiSlideBar:OnSliding(e, x, y)
-	if (self.window.captured ~= self.slider) then
+	if (g_actWindow.captured ~= self.slider) then
 		return
 	end
 	if (self.vertical) then
@@ -1166,35 +1259,46 @@ function UiSlideBar:OnSized()
 end
 
 -----UiScrollPanel-----
-UiScrollPanel = class(BoxLayout)
+UiScrollPanel = class(UiWidget)
 UiScrollPanel.barWidth = 12
 
-function UiScrollPanel:ctor(widget)
-	self.Layout = VerticalLayout
-	self:bind_event(EVT.MOUSEWHEEL, self, self.OnMouseWheel)
+function UiScrollPanel:ctor(w, h)
+	self:SetSize(w, h)
+	self.color:set(0 ,0, 0, 0)
+	self:bind_event(EVT.MOUSEWHEEL, self, UiScrollPanel.OnMouseWheel)
+	
+	local vLayout = BoxLayout(true)
+	self:AddChild(vLayout)
 	
 	local hLayout = BoxLayout(false)
-	Widget2D.AddChild(self, hLayout, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	vLayout:AddChild(hLayout, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	
 	self.plate = UiWidget()
 	self.plate.color:set(0, 0, 0, 0)
+	self.plate.gpuClip = true
 	hLayout:AddChild(self.plate, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	
-	self.widget = widget
-	self.plate:AddChild(widget)
-	self.widget:bind_event(EVT.SIZE, self, UiScrollPanel.OnWidgetSize)
-	
-	self.vScrollBar = UiSlideBar(true, 0, 0, 0, self.barWidth)
-	self.vScrollBar:bind_event(EVT.SLIDE_BAR, self, self.OnVScroll)
+	self.vScrollBar = UiSlideBar(true, 0, UiScrollPanel.barWidth)
+	self.vScrollBar:bind_event(EVT.SLIDE_BAR, self, UiScrollPanel.OnVScroll)
 	self.vScrollBar:Show(false)
 	hLayout:AddChild(self.vScrollBar, 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 0, 0, 0)
 	
-	self.hScrollBar = UiSlideBar(false, 0, 0, 0, self.barWidth)
-	self.hScrollBar:bind_event(EVT.SLIDE_BAR, self, self.OnHScroll)
+	self.hScrollBar = UiSlideBar(false, 0, UiScrollPanel.barWidth)
+	self.hScrollBar:bind_event(EVT.SLIDE_BAR, self, UiScrollPanel.OnHScroll)
 	self.hScrollBar:Show(false)
-	Widget2D.AddChild(self, self.hScrollBar, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, self.barWidth, 0, 0)
+	vLayout:AddChild(self.hScrollBar, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, UiScrollPanel.barWidth, 0, 0)
 	
 	self:SetSize()
+end
+
+function UiScrollPanel:SetWidget(widget)
+	if (self.widget) then
+		self.widget:unbind_event(EVT.SIZE, self, UiScrollPanel.OnWidgetSize)
+		self.plate:RemoveChild(widget)
+	end
+	self.widget = widget
+	self.widget:bind_event(EVT.SIZE, self, UiScrollPanel.OnWidgetSize)
+	self.plate:AddChild(widget)
 end
 
 function UiScrollPanel:OnWidgetSize()
@@ -1216,6 +1320,220 @@ function UiScrollPanel:OnMouseWheel(e, x, y, n)
 	if (n ~= 0) then
 		self.vScrollBar:MoveScalePos(-n)
 	end
+end
+
+-----UiPolyIcon-----
+UiPolyIcon = class(UiButtonBase)
+UiPolyIcon.cpuClip = false
+UiPolyIcon.cached = false
+UiPolyIcon.drawClipRect = true
+
+function UiPolyIcon:ctor(iconPoly, stretch, w, h)
+	self.poly = iconPoly
+	self.colors0 = {}
+	self.colors1 = {}
+	self.colors2 = {}
+	self.colors = self.colors0
+	self.scale = stretch
+	if (stretch) then
+		self.mat3d = CMatrix3D()
+		self:SetSize(w, h)
+	else
+		self:SetSize(iconPoly.w, iconPoly.h)
+	end
+	self.crColor:set(0, 0, 0, 0)
+end
+
+function UiPolyIcon:OnDefault()
+	self.colors = self.colors0
+end
+
+function UiPolyIcon:OnHovering()
+	self.colors = self.colors1
+end
+
+function UiPolyIcon:OnPressing()
+	self.colors = self.colors2
+end
+
+function UiPolyIcon:SetDefaultColor(idx, r, g, b, a)
+	if (self.colors0[idx]) then
+		self.colors0[idx]:set(r, g, b, a)
+	else
+		self.colors0[idx] = Color(r, g, b, a)
+	end
+end
+
+function UiPolyIcon:SetHoveringColor(idx, r, g, b, a)
+	if (self.colors1[idx]) then
+		self.colors1[idx]:set(r, g, b, a)
+	else
+		self.colors1[idx] = Color(r, g, b, a)
+	end
+end
+
+function UiPolyIcon:SetPressingColor(idx, r, g, b, a)
+	if (self.colors2[idx]) then
+		self.colors2[idx]:set(r, g, b, a)
+	else
+		self.colors2[idx] = Color(r, g, b, a)
+	end
+end
+
+function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+	local n = self.poly.vtx_count
+	if (self.scale) then
+		if (self.sized) then
+			self.mat3d:SetD0(self.rect.w / self.poly.w, 0, 0)
+			self.mat3d:SetD1(0, self.rect.h / self.poly.h, 0)
+		end
+		if (self.moved) then
+			self.mat3d:SetD3(self.location.x, self.location.y, 0) 			
+		end
+		CTransformFloat3(g_innerPolyVB, self.poly.vb_offset, n, self.mat3d, vbPos, wpPos)
+	else
+		CMoveFloat3(g_innerPolyVB, self.poly.vb_offset, n, self.location.x, self.location.y, 0, vbPos, wpPos)
+	end
+	CAddFloat3(vbUVW, wpUVW, n, self.font.pixels, 0, 0)
+	for k, v in pairs(self.poly.colors) do
+		if (k > 1) then
+			wpColor = APPEND
+		end
+		local c = self.colors[k] or v[2]
+		CAddUByte4(vbColor, wpColor, v[1], c.r, c.g, c.b, c.a)
+	end
+	return n
+end
+
+function UiPolyIcon:FillIB(ib, ib_start, wp)
+	CCopyIndexBuffer(g_innerPolyIB, self.poly.ib_offset, self.poly.idx_count, ib_start, ib, wp)
+	return self.poly.idx_count
+end
+
+-----UiTreeList-----
+UiTreeList = class(UiScrollPanel)
+
+function UiTreeList:ctor(w, h)
+	self:SetSize(w, h)
+	
+	self.vScrollBar:bind_event(EVT.SLIDE_BAR, self, UiTreeList.OnVScroll)
+	
+	self.highLight = UiWidget()
+	self.highLight.writeId = false
+	self.highLight.color:set(0, 130, 255, 100)
+	self.highLight:Show(false)
+	self.plate:AddChild(self.highLight)
+	self.plate:bind_event(EVT.LEFT_DOWN, self, UiTreeList.OnMouse)
+	
+	self.list = BoxLayout(true)
+	self:SetWidget(self.list)
+	
+	self.nodes = {}
+end
+
+function UiTreeList:OnVScroll(e, pos)
+	if (self.selected) then
+		self.highLight:Move(0, -pos - self.hpos)
+		self.hpos = -pos
+	end
+end
+
+function UiTreeList.Pick(list, y)
+	for node in list:ChildrenPairs() do
+		local ny = node.title.location.y
+		if (y >= ny and y <= ny + node.title.rect.h) then
+			return node
+		end
+		if (node.list.show) then
+			node = UiTreeList.Pick(node.list, y)
+			if (node) then
+				return node
+			end
+		end
+	end
+end
+
+function UiTreeList:OnMouse(e, x, y, n)
+	local node = self.Pick(self.list, y)
+	if (node == nil) then
+		return
+	end
+	if (e == EVT.LEFT_DOWN) then
+		self.hpos = self.list.rect.y
+		self.highLight:SetPos(0, node.title.location.y - self.plate.location.y)
+		self.highLight:SetSize(self.plate.rect.w, node.title.rect.h)
+		self.highLight:Show(true)
+		self.selected = node
+	end
+end
+
+function UiTreeList:AddNode(nodeId, icon, text)
+	local node = BoxLayout(true)
+	node.fold = true
+	local superior = self.nodes[nodeId]
+	if (superior) then
+		superior.list:AddChild(node)
+		if (superior.fold) then
+			superior.iconFold:Show(true)
+			superior.spacer:Show(false)
+		end
+	else
+		self.list:AddChild(node, 0, Layout.ALIGN_LEFT)
+	end
+	self.nodes[node.id] = node
+	
+	node.title = BoxLayout(false)
+	node:AddChild(node.title, 0, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 0, 1, 1)
+	
+	node.iconFold = UiPolyIcon(g_iconFold, true, 12, 12)
+	node.iconFold.node = node
+	node.iconFold:SetDefaultColor(1, 150, 150, 150, 255)
+	node.iconFold:SetHoveringColor(1, 200, 200, 200, 255)
+	node.iconFold:SetPressingColor(1, 230, 230, 230, 255)
+	node.iconFold:Show(false)
+	node.iconFold.Expand = UiTreeList.Expand
+	node.iconFold:bind_event(EVT.LEFT_UP, node.iconFold, node.iconFold.Expand)
+	node.title:AddChild(node.iconFold, 0, Layout.ALIGN_LEFT, 2, 0, 0, 0)
+	
+	node.iconExpand = UiPolyIcon(g_iconExpand, true, 12, 12)
+	node.iconExpand.node = node
+	node.iconExpand:SetDefaultColor(1, 150, 150, 150, 255)
+	node.iconExpand:SetHoveringColor(1, 200, 200, 200, 255)
+	node.iconExpand:SetPressingColor(1, 230, 230, 230, 255)
+	node.iconExpand:Show(false)
+	node.iconExpand.Fold = UiTreeList.Fold
+	node.iconExpand:bind_event(EVT.LEFT_UP, node.iconExpand, node.iconExpand.Fold)
+	node.title:AddChild(node.iconExpand, 0, Layout.ALIGN_LEFT, 2, 0, 0, 0)
+	
+	node.spacer = BoxLayout()
+	node.spacer:Show(true)
+	node.title:AddChild(node.spacer, 0, Layout.ALIGN_LEFT, 12, 0, 0, 0)
+	
+	node.icon = UiPolyIcon(icon, true, 20, 14)
+	node.icon.writeId = false
+	node.title:AddChild(node.icon, 0, Layout.ALIGN_LEFT|Layout.ALIGN_BOTTOM, 7, 0, 0, 4)
+	
+	node.text = UiText(text)
+	node.text.writeId = false
+	node.title:AddChild(node.text, 0, Layout.ALIGN_LEFT, 7, 0, 0, 0)
+	
+	node.list = BoxLayout(true)
+	node.list:Show(false)
+	node:AddChild(node.list, 0, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 17, 0, 1, 1)
+	
+	return node.id
+end
+
+function UiTreeList.Expand(icon)
+	icon.node.iconFold:Show(false)
+	icon.node.iconExpand:Show(true)
+	icon.node.list:Show(true)
+end
+
+function UiTreeList.Fold(icon)
+	icon.node.iconExpand:Show(false)
+	icon.node.iconFold:Show(true)
+	icon.node.list:Show(false)
 end
 	
 	

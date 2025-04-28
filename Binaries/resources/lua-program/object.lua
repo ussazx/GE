@@ -1,32 +1,17 @@
 ---object---
 require 'class'
-require 'event'
 
-local global_delisted = setmetatable({}, {__mode = 'kv'})
-
-local function weak_table_pairs(t)
-	local k, v
-	return function()
-		k, v = next(t, k)
-		while (global_delisted[k] or global_delisted[v]) do
-			t[k] = nil
-			k, v = next(t, k)
-		end
-		return k, v
-	end
-end
-
-local global_objects = setmetatable({}, {__mode = 'v'})
+local global_objects = setmetatable({}, {__mode = 'kv'})
 local global_recycled_id = {}
 
+local g_id = 0
 local function new_object_id()
-	id = id or 0
 	local i, tid = next(global_recycled_id)
 	if (tid) then
 		global_recycled_id[i] = nil
 	else
-		tid = id
-		id = id + 1
+		tid = g_id
+		g_id = g_id + 1
 	end
 	return tid
 end
@@ -41,47 +26,48 @@ function Object:ctor()
 	self.id = new_object_id()
 	global_objects[self.id] = self
 	self.event_table = {}
-	self.delisted = false
-end
-
-function Object:dtor()
-	delist()
+	self.event_table_obj = {}
 end
 
 function Object:delist()
-	if (self.delisted == false) then
+	if (global_objects[self.id] == self) then
 		global_objects[self.id] = nil
-		global_delisted[self] = self
 		global_recycled_id[self.id] = self.id
-		self.delisted = true
-		self:process_event(EVT.DELISTED, self)
 	end
 end
 
-function Object:is_delisted()
-	return self.delisted
-end
-
-function Object:auto_del(obj)
-	self:bind_event(EVT.DELISTED, obj, Object.on_auto_delist)
-	return obj
-end
-
-function Object:on_auto_delist()
+function Object:dtor()
 	self:delist()
 end
 
 function Object:bind_event(e, obj, func)
 	self:unbind_event(e, obj, func)
-	self.event_table[e] = self.event_table[e] or setmetatable({}, {__mode = 'k'})
-	self.event_table[e][obj] = self.event_table[e][obj] or {}
-	table.insert(self.event_table[e][obj], func)
+	if (obj) then
+		self.event_table_obj[e] = self.event_table_obj[e] or setmetatable({}, {__mode = 'k'})
+		self.event_table_obj[e][obj] = self.event_table_obj[e][obj] or {}
+		table.insert(self.event_table_obj[e][obj], func)
+	else
+		self.event_table[e] = self.event_table[e] or {}
+		table.insert(self.event_table[e], func)
+	end
 end
 
 function Object:unbind_event(e, obj, func)
-	local t = self.event_table[e]
+	if (obj == nil) then
+		local t = self.event_table[e]
+		if (t) then
+			for k, v in pairs(t) do
+				if (v == func) then
+					table.remove(t, k)
+					break
+				end
+			end
+		end
+		return
+	end
+	local t = self.event_table_obj[e]
 	if (t) then
-		t = self.event_table[e][obj]
+		t = self.event_table_obj[e][obj]
 		if (t) then
 			for k, v in pairs(t) do
 				if (v == func) then
@@ -96,9 +82,19 @@ end
 function Object:process_event(e, ...)
 	local t = self.event_table[e]
 	if (t) then
-		for k, v in pairs(t) do
-			for _, f in pairs(v) do
-				f(k, e, ...)
+		for _, f in pairs(t) do
+			f(e, ...)
+		end
+	end
+	t = self.event_table_obj[e]
+	if (t) then
+		for obj, v in pairs(t) do
+			if (global_objects[obj.id] == obj) then
+				for _, f in pairs(v) do
+					f(obj, e, ...)
+				end
+			else
+				t[obj] = nil
 			end
 		end
 	end

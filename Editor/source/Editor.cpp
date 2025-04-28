@@ -10,14 +10,7 @@
 
 char g_stdout[BUFSIZ];
 
-void FlushStdout()
-{
-	fflush(stdout);
-	OutputDebugStringA(g_stdout);
-	memset(g_stdout, 0, strlen(g_stdout));
-}
-
-void ErrPrint(const char* s)
+void Terminal::OnLuaError(const char* s)
 {
 	OutputDebugStringA(s);
 	OutputDebugStringA("\n");
@@ -26,7 +19,9 @@ void ErrPrint(const char* s)
 #endif
 }
 
-void Require(LuaState& lua, const char* requiredName)
+Lua_global_add_cfunc(GetTickCount)
+
+void Terminal::OnRequired(LuaState& lua, const char* requiredName)
 {
 	std::string ss = std::string("Resources/lua-program/") + requiredName;
 	_strlwr((char*)ss.c_str());
@@ -52,7 +47,17 @@ wxIMPLEMENT_APP(MyApp);
 
 struct AA
 {
-	Lua_wrap_cpp_class(AA, Lua_ctor())
+	AA() {}
+	AA(AA&&)
+	{
+		int a = 5;
+	}
+	AA(const AA&)
+	{
+		int a = 5;
+	}
+	void f() {}
+	Lua_wrap_cpp_class(AA, Lua_ctor(), Lua_mf(f))
 };
 Lua_global_add_cpp_class(AA)
 
@@ -67,7 +72,7 @@ struct BB : public AA
 		n = 1;
 	}
 
-	Lua_wrap_cpp_class_derived(AA, BB, Lua_ctor(int, bool), Lua_mf(f), Lua_smf(ff));
+	Lua_wrap_cpp_class_derived(AA, BB, Lua_ctor(int, bool), Lua_mf(f), Lua_mf(ff));
 };
 Lua_global_add_cpp_class(BB)
 
@@ -115,29 +120,25 @@ bool MyApp::OnInit()
 
 	vmWindow::InitEventNameMap();
 
-	LuaState::SetErrorFunc(ErrPrint);
-	LuaState::SetRequireFunc(Require);
-
 	Engine::InitParam eip{};
 	eip.hInst = wxGetInstance();
 	assert(Engine::Initialize(eip));
 
-	Engine::TerminalNotification n{};
-	n.addEvent = vmWindow::AddEvent;
-	n.flushStdout = n.flushStderr = FlushStdout;
-	Engine::LuaRegister(g_vm->Lua(), n);
+	Engine::LuaRegister(Terminal::Lua().Lua());
 
-	LuaRegGlobalCollected(g_vm);
+	LuaRegGlobalReflected(&Terminal::Lua());
+
+	Terminal::Lua().Run("BB.ff(nil, 1)");
 
 	auto t = GetTickCount();
-	g_vm->Run("for i = 1, 100000 do ff(1, 2) end");
+	Terminal::Lua().Run("for i = 1, 100000 do ff(1, 2) end");
 	DebugLog(L"%d", GetTickCount() - t);
 
-	g_vm->Run("function ff1(a, b) return a + b end");
+	Terminal::Lua().Run("function ff1(a, b) return a + b end");
 	t = GetTickCount();
 	for (size_t i = 0; i < 100000; i++)
 	{
-		g_vm->GetValue("ff1", LuaCall(1, 2));
+		Terminal::Lua().GetValue("ff1", LuaCall(1, 2));
 		//lua_getglobal(l, "ff1");
 		//lua_pushinteger(l, 1);
 		//lua_pushinteger(l, 2);
@@ -146,30 +147,50 @@ bool MyApp::OnInit()
 	}
 	DebugLog(L"%d", GetTickCount() - t);
 
-	g_vm->SetValue("SYS", "CURSOR_IBEAM", wxCURSOR_IBEAM);
-	g_vm->SetValue("SYS", "CURSOR_ARROW", wxCURSOR_ARROW);
+	Terminal::Lua().SetValue("SYS", "CURSOR_IBEAM", wxCURSOR_IBEAM);
+	Terminal::Lua().SetValue("SYS", "CURSOR_ARROW", wxCURSOR_ARROW);
 
 	wchar_t s[256]{};
 	GetCurrentDirectory(256, s);
 	//FileData fd("../../Resources/lua-program/..Test.lua", true);
-	//FileData fd("../../Resources/lua-program/utility.lua", true);
+	//FileData fd("Resources/lua-program/utility.lua", true);
 	FileData fd("Resources/lua-program/editor.lua", true);
 	assert(fd.IsLoaded());
-	g_vm->Run((char*)fd.GetData(), fd.GetSize());
+	Terminal::Lua().Run((char*)fd.GetData(), fd.GetSize());
 	fd.Release();
 
-	Entrance en(nullptr, "");
-	g_vm->SetValue("cEntrance", Lua_set_cobj(&en));
-	g_vm->GetValue("LoadEntrance", LuaCall());
+	Terminal::Lua().Run("A = class() function A:f() end a = A() B = class(A) b = B() C = class(B) c = C()");
 
-	assert(g_vm->GetTop() == 0);
+	t = GetTickCount();
+	Terminal::Lua().Run("for i = 1, 100000 do A:f() end");
+	DebugLog(L"%d", GetTickCount() - t);
+
+	t = GetTickCount();
+	Terminal::Lua().Run("for i = 1, 100000 do a:f() end");
+	DebugLog(L"%d", GetTickCount() - t);
+
+	t = GetTickCount();
+	Terminal::Lua().Run("for i = 1, 100000 do b:f() end");
+	DebugLog(L"%d", GetTickCount() - t);
+
+	t = GetTickCount();
+	Terminal::Lua().Run("for i = 1, 100000 do c:f() end");
+	DebugLog(L"%d", GetTickCount() - t);
+
+	Entrance en(nullptr, "");
+	Terminal::Lua().SetValue("cEntrance", Lua_set_cobj(&en));
+	Terminal::Lua().GetValue("LoadEntrance", LuaCall());
+
+	assert(Terminal::Lua().GetTop() == 0);
 	
 	if (en.ShowModal() != wxID_OK)
 		return false;
 
+	Terminal::Lua().GetValue("LoadProject", LuaCall());
+
 	MainFrame* mf = new MainFrame(nullptr, wxID_ANY, "");
-	g_vm->SetValue("cMainFrame", Lua_set_cobj(mf));
-	g_vm->GetValue("LoadMainFrame", LuaCall());
+	Terminal::Lua().SetValue("cMainFrame", Lua_set_cobj(mf));
+	Terminal::Lua().GetValue("LoadMainFrame", LuaCall());
 	mf->m_nb->LoadPerspective(DEFAULT_LAYOUT);
 
 	mf->Show();
@@ -179,8 +200,133 @@ bool MyApp::OnInit()
 
 void MyApp::CleanUp()
 {
-	g_vm->GetValue("AppCleanUp", LuaCall());
-	delete g_vm;
+	Terminal::CleanUp();
 	Engine::CleanUp();
 	wxApp::CleanUp();
+}
+
+void Terminal::AddEvent(const char* name, int id)
+{
+	vmWindow::AddEvent(name, id);
+}
+
+void Terminal::FlushStdout()
+{
+	fflush(stdout);
+	static std::wstring_convert<std::codecvt_utf8<wchar_t>> conv;
+	OutputDebugString(conv.from_bytes(g_stdout).c_str());
+	memset(g_stdout, 0, strlen(g_stdout));
+}
+
+void Terminal::FlushStderr()
+{
+	FlushStdout();
+}
+
+void Terminal::SetClipboardText(LString s)
+{
+	wxTheClipboard->SetData(new wxTextDataObject(s.c_str()));
+}
+
+LuacObjNew<LString> Terminal::GetClipboardText()
+{
+	static wxTextDataObject data;
+	static std::wstring s;
+	if (wxTheClipboard->GetData(data))
+		return new LString(data.GetText().wc_str());
+	return nullptr;
+}
+
+void Terminal::NewDirectory(LString path)
+{
+	::CreateDirectory(path, NULL);
+}
+
+void Terminal::SetCurrentDir(LString path)
+{
+	::SetCurrentDirectory(path);
+}
+
+LuacObjNew<LString> Terminal::NewFileDialog(LString title, LString defName, LString filters)
+{
+	wxFileDialog dialog(nullptr,
+		title.c_str(),
+		wxEmptyString,
+		defName.c_str(),
+		filters.c_str(),
+		wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+	dialog.ShowModal();
+	return new LString(dialog.GetPath().wc_str());
+}
+
+class Timer : public Terminal::CTimer
+{
+public:
+	Timer(uint32_t id)
+	{
+		m_id = id;
+		m_timer.Bind(wxEVT_TIMER, &Timer::OnTimer, this);
+	}
+	void Start(int t, bool oneShot) override
+	{
+		m_timer.Start(t, oneShot);
+	}
+	void Stop() override
+	{
+		m_timer.Stop();
+	}
+	void OnTimer(wxTimerEvent&)
+	{
+		Terminal::Lua().GetValue("Timer", "OnTimer", LuaCall(m_id));
+	}
+
+	wxTimer m_timer;
+	uint32_t m_id;
+};
+LuacObjNew<Terminal::CTimer> Terminal::NewTimer(uint32_t id)
+{
+	return new Timer(id);
+}
+
+class FileFinder : public Terminal::CFileFinder
+{
+public:
+	bool FindFirst(LString path) override
+	{
+		m_wfd = {};
+		if (m_hFind != INVALID_HANDLE_VALUE)
+			FindClose(m_hFind);
+		m_hFind = ::FindFirstFile(path, &m_wfd);
+		return m_hFind != INVALID_HANDLE_VALUE;
+	}
+
+	bool FindNext() override
+	{
+		return ::FindNextFile(m_hFind, &m_wfd) == TRUE;
+	}
+
+	bool IsDirectory() override
+	{
+		return (m_wfd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY;
+	}
+
+	LuacObjNew<LString> GetName() override
+	{
+		return new LString(m_wfd.cFileName);
+	}
+
+	~FileFinder()
+	{
+		if (m_hFind != INVALID_HANDLE_VALUE)
+			FindClose(m_hFind);
+	}
+
+private:
+	WIN32_FIND_DATA m_wfd = {};
+	HANDLE m_hFind = INVALID_HANDLE_VALUE;
+};
+
+LuacObjNew<Terminal::CFileFinder> Terminal::NewFileFinder()
+{
+	return new FileFinder;
 }

@@ -10,7 +10,7 @@ if (!p->Init(__VA_ARGS__)) delete p, p = {}; \
 return p;
 
 #define New(p, class_type, ...) \
-p = new class_type; \
+class_type* p = new class_type; \
 p->Init(__VA_ARGS__)
 
 struct VKParamFrameBuffer;
@@ -167,16 +167,25 @@ public:
 	std::vector<VkDescriptorPoolSize> m_dps;
 };
 
-class VKResourceSet : public ResourceSet
+class VKBuffer;
+class VKBufferHolder
+{
+public:
+	virtual void OnBufferResized(VKBuffer*) = 0;
+};
+
+class VKResourceSet : public ResourceSet, public VKBufferHolder
 {
 public:
 	~VKResourceSet();
-	void BindBuffer(LuacObj<CBuffer> buffer, uint32_t binding, uint32_t bufferType) override;
+	void BindBuffer(LuacObj<CBuffer> buffer, uint64_t offset, uint64_t range, uint32_t binding, uint32_t bufferType) override;
 	void BindImageWithSampler(LuacObj<Texture> image, LuacObj<Sampler> sampler, uint32_t binding) override;
 	void BindInputAttachment(LuacObj<Texture> image, uint32_t binding) override;
+	void OnBufferResized(VKBuffer* buffer) override;
 
 	VkDescriptorPool m_pool{};
 	VkDescriptorSet m_set{};
+	std::unordered_map<VKBuffer*, std::unordered_map<uint32_t, std::tuple<VkDescriptorBufferInfo, VkWriteDescriptorSet>>> m_bufferInfo;
 };
 
 class VKShaderModule : public ShaderModule
@@ -200,7 +209,6 @@ public:
 	uint32_t m_resCount{};
 };
 
-class VKBufferSet;
 class VKBuffer : public CBuffer
 {
 public:
@@ -223,47 +231,34 @@ public:
 	VkDeviceMemory m_mem{};
 	byte* m_ptr{};
 
-	uint32_t m_setIdx{};
-	VKBufferSet* m_set{};
+	std::unordered_set<VKBufferHolder*> m_holders;
 
 	VkBufferCreateInfo m_bci;
 	static VkMemoryRequirements m_mem_reqs;
 	static VkMemoryAllocateInfo m_mem_alloc;
 };
 
-class VKBufferSet : public BufferSet
+class VKBufferSet : public BufferSet, public VKBufferHolder
 {
 public:
+	void OnBufferResized(VKBuffer* b) override
+	{
+		m_set[m_buffers[b]] = b->m_buffer;
+	}
 	void Add(LuacObj<CBuffer> buffer) override
 	{
 		VKBuffer* b = (VKBuffer*)buffer;
-		b->m_set = this;
-		b->m_setIdx = m_buffers.size();
-		m_buffers.push_back(b);
+		b->m_holders.insert(this);
+		m_buffers[buffer] = m_set.size();
 		m_set.push_back(b->m_buffer);
 		m_offsets.resize(m_set.size());
 	}
 	void SetWritePos(uint32_t pos) override
 	{
-		for (auto i : m_buffers)
-			i->SetWritePos(pos);
+		for (auto& i : m_buffers)
+			i.first->SetWritePos(pos);
 	}
-	void SetDrawOffset(uint32_t offset) override
-	{
-		for (auto& i : m_offsets)
-			i = offset;
-	}
-	void AddDrawOffset(LuacObj<Pipeline> pipeline, uint32_t offset) override
-	{
-		VKPipeline* p = (VKPipeline*)pipeline;
-		for (size_t i = 0; i < p->m_vibd.size(); i++)
-		{
-			VkVertexInputBindingDescription& b = p->m_vibd[i];
-			if (b.inputRate == VK_VERTEX_INPUT_RATE_VERTEX)
-				m_offsets[b.binding] += b.stride * offset;
-		}
-	}
-	std::vector<VKBuffer*> m_buffers;
+	std::unordered_map<VKBuffer*, size_t> m_buffers;
 	std::vector<VkBuffer> m_set;
 	std::vector<VkDeviceSize> m_offsets;
 };
@@ -279,6 +274,7 @@ public:
 
 	void AddDrawIndexed(int32_t vertexOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t firstInstance, uint32_t instanceCount) override;
 
+	bool b{};
 	VKBuffer m_buffer;
 	uint32_t m_pos{};
 	uint32_t m_capacity{};
@@ -308,9 +304,11 @@ public:
 
 	void SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx) override;
 
-	void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t doneOffset) override;
+	void SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding) override;
 
-	void DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<BufferSet> vbSet, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count) override;
+	void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t firstInst, uint32_t instCount) override;
+
+	void DrawIndexedIndirect(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, LuacObj<DrawIndirectCmd> indirect, uint32_t start, uint32_t count) override;
 
 	void CopyImage(LuacObj<Texture> src, int src_base_layer, int src_x, int src_y,
 		LuacObj<Texture> dst, int dst_base_layer, int dst_x, int dst_y, int num_layers, uint32_t w, uint32_t h) override;

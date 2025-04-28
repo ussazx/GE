@@ -34,6 +34,16 @@ public:
 		m_nb->AddPage(w, _(title));
 	}
 
+	void Accept() override
+	{
+		EndModal(wxID_OK);
+	}
+
+	void Reject() override
+	{
+		EndModal(wxID_CANCEL);
+	}
+
 private:
 	wxAuiNotebook2* m_nb;
 };

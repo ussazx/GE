@@ -1,7 +1,10 @@
 #pragma once
 #include <vector>
+#include <codecvt>
 #include "Generic/Types.h"
-#include "Generic/LuaWrapper/LuaGlobalCollect.h"
+#include "Generic/Math.h"
+#include "Generic/LuaWrapper/LuaUtility.h"
+#include "../include/EngineInterface.h"
 
 inline void DebugLog(const wchar_t* szFmt, ...)
 {
@@ -128,7 +131,7 @@ public:
 
 	size_t m_writePos;
 
-	Lua_wrap_cpp_class(CBuffer, Lua_abstract, Lua_mf(GetWritePos), Lua_mf(SetWritePos));
+	Lua_wrap_cpp_class(CBuffer, Lua_abstract, Lua_mf(GetWritePos), Lua_mf(SetWritePos), Lua_mf(Resize));
 };
 Lua_global_add_cpp_class(CBuffer)
 
@@ -213,11 +216,11 @@ inline void CAddFloat1(LuacObj<CBuffer> vb, int wp, int num, float x)
 }
 Lua_global_add_cfunc(CAddFloat1)
 
-inline void CAddFloat2(LuacObj<CBuffer> vb, int wp, int num, float x, float y)
-{
-	AddValue<float2>(*vb, wp, num, x, y);
-}
-Lua_global_add_cfunc(CAddFloat2)
+//inline void CAddFloat2(LuacObj<CBuffer> vb, int wp, int num, float x, float y)
+//{
+//	AddValue<float2>(*vb, wp, num, x, y);
+//}
+//Lua_global_add_cfunc(CAddFloat2)
 
 inline void CAddFloat3(LuacObj<CBuffer> vb, int wp, int num, float x, float y, float z)
 {
@@ -255,42 +258,226 @@ inline void CAddUByte4(LuacObj<CBuffer> vb, int wp, int num, uint32_t r, uint32_
 }
 Lua_global_add_cfunc(CAddUByte4)
 
-inline void CAddRectFloat2(LuacObj<CBuffer> vb, int wp, float x, float y, float w, float h)
-{
-	BufferWriter<float2> bw(*vb, 4, wp);
-	bw[0] = { x, y };
-	bw[1] = { x + w, y };
-	bw[2] = { x + w, y + h };
-	bw[3] = { x, y + h };
-}
-Lua_global_add_cfunc(CAddRectFloat2)
+//inline void CAddRectFloat2(LuacObj<CBuffer> vb, int wp, float x, float y, float w, float h)
+//{
+//	BufferWriter<float2> bw(*vb, 4, wp);
+//	bw[0] = { x, y };
+//	bw[1] = { x + w, y };
+//	bw[2] = { x + w, y + h };
+//	bw[3] = { x, y + h };
+//}
+//Lua_global_add_cfunc(CAddRectFloat2)
 
-inline void CAddRectFloat3(LuacObj<CBuffer> vb, int wp, float x, float y, float w, float h)
+inline void CAddRectFloat3(LuacObj<CBuffer> vb, int wp, float x, float y, float w, float h, float z)
 {
 	BufferWriter<float3> bw(*vb, 4, wp);
-	bw[0] = { x, y, 1 };
-	bw[1] = { x + w, y, 1 };
-	bw[2] = { x + w, y + h, 1 };
-	bw[3] = { x, y + h, 1 };
+	bw[0] = { x, y, z };
+	bw[1] = { x + w, y, z };
+	bw[2] = { x + w, y + h, z };
+	bw[3] = { x, y + h, z };
 }
 Lua_global_add_cfunc(CAddRectFloat3)
 
-inline size_t CAddConvexPolyIndex(LuacObj<CBuffer> ib, int wp, int num, int idx_offset, uint32_t num_vtx)
+inline std::tuple<bool, float, float> CIntersect2D(float p0x, float p0y, float p1x, float p1y, bool p1AsDirection,
+	float p2x, float p2y, float p3x, float p3y, bool p2Opened, bool p3Opened)
+{
+	float3 p0 = { p0x, p0y };
+	float3 p1 = { p1x, p1y };
+	float3 p2 = { p2x, p2y };
+	float3 p3 = { p3x, p3y };
+
+	float3 v0 = p1AsDirection ? p1 : p1 - p0;
+	if (v0.x == 0 && v0.y == 0)
+		return { false, 0, 0 };
+
+	float3 v1 = p3 - p2;
+	if (v1.x == 0 && v1.y == 0)
+		return { false, 0, 0 };
+
+	if ((v0.x == 0 && v1.x == 0) || (v0.y == 0 && v1.y == 0))
+		return { false, 0, 0 };
+
+	float t0 = 0;
+	float t1 = 0;
+	if (v1.x == 0)
+	{
+		t0 = (p2.x - p0.x) / v0.x;
+		t1 = (p0.y + v0.y * t0 - p2.y) / v1.y;
+	}
+	else
+	{
+		float n = v1.y / v1.x;
+		float d = v0.y - n * v0.x;
+		if (d == 0)
+			return { false, 0, 0 };
+		float xd = p0.x - p2.x;
+
+		t0 = (p2.y + n * xd - p0.y) / d;
+		t1 = (xd + v0.x * t0) / v1.x;
+	}
+
+	if (t0 < 0 || (!p1AsDirection && t0 > 1))
+		return { false, 0, 0 };
+
+	if (t1 < 0 || (p2Opened && t1 == 0) || t1 > 1 || (p3Opened && t1 == 1))
+		return { false, 0, 0 };
+
+	return { true, p0x + v0.x * t0, p0y + v0.y * t0 };
+}
+
+inline size_t AddConvexPolyIndex(BufferWriter<uint1>& ibw, int idx_offset, uint32_t num_vtx)
+{
+	size_t n = 0;
+	for (size_t j = 1; j < num_vtx - 1; j++)
+	{
+		ibw[n++] = idx_offset;
+		ibw[n++] = idx_offset + j;
+		ibw[n++] = idx_offset + j + 1;
+	}
+	return n;
+}
+
+inline size_t AddConvexPolyIndex(BufferWriter<uint1>& ibw, std::vector<uint1>& vtx_seq, int idx_offset)
+{
+	size_t n = 0;
+	for (size_t i = 1; i < vtx_seq.size() - 1; i++)
+	{
+		ibw[n++] = vtx_seq[0] + idx_offset;
+		ibw[n++] = vtx_seq[i] + idx_offset;
+		ibw[n++] = vtx_seq[i + 1] + idx_offset;
+	}
+	return n;
+}
+
+inline size_t CAddConvexPolyIndex(LuacObj<CBuffer> ib, int wp, int count, int idx_offset, uint32_t num_vtx)
 {
 	if (num_vtx < 3)
 		return 0;
-	BufferWriter<uint1> bw(*ib, (num_vtx - 2) * 3 * num, wp);
-	size_t n = 0;
-	for (size_t i = 0; i < num; i++, idx_offset += num_vtx)
-		for (size_t j = 1; j < num_vtx - 1; j++)
-		{
-			bw[n++] = idx_offset;
-			bw[n++] = idx_offset + j;
-			bw[n++] = idx_offset + j + 1;
-		}
-	return n;
+	BufferWriter<uint1> bw(*ib, (num_vtx - 2) * 3 * count, wp);
+	size_t n = AddConvexPolyIndex(bw, idx_offset, num_vtx);
+	
+	idx_offset += num_vtx;
+	for (size_t i = 1; i < count; i++, idx_offset += num_vtx)
+		for (size_t j = 0; j < n; j++)
+			bw[n * i + j] = bw[j] + idx_offset;
+
+	return n * count;
 }
 Lua_global_add_cfunc(CAddConvexPolyIndex)
+
+inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_seq, BufferWriter<uint1>& ibw, int idx_offset, bool inv_y)
+{
+	size_t vnum = vtx_seq.size();
+	if (vnum < 3)
+		return 0;
+	if (vnum == 3)
+	{
+		ibw[0] = vtx_seq[0] + idx_offset;
+		ibw[1] = vtx_seq[1] + idx_offset;
+		ibw[2] = vtx_seq[2] + idx_offset;
+		return 3;
+	}
+
+	float3 v0 = {};
+	float3 v1 = {};
+	bool firstConvexFound = false;
+	bool concaveFound = false;
+	size_t i = 0, i0 = 0, i1 = 0, i2 = 1, i3 = 2;
+	for (; i < vnum && !firstConvexFound; i++, i0 = i1, i1 = i2, i2 = i3, i3 = ++i3 % vnum)
+	{
+		float3& p1 = vbw[vtx_seq[i1]];
+		float3& p2 = vbw[vtx_seq[i2]];
+		float3& p3 = vbw[vtx_seq[i3]];
+
+		v0 = float3::Vector(p1, p2, inv_y);
+		v1 = float3::Vector(p2, p3, inv_y);
+
+		if (Cross2D(v0.x, v0.y, v1.x, v1.y) > 0)
+			concaveFound = true;
+		else
+			firstConvexFound = true;
+	}
+	if (i == vnum && !concaveFound)
+		return AddConvexPolyIndex(ibw, vtx_seq, idx_offset);
+
+	float3 v = float3::Vector(vbw[vtx_seq[i0]], vbw[vtx_seq[i1]]);
+	concaveFound = false;
+	for (i = 0; i < vnum && !concaveFound; i++, i1 = i2, i2 = i3, i3 = ++i3 % vnum)
+	{
+		float3& p1 = vbw[vtx_seq[i1]];
+		float3& p2 = vbw[vtx_seq[i2]];
+		float3& p3 = vbw[vtx_seq[i3]];
+
+		v0 = float3::Vector(p1, p2, inv_y);
+		v1 = float3::Vector(p2, p3, inv_y);
+
+		if (Cross2D(v.x, v.y, v1.x, v1.y) > 0)
+		{
+			v = v0;
+			i0 = i1;
+		}
+		concaveFound = Cross2D(v0.x, v0.y, v1.x, v1.y) > 0;
+	}
+	if (!concaveFound)
+		return AddConvexPolyIndex(ibw, vtx_seq, idx_offset);
+
+	bool halfConvex = true;
+	for (i = i0; i3 != i0; i2 = i3, i3 = ++i3 % vnum)
+	{
+		float3& p0 = vbw[vtx_seq[i1]];
+		float3& p1 = vbw[vtx_seq[i]];
+		float3& p2 = vbw[vtx_seq[i2]];
+		float3& p3 = vbw[vtx_seq[i3]];
+		auto t = CIntersect2D(p0.x, p0.y, p1.x, p1.y, false, p2.x, p2.y, p3.x, p3.y, true, false);
+		if (std::get<0>(t))
+		{
+			halfConvex = false;
+			i = i3;
+		}
+	}
+	i0 = i;
+
+	std::vector<uint1> vtx_seq0;
+	for (size_t i = i0; ; i = ++i % vnum)
+	{
+		vtx_seq0.push_back(vtx_seq[i]);
+		if (i == i1)
+			break;
+	}
+	size_t n = halfConvex ? AddConvexPolyIndex(ibw, vtx_seq0, idx_offset) : AddPolyIndex(vbw, vtx_seq0, ibw, idx_offset, inv_y);
+	ibw.SkipUsed();
+
+	std::vector<uint1> vtx_seq1;
+	for (size_t i = i1; ; i = ++i % vnum)
+	{
+		vtx_seq1.push_back(vtx_seq[i]);
+		if (i == i0)
+			break;
+	}
+	return n + AddPolyIndex(vbw, vtx_seq1, ibw, idx_offset, inv_y);
+}
+
+inline size_t CAddPolyIndex(size_t count, LuacObj<CBuffer> vb, int vpos, uint32_t vnum, LuacObj<CBuffer> ib, int iwp, int idx_offset, bool inv_y)
+{
+	if (vnum < 3)
+		return 0;
+
+	BufferWriter<float3> vbw(*vb, vnum, vpos);
+	BufferWriter<uint1> ibw(*ib, (vnum - 2) * 3 * count, iwp);
+	std::vector<uint1> vtx_seq(vnum);
+	for (uint1 i = 0; i < vnum; i++)
+		vtx_seq[i] = i;
+	size_t n = AddPolyIndex(vbw, vtx_seq, ibw, idx_offset, inv_y);
+	vbw[vnum - 1];
+
+	idx_offset += vnum;
+	for (size_t i = 1; i < count; i++, idx_offset += vnum)
+		for (size_t j = 0; j < n; j++)
+			ibw[n * i + j] = ibw[j] + idx_offset;
+
+	return n * count;
+}
+Lua_global_add_cfunc(CAddPolyIndex)
 
 inline size_t PrepareCopy(CBuffer& src, uint32_t src_pos, uint32_t stride, uint32_t count, CBuffer& dst, int dst_wp)
 {
@@ -307,7 +494,7 @@ inline size_t PrepareCopy(CBuffer& src, uint32_t src_pos, uint32_t stride, uint3
 	if (size == 0)
 		return 0;
 
-	if (dst_wp > 0)
+	if (dst_wp >= 0)
 		dst.m_writePos = dst_wp;
 	if (dst.GetSize() < dst.m_writePos + size)
 		dst.Resize(dst.m_writePos + size);
@@ -327,15 +514,86 @@ Lua_global_add_cfunc(CBufferCopy)
 
 inline void CCopyIndexBuffer(LuacObj<CBuffer> src, uint32_t src_pos, uint32_t count, uint32_t idx_start, LuacObj<CBuffer> dst, int dst_wp)
 {
-	count = PrepareCopy(*src, src_pos, sizeof(uint1), count, *dst, dst_wp);
-	if (count == 0)
-		return;
+	BufferWriter<uint1> bw_src(*src, count, src_pos);
+	BufferWriter<uint1> bw_dst(*dst, count, dst_wp);
 
 	for (size_t i = 0; i < count; i++)
-		*((uint1*)(dst->GetPtr() + dst->m_writePos) + i) = *((uint1*)(src->GetPtr() + src_pos) + i) + idx_start;
-	dst->m_writePos += sizeof(uint1) * count;
+		bw_dst[i] = bw_src[i] + idx_start;
 }
 Lua_global_add_cfunc(CCopyIndexBuffer)
+
+//inline void CMoveFloat2(LuacObj<CBuffer> src, int src_pos, size_t count, float x, float y, LuacObj<CBuffer> dst, int dst_wp)
+//{
+//	BufferWriter<float2> bw_src(*src, count, src_pos);
+//	BufferWriter<float2> bw_dst(*dst, count, dst_wp);
+//
+//	for (size_t i = 0; i < count; i++)
+//		bw_dst[i] = { bw_src[i].x + x, bw_src[i].y + y };
+//}
+//Lua_global_add_cfunc(CMoveFloat2)
+
+inline void CMoveFloat3(LuacObj<CBuffer> src, int src_pos, size_t count, float x, float y, float z, LuacObj<CBuffer> dst, int dst_wp)
+{
+	BufferWriter<float3> bw_src(*src, count, src_pos);
+	BufferWriter<float3> bw_dst(*dst, count, dst_wp);
+
+	for (size_t i = 0; i < count; i++)
+		bw_dst[i] = { bw_src[i].x + x, bw_src[i].y + y, bw_src[i].z + z };
+}
+Lua_global_add_cfunc(CMoveFloat3)
+
+//inline void CScaleFloat2(LuacObj<CBuffer> src, int src_pos, size_t count, float sx, float sy, LuacObj<CBuffer> dst, int dst_wp)
+//{
+//	BufferWriter<float2> bw_src(*src, count, src_pos);
+//	BufferWriter<float2> bw_dst(*dst, count, dst_wp);
+//
+//	for (size_t i = 0; i < count; i++)
+//		bw_dst[i] = { bw_src[i].x * sx, bw_src[i].y * sy };
+//}
+//Lua_global_add_cfunc(CScaleFloat2)
+
+inline void CScaleFloat3(LuacObj<CBuffer> src, int src_pos, size_t count, float sx, float sy, float sz, LuacObj<CBuffer> dst, int dst_wp)
+{
+	BufferWriter<float3> bw_src(*src, count, src_pos);
+	BufferWriter<float3> bw_dst(*dst, count, dst_wp);
+
+	for (size_t i = 0; i < count; i++)
+		bw_dst[i] = { bw_src[i].x * sx, bw_src[i].y * sy, bw_src[i].z * sz };
+}
+Lua_global_add_cfunc(CScaleFloat3)
+
+//inline std::tuple<size_t, size_t> CTransformFloat2(LuacObj<CBuffer> src, int src_pos, size_t count, LuacObj<CMatrix2D> m, LuacObj<CBuffer> dst, int dst_wp)
+//{
+//	BufferWriter<float2> bw_src(*src, count, src_pos);
+//	BufferWriter<float2> bw_dst(*dst, count, dst_wp);
+//
+//	float w = 0, h = 0;
+//	for (size_t i = 0; i < count; i++)
+//	{
+//		bw_dst[i] = bw_src[i] * *m;
+//		w = bw_dst[i].x > w ? bw_dst[i].x : w;
+//		h = bw_dst[i].y > h ? bw_dst[i].y : h;
+//	}
+//	return { w, h };
+//}
+//Lua_global_add_cfunc(CTransformFloat2)
+
+inline std::tuple<float, float, float> CTransformFloat3(LuacObj<CBuffer> src, int src_pos, size_t count, LuacObj<CMatrix3D> m, LuacObj<CBuffer> dst, int dst_wp)
+{
+	BufferWriter<float3> bw_src(*src, count, src_pos);
+	BufferWriter<float3> bw_dst(*dst, count, dst_wp);
+
+	float l = 0, w = 0, h = 0;
+	for (size_t i = 0; i < count; i++)
+	{
+		bw_dst[i] = bw_src[i] * *m;
+		l = bw_dst[i].x > l ? bw_dst[i].x : l;
+		w = bw_dst[i].y > w ? bw_dst[i].y : w;
+		h = bw_dst[i].z > h ? bw_dst[i].z : h;
+	}
+	return { l, w, h };
+}
+Lua_global_add_cfunc(CTransformFloat3)
 
 class CList
 {
@@ -350,4 +608,10 @@ public:
 	Lua_wrap_cpp_class(CList, Lua_ctor(), Lua_mf(push_back));
 };
 Lua_global_add_cpp_class(CList);
+
+inline void CLuaLoad(LuaReturn& ret, LuacObj<Engine::StreamInput> input)
+{
+	ret.Push(LuaLoad(input->GetData(), input->GetSize()));
+}
+Lua_global_add_cfunc(CLuaLoad)
 
