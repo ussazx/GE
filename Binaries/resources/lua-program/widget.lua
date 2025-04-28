@@ -1148,6 +1148,7 @@ function UiTextInput:FillIB(ib, ib_start, wp)
 end
 
 UiSlideBar = class(UiWidget)
+UiSlideBar.EVT_SLIDE = {}
 
 function UiSlideBar:ctor(vertical, length, width)
 	self.color:set(100, 100, 100, 100)
@@ -1244,7 +1245,7 @@ function UiSlideBar:SetScalePos(n)
 	end
 	if (self.pos ~= n) then
 		self.pos = n
-		self:process_event(EVT.SLIDE_BAR, self.scale * d // self.length, self.scale)
+		self:process_event(UiSlideBar.EVT_SLIDE, self.scale * d // self.length, self.scale)
 		return true
 	end
 	return false
@@ -1279,12 +1280,12 @@ function UiScrollPanel:ctor(w, h)
 	hLayout:AddChild(self.plate, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	
 	self.vScrollBar = UiSlideBar(true, 0, UiScrollPanel.barWidth)
-	self.vScrollBar:bind_event(EVT.SLIDE_BAR, self, UiScrollPanel.OnVScroll)
+	self.vScrollBar:bind_event(UiSlideBar.EVT_SLIDE, self, UiScrollPanel.OnVScroll)
 	self.vScrollBar:Show(false)
 	hLayout:AddChild(self.vScrollBar, 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 0, 0, 0)
 	
 	self.hScrollBar = UiSlideBar(false, 0, UiScrollPanel.barWidth)
-	self.hScrollBar:bind_event(EVT.SLIDE_BAR, self, UiScrollPanel.OnHScroll)
+	self.hScrollBar:bind_event(UiSlideBar.EVT_SLIDE, self, UiScrollPanel.OnHScroll)
 	self.hScrollBar:Show(false)
 	vLayout:AddChild(self.hScrollBar, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, UiScrollPanel.barWidth, 0, 0)
 	
