@@ -1,8 +1,7 @@
 ﻿  Editor.cpp
-  vmWindow.cpp
   正在生成代码
-  1449 of 5090 functions (28.5%) were compiled, the rest were copied from previous compilation.
-    1204 functions were new in current compilation
-    381 functions had inline decision re-evaluated but remain unchanged
+  0 of 5090 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
   已完成代码的生成
   Editor.vcxproj -> D:\vs\GE\Binaries\output-windows\x64\Release\Editor.exe
