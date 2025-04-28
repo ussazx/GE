@@ -31,8 +31,6 @@ EVT.DELIST = new_event()
 EVT.WIDGET_ADDED = new_event()
 EVT.WIDGET_REMOVED = new_event()
 
-EVT.SLIDE_BAR = new_event()
-
 EVT.OBJ_DELIST = new_event()
 
 EVT.UNDEFINED = new_event('EVT_UNDEFINED')
