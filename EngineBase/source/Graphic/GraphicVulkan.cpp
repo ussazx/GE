@@ -165,13 +165,7 @@ void VKSwapchain::Present()
 	pi.pSwapchains = &m_swapchain;
 	pi.swapchainCount = 1;
 	pi.pImageIndices = &m_imageIndex;
-	VkResult res = vkQueuePresentKHR(g->queueP, &pi);
-	if (res == VK_ERROR_OUT_OF_DATE_KHR)
-		DebugLog(L"VK_ERROR_OUT_OF_DATE_KHR");
-	else if (res == VK_ERROR_SURFACE_LOST_KHR)
-		DebugLog(L"VK_ERROR_SURFACE_LOST_KHR");
-	else if (res == VK_SUBOPTIMAL_KHR)
-		DebugLog(L"VK_SUBOPTIMAL_KHR");
+	vkQueuePresentKHR(g->queueP, &pi);
 	m_cmdCount = 0;
 
 }
