@@ -156,6 +156,33 @@ bool VKSwapchain::Acquire()
 	return res == VK_SUCCESS;
 }
 
+void VKSwapchain::Present()
+{
+	VkPresentInfoKHR pi{};
+	pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	pi.pWaitSemaphores = m_cmdSemas.data();
+	pi.waitSemaphoreCount = m_cmdCount;
+	pi.pSwapchains = &m_swapchain;
+	pi.swapchainCount = 1;
+	pi.pImageIndices = &m_imageIndex;
+	VkResult res = vkQueuePresentKHR(g->queueP, &pi);
+	if (res == VK_ERROR_OUT_OF_DATE_KHR)
+		DebugLog(L"VK_ERROR_OUT_OF_DATE_KHR");
+	else if (res == VK_ERROR_SURFACE_LOST_KHR)
+		DebugLog(L"VK_ERROR_SURFACE_LOST_KHR");
+	else if (res == VK_SUBOPTIMAL_KHR)
+		DebugLog(L"VK_SUBOPTIMAL_KHR");
+	m_cmdCount = 0;
+
+}
+
+void VKSwapchain::AddCmdSemaphore(VkSemaphore sema)
+{
+	if (m_cmdCount >= m_cmdCap)
+		m_cmdSemas.resize(++m_cmdCap);
+	m_cmdSemas[m_cmdCount++] = sema;
+}
+
 VKTexture::~VKTexture()
 {
 	Cleanup();
@@ -601,6 +628,12 @@ bool VKCommand::Init(bool secondary)
 		vkBeginCommandBuffer(m_cmd, &cbbi);
 	}
 
+	m_si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	m_si.pCommandBuffers = &m_cmd;
+	m_si.commandBufferCount = 1;
+	m_si.pSignalSemaphores = &m_completeSema;
+	m_si.signalSemaphoreCount = 1;
+
 	return true;
 }
 
@@ -616,7 +649,6 @@ void VKCommand::Wait()
 		cbbi.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
 		vkBeginCommandBuffer(m_cmd, &cbbi);
 
-		m_swapchains.clear();
 		m_executing = false;
 	}
 }
@@ -626,7 +658,21 @@ void VKCommand::RenderBegin(LuacObj<FrameBuffer> fb, bool secondary)
 	VKFrameBuffer* vfb = (VKFrameBuffer*)fb;
 
 	if (vfb->m_swapchain)
-		m_swapchains.insert(vfb->m_swapchain);
+	{
+		if (m_si.waitSemaphoreCount >= m_scCap)
+		{
+			m_scCap++;
+			m_swapchains.resize(m_scCap);
+			m_scKHRs.resize(m_scCap);
+			m_scSemas.resize(m_scCap);
+			m_scIndecies.resize(m_scCap);
+			m_plStageFlags.resize(m_scCap, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+			m_si.pWaitDstStageMask = m_plStageFlags.data();
+			m_si.pWaitSemaphores = m_scSemas.data();
+		}
+		m_swapchains[m_si.waitSemaphoreCount++] = vfb->m_swapchain;
+	}
 
 	VkRenderPassBeginInfo rpbi{};
 	rpbi.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -765,44 +811,21 @@ void VKCommand::Execute()
 	vkEndCommandBuffer(m_cmd);
 	m_executing = true;
 
-	VkSubmitInfo si{};
-	si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	si.pCommandBuffers = &m_cmd;
-	si.commandBufferCount = 1;
-
-	if (m_swapchains.size() == 0)
-		vkQueueSubmit(g->queueG, 1, &si, m_fence);
+	if (m_si.waitSemaphoreCount == 0)
+		vkQueueSubmit(g->queueG, 1, &m_si, m_fence);
 	else
 	{
-		std::vector<VkSwapchainKHR> swapchains(m_swapchains.size());
-		std::vector<VkSemaphore> scSemas(m_swapchains.size());
-		std::vector<uint32_t> scIndecies(m_swapchains.size());
-		std::vector<VkPipelineStageFlags> plStageFlags(m_swapchains.size(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-		size_t i = 0;
-		for (auto j : m_swapchains)
+		for (size_t i = 0; i < m_si.waitSemaphoreCount; i++)
 		{
-			swapchains[i] = j->m_swapchain;
-			scSemas[i] = j->m_vSemaphore[j->m_semaIndex];
-			scIndecies[i++] = j->m_imageIndex;
+			VKSwapchain* sc = m_swapchains[i];
+			m_scKHRs[i] = sc->m_swapchain;
+			m_scSemas[i] = sc->m_vSemaphore[sc->m_semaIndex];
+			m_scIndecies[i] = sc->m_imageIndex;
+			sc->AddCmdSemaphore(m_completeSema);
 		}
-
-		si.pWaitDstStageMask = plStageFlags.data();
-		si.pWaitSemaphores = scSemas.data();
-		si.waitSemaphoreCount = scSemas.size();
-		si.pSignalSemaphores = &m_completeSema;
-		si.signalSemaphoreCount = 1;
-		vkQueueSubmit(g->queueG, 1, &si, m_fence);
-
-		VkPresentInfoKHR pi{};
-		pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		pi.pWaitSemaphores = &m_completeSema;
-		pi.waitSemaphoreCount = 1;
-		pi.pSwapchains = swapchains.data();
-		pi.swapchainCount = swapchains.size();
-		pi.pImageIndices = scIndecies.data();
-		vkQueuePresentKHR(g->queueP, &pi);
+		vkQueueSubmit(g->queueG, 1, &m_si, m_fence);
 	}
+	m_si.waitSemaphoreCount = 0;
 }
 
 #ifdef WIN32

@@ -65,6 +65,9 @@ public:
 	bool CreateSurface();
 	bool Resize(uint32_t w, uint32_t h) override;
 	bool Acquire() override;
+	void Present() override;
+
+	void AddCmdSemaphore(VkSemaphore sema);
 
 	VkWin32SurfaceCreateInfoKHR m_sci{};
 	std::vector<VkImage> m_vImage;
@@ -76,6 +79,10 @@ public:
 	VkSurfaceCapabilitiesKHR m_caps{};
 	VkSwapchainCreateInfoKHR m_scci{};
 	VkImageViewCreateInfo m_vci{};
+
+	std::vector<VkSemaphore> m_cmdSemas;
+	uint32_t m_cmdCount = 0;
+	uint32_t m_cmdCap = 0;
 };
 
 class VKRenderPass : public RenderPass
@@ -318,13 +325,21 @@ public:
 	bool m_executing{};
 	VkFence m_fence{};
 	VkCommandBuffer m_cmd{};
-	std::unordered_set<VKSwapchain*> m_swapchains;
 	VkSemaphore m_completeSema;
 	std::vector<VkDescriptorSet> m_resources;
 	VKFrameBuffer* m_fb;
+	VkSubmitInfo m_si{};
+
+	std::vector<VKSwapchain*> m_swapchains;
+	std::vector<VkSwapchainKHR> m_scKHRs;
+	std::vector<VkSemaphore> m_scSemas;
+	std::vector<uint32_t> m_scIndecies;
+	std::vector<VkPipelineStageFlags> m_plStageFlags;
 
 	static VkImageMemoryBarrier m_imb[2];
 	static VkImageCopy m_copy;
+
+	uint32_t m_scCap = 0;
 };
 
 class VKGraphic : public Graphic

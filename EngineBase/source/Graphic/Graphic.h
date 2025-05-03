@@ -37,7 +37,9 @@ public:
 
 	virtual bool Acquire() = 0;
 
-	Lua_wrap_cpp_class(Swapchain, Lua_abstract, Lua_mf(Resize), Lua_mf(Acquire));
+	virtual void Present() = 0;
+
+	Lua_wrap_cpp_class(Swapchain, Lua_abstract, Lua_mf(Resize), Lua_mf(Acquire), Lua_mf(Present));
 };
 Lua_global_add_cpp_class(Swapchain)
 
