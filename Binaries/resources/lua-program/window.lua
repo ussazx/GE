@@ -127,47 +127,44 @@ function Window:on_idle(t, onTimer, show)
 	if (self.idleText) then
 		self.idleText:SetText(self.idle_cost..'')
 	end
-		
-	if(show and (self.update or self.sized)) then
-		
-		ui_resourceSet = self.res_set
-		
-		self.update = true
-		while (self.update) do
-			self.fp:UpdateSurface(self.cmd:Prepare())
-			self.update = false
-		end
-		self.sized = false
-		
-		if (self.rect.w > 0 and self.rect.h > 0) then
-			self:render()
-		end
-	end
+	
+	self:Show(show)
+	self:render()
 
 	return self:TimerPeriod()
 end
 
 function Window:resize(w, h)
-	local render = w <= self.rect.w and h <= self.rect.h
+	--local render = w <= self.rect.w and h <= self.rect.h
+	cGI:DeviceWaitIdle()
 	self:SetSize(w, h)
 	if (w < 1 or h < 1) then
 		return
 	end
-	
-	cGI:DeviceWaitIdle()
 	self.cbWnd:Set(1, self.rect.w, self.rect.h, 1)
 	self.sizegroup:resize(w, h)
 	
 	self.copyParam.w = w
 	self.copyParam.h = h
-	
-	if (render) then
-		self:render()
-	end
 end
 
 function Window:render()
 	--Print('---render---')
+	if (not (self.show and self.rect.w > 0 and self.rect.h > 0)) then
+	return end
+	
+	if(self.update or self.sized) then
+		
+		ui_resourceSet = self.res_set
+		
+		self.update = true
+		while (self.update) do
+			self.update = false
+			self.fp:UpdateSurface(self.cmd:Reset())
+		end
+		self.sized = false
+	end
+	
 	while (self.swapchain:Acquire() == false) do
 		self.sizegroup:resize(self.rect.w, self.rect.h)
 	end

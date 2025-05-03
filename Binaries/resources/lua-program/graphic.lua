@@ -104,7 +104,7 @@ function Command.NewRenderCmd()
 	return cmd
 end
 
-function RenderCommand:Prepare()
+function RenderCommand:Reset()
 	if (self.rendered) then
 		self.rIdx = ~self.rIdx & 1
 		self.rendered = false
@@ -112,6 +112,7 @@ function RenderCommand:Prepare()
 	end
 	local input = self.input[self.rIdx]
 	input.idxCount = 0
+	input.indUsed = 0
 	for _, v in pairs(input.indBuf) do
 		v:Reset()
 	end

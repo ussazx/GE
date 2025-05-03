@@ -23,7 +23,6 @@ function GridLayoutTest(w)
 	local grid = GridLayout()
 	local scrollPanel = UiScrollPanel()
 	scrollPanel:SetWidget(grid)
-	scrollPanel.plate.cpuClip = true
 	layout:AddChild(scrollPanel, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
 	for i = 1, 100 do
 		local ww = UiWidget(150, 150)
@@ -109,6 +108,7 @@ end
 
 function NewWindow_CreateProj()
 	local w = Window()
+	w.name = 'create'
 	
 	local layout = BoxLayout(true)
 	w:AddChild(layout)
@@ -121,7 +121,7 @@ function NewWindow_CreateProj()
 	--t.color:set(200, 200, 200, 100)
 	local n = t:AddNode(nil, g_iconFolder, 'main')
 	n = t:AddNode(n, g_iconFolder, 'sub')
-	t:AddNode(n, g_iconFolder, 'sub1')
+	t:AddNode(n, g_iconFolder, 'sub111111111111111')
 	layout:AddChild(t, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
 	
 	return w
@@ -129,7 +129,7 @@ end
 
 function NewWindow_LoadProj()
 	local w = Window()
-	
+	w.name = 'load'
 	--t0:bind_event(EVT.TIMER, t0, t0.Func)
 	--t1:bind_event(EVT.TIMER, t1, t1.Func)
 	--t0:Start(w, 300, true)

@@ -184,11 +184,15 @@ function Layout:ctor()
 end
 
 function Layout:SetSize(w, h)
-	w = w or self.rect.w
-	h = h or self.rect.h
-	if (w ~= self.rect.w or h ~= self.rect.h or self.update) then
+	local ww = w or self.rect.w
+	local hh = h or self.rect.h
+	if (ww ~= self.rect.w or hh ~= self.rect.h or self.update) then
 		local w0, h0 = self.rect.w, self.rect.h
-		self:Layout(w, h)
+		if (self.update) then
+			ww = w or 0
+			hh = h or 0
+		end
+		self:Layout(ww, hh)
 		self.update = false
 		self.sized = false
 		self:process_event(EVT.SIZE, w0, h0)
@@ -223,10 +227,8 @@ function Layout:OnRemoveChild(w)
 end
 
 function Layout:DoUpdate(...)
-	if (self.parent.sized) then
+	if (self.parent.sized or self.update) then
 		self:SetSize(self.parent.rect.w, self.parent.rect.h)
-	elseif(self.update) then
-		self:SetSize()
 	end
 	return true, ...
 end
@@ -257,7 +259,7 @@ local function CaculateLayoutProp(prop)
 end
 
 local function VerticalLayout(box, w, h)
-	local ww = w 
+	local ww = w
 	local y = 0
 	local total = 0
 	local expands = {}
@@ -482,6 +484,7 @@ UiWidget.writeId = true
 UiWidget.drawClipRect = false
 UiWidget.acceptFocus = true
 UiWidget.show = true
+UiWidget.drawSelf = true
 
 function UiWidget:ctor(w, h)
 	self.rect:set(0, 0, w, h)
@@ -592,7 +595,9 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 		self.rcMesh:Render(d)
 	end
 	self.mesh.update = changed
-	self.mesh:Render(d)
+	if (self.drawSelf) then
+		self.mesh:Render(d)
+	end
 	
 	return true, crCpuNew, crGpuNew
 end
@@ -1262,6 +1267,7 @@ end
 -----UiScrollPanel-----
 UiScrollPanel = class(UiWidget)
 UiScrollPanel.barWidth = 12
+UiScrollPanel.drawSelf = false
 
 function UiScrollPanel:ctor(w, h)
 	self:SetSize(w, h)
@@ -1274,10 +1280,10 @@ function UiScrollPanel:ctor(w, h)
 	local hLayout = BoxLayout(false)
 	vLayout:AddChild(hLayout, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	
-	self.plate = UiWidget()
-	self.plate.color:set(0, 0, 0, 0)
-	self.plate.gpuClip = true
-	hLayout:AddChild(self.plate, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	self.pane = UiWidget()
+	self.pane.color:set(0, 0, 0, 0)
+	self.pane.gpuClip = true
+	hLayout:AddChild(self.pane, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	
 	self.vScrollBar = UiSlideBar(true, 0, UiScrollPanel.barWidth)
 	self.vScrollBar:bind_event(UiSlideBar.EVT_SLIDE, self, UiScrollPanel.OnVScroll)
@@ -1295,18 +1301,18 @@ end
 function UiScrollPanel:SetWidget(widget)
 	if (self.widget) then
 		self.widget:unbind_event(EVT.SIZE, self, UiScrollPanel.OnWidgetSize)
-		self.plate:RemoveChild(widget)
+		self.pane:RemoveChild(widget)
 	end
 	self.widget = widget
 	self.widget:bind_event(EVT.SIZE, self, UiScrollPanel.OnWidgetSize)
-	self.plate:AddChild(widget)
+	self.pane:AddChild(widget)
 end
 
 function UiScrollPanel:OnWidgetSize()
-	self.vScrollBar:Show(self.widget.rect.h > self.plate.rect.h)
-	self.hScrollBar:Show(self.widget.rect.w > self.plate.rect.w)
-	self.vScrollBar:SetScale(self.widget.rect.h, self.plate.rect.h)
-	self.hScrollBar:SetScale(self.widget.rect.w, self.plate.rect.w)
+	self.vScrollBar:Show(self.widget.rect.h > self.pane.rect.h)
+	self.hScrollBar:Show(self.widget.rect.w > self.pane.rect.w)
+	self.vScrollBar:SetScale(self.widget.rect.h, self.pane.rect.h)
+	self.hScrollBar:SetScale(self.widget.rect.w, self.pane.rect.w)
 end
 
 function UiScrollPanel:OnVScroll(e, pos)
@@ -1413,64 +1419,20 @@ end
 
 -----UiTreeList-----
 UiTreeList = class(UiScrollPanel)
+UiTreeList.EVT_MOUSE_NODE = {}
 
 function UiTreeList:ctor(w, h)
 	self:SetSize(w, h)
 	
-	self.vScrollBar:bind_event(EVT.SLIDE_BAR, self, UiTreeList.OnVScroll)
-	
-	self.highLight = UiWidget()
-	self.highLight.writeId = false
-	self.highLight.color:set(0, 130, 255, 100)
-	self.highLight:Show(false)
-	self.plate:AddChild(self.highLight)
-	self.plate:bind_event(EVT.LEFT_DOWN, self, UiTreeList.OnMouse)
-	
 	self.list = BoxLayout(true)
+	self.list:bind_event(EVT.SIZE, self, UiTreeList.OnListSized)
 	self:SetWidget(self.list)
 	
 	self.nodes = {}
 end
 
-function UiTreeList:OnVScroll(e, pos)
-	if (self.selected) then
-		self.highLight:Move(0, -pos - self.hpos)
-		self.hpos = -pos
-	end
-end
-
-function UiTreeList.Pick(list, y)
-	for node in list:ChildrenPairs() do
-		local ny = node.title.location.y
-		if (y >= ny and y <= ny + node.title.rect.h) then
-			return node
-		end
-		if (node.list.show) then
-			node = UiTreeList.Pick(node.list, y)
-			if (node) then
-				return node
-			end
-		end
-	end
-end
-
-function UiTreeList:OnMouse(e, x, y, n)
-	local node = self.Pick(self.list, y)
-	if (node == nil) then
-		return
-	end
-	if (e == EVT.LEFT_DOWN) then
-		self.hpos = self.list.rect.y
-		self.highLight:SetPos(0, node.title.location.y - self.plate.location.y)
-		self.highLight:SetSize(self.plate.rect.w, node.title.rect.h)
-		self.highLight:Show(true)
-		self.selected = node
-	end
-end
-
 function UiTreeList:AddNode(nodeId, icon, text)
 	local node = BoxLayout(true)
-	node.fold = true
 	local superior = self.nodes[nodeId]
 	if (superior) then
 		superior.list:AddChild(node)
@@ -1478,13 +1440,33 @@ function UiTreeList:AddNode(nodeId, icon, text)
 			superior.iconFold:Show(true)
 			superior.spacer:Show(false)
 		end
+		node.indent = superior.indent + 17
 	else
 		self.list:AddChild(node, 0, Layout.ALIGN_LEFT)
+		node.indent = 0
 	end
+	node.fold = true
+	node.treeList = self
 	self.nodes[node.id] = node
 	
+	node.item = UiWidget()
+	node.item.node = node
+	node.item.drawSelf = false
+	node.item.cpuClip = false
+	node.item.color:set(0, 0, 0, 0)
+	node:AddChild(node.item, 0, Layout.ALIGN_LEFT)
+	
+	node.item.hightLight = UiWidget()
+	node.item.hightLight.item = node.item
+	node.item.hightLight.color:set(0, 0, 0, 0)
+	node.item.hightLight.OnMouse = UiTreeList.OnMouseNode
+	node.item.hightLight:bind_event(EVT.LEFT_DOWN, node.item.hightLight, node.item.hightLight.OnMouse)
+	node.item:AddChild(node.item.hightLight)
+	
+	node.item.box = BoxLayout(true)
+	node.item:AddChild(node.item.box)
 	node.title = BoxLayout(false)
-	node:AddChild(node.title, 0, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 0, 1, 1)
+	node.item.box:AddChild(node.title, 0, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, node.indent, 0, 1, 2)
 	
 	node.iconFold = UiPolyIcon(g_iconFold, true, 12, 12)
 	node.iconFold.node = node
@@ -1508,7 +1490,7 @@ function UiTreeList:AddNode(nodeId, icon, text)
 	
 	node.spacer = BoxLayout()
 	node.spacer:Show(true)
-	node.title:AddChild(node.spacer, 0, Layout.ALIGN_LEFT, 12, 0, 0, 0)
+	node.title:AddChild(node.spacer, 0, Layout.ALIGN_LEFT, 14, 0, 0, 0)
 	
 	node.icon = UiPolyIcon(icon, true, 20, 14)
 	node.icon.writeId = false
@@ -1518,11 +1500,31 @@ function UiTreeList:AddNode(nodeId, icon, text)
 	node.text.writeId = false
 	node.title:AddChild(node.text, 0, Layout.ALIGN_LEFT, 7, 0, 0, 0)
 	
+	node.item.box:SetSize()
+	node.item:SetSize(node.indent + node.title.rect.w, node.item.box.rect.h)
+	
 	node.list = BoxLayout(true)
 	node.list:Show(false)
-	node:AddChild(node.list, 0, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 17, 0, 1, 1)
+	node:AddChild(node.list, 0, Layout.ALIGN_LEFT)
 	
 	return node.id
+end
+
+function UiTreeList.OnMouseNode(hightLight, e, x, y, n)
+	local node = hightLight.item.node
+	if (e == EVT.LEFT_DOWN) then
+		hightLight.color:set(0, 130, 255, 100)
+		hightLight:Refresh()
+	end
+	node.treeList:process_event(UiTreeList.EVT_MOUSE_NODE, node.id, e) 
+end
+
+function UiTreeList:OnListSized(e, w, h, list)
+	list = list or self.list
+	for node in list.children:pairs() do
+		node.item.hightLight:SetSize(self.list.rect.w, node.item.box.rect.h)
+		UiTreeList.OnListSized(self, e, w, h, node.list)
+	end
 end
 
 function UiTreeList.Expand(icon)
@@ -1536,11 +1538,3 @@ function UiTreeList.Fold(icon)
 	icon.node.iconFold:Show(true)
 	icon.node.list:Show(false)
 end
-	
-	
-	
-	
-	
-	
-	
-	
