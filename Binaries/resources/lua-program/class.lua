@@ -69,7 +69,7 @@ end
 		-- o.dtor(o)
 	-- end
 	-- if (o._base) then
-		-- o._base.dtor(o)
+		-- dtor(o._base)
 	-- end
 -- end
 

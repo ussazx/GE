@@ -80,6 +80,7 @@ function Object:unbind_event(e, obj, func)
 end
 
 function Object:process_event(e, ...)
+	EVT.obj = self
 	local t = self.event_table[e]
 	if (t) then
 		for _, f in pairs(t) do
@@ -98,4 +99,5 @@ function Object:process_event(e, ...)
 			end
 		end
 	end
+	EVT.obj = nil
 end

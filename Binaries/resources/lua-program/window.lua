@@ -171,6 +171,8 @@ function Window:render()
 	
 	self.fp:FillCommand(self.cmd)
 	self.cmd:Execute()
+	
+	self.swapchain:Present()
 end
 
 function Window:CaptureMouse(w)

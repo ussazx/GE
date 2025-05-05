@@ -60,8 +60,9 @@ local function GetIndBuf(input)
 end
 
 function Command.NewRenderCmd()
-	local _, cmd = next(g_renderCmdPool)
+	local cmd = g_renderCmdPool[1]
 	if (cmd) then
+		table.remove(g_renderCmdPool, 1)
 		g_nRenderCmdPool = g_nRenderCmdPool - 1
 		return cmd
 	end
@@ -139,7 +140,7 @@ function RenderCommand:Execute()
 end
 
 function RenderCommand.Recycle(cmd)
-	if (g_renderCmdPool < 10) then
+	if (g_nRenderCmdPool < 10) then
 		table.insert(g_renderCmdPool, cmd)
 		g_nRenderCmdPool = g_nRenderCmdPool + 1
 	end

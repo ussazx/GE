@@ -1417,12 +1417,84 @@ function UiPolyIcon:FillIB(ib, ib_start, wp)
 	return self.poly.idx_count
 end
 
+-----Selector-----
+Selector = class(Object)
+
+function Selector:ctor(panel)
+	self.selected = {}
+	self.panel = panel
+end
+ 
+function Selector:Add(w, h, data)
+	local item = UiWidget(w, h)
+	item.data = data
+	item.color:set(0, 0, 0, 0)
+	item:bind_event(EVT.LEFT_DOWN, self, Selector.OnMouse)
+	item:bind_event(EVT.RIGHT_UP, self, Selector.OnMouse)
+	return item
+end
+
+function Selector:OnMouse(e, x, y, n)
+	local item = EVT.obj
+	if (e == EVT.LEFT_DOWN) then
+		if (g_actWindow.keyDowns[SYS.VK_CONTROL] and self.panel.SEL_MULTIPLE) then
+			if (self.selected[item]) then
+				self:Select(item, false, true)
+			else
+				self:Select(item, true, true)
+			end
+		else
+			self:ClearSelection()
+			self:Select(item, true, true)
+		end
+	elseif (e == EVT.RIGHT_UP) then
+		if (not self.selected[item]) then
+			self:ClearSelection()
+		end
+		self:Select(item, true, true)
+	end
+end
+
+function Selector:Select(item, flag, notify)
+	if (flag) then
+		item.color:set(0, 130, 255, 100)
+		self.selected[item] = item.data
+	else
+		item.color:set(0, 0, 0, 0)
+		self.selected[item] = nil
+	end
+	item:Refresh()
+	if (notify) then
+		self.panel:process_event(EVT.SELECTION, e)
+	end
+end
+
+function Selector:GetSelection(item)
+	local data
+	item, data = next(self.selected, item)
+	if (data) then
+		return data, self:GetSelection(item)
+	end
+end
+
+function Selector:ClearSelection(notify)
+	for item in pairs(self.selected) do
+		self:Select(item, false, false)
+	end
+	if (notify) then
+		self.panel:process_event(EVT.SELECTION, e, self:GetSelection())
+	end
+end
+
 -----UiTreeList-----
 UiTreeList = class(UiScrollPanel)
 UiTreeList.EVT_MOUSE_NODE = {}
+UiTreeList.SEL_MULTIPLE = true
 
 function UiTreeList:ctor(w, h)
 	self:SetSize(w, h)
+	
+	self.selector = Selector(self)
 	
 	self.list = BoxLayout(true)
 	self.list:bind_event(EVT.SIZE, self, UiTreeList.OnListSized)
@@ -1456,11 +1528,7 @@ function UiTreeList:AddNode(nodeId, icon, text)
 	node.item.color:set(0, 0, 0, 0)
 	node:AddChild(node.item, 0, Layout.ALIGN_LEFT)
 	
-	node.item.hightLight = UiWidget()
-	node.item.hightLight.item = node.item
-	node.item.hightLight.color:set(0, 0, 0, 0)
-	node.item.hightLight.OnMouse = UiTreeList.OnMouseNode
-	node.item.hightLight:bind_event(EVT.LEFT_DOWN, node.item.hightLight, node.item.hightLight.OnMouse)
+	node.item.hightLight = self.selector:Add(0, 0, node.id)
 	node.item:AddChild(node.item.hightLight)
 	
 	node.item.box = BoxLayout(true)
@@ -1508,15 +1576,6 @@ function UiTreeList:AddNode(nodeId, icon, text)
 	node:AddChild(node.list, 0, Layout.ALIGN_LEFT)
 	
 	return node.id
-end
-
-function UiTreeList.OnMouseNode(hightLight, e, x, y, n)
-	local node = hightLight.item.node
-	if (e == EVT.LEFT_DOWN) then
-		hightLight.color:set(0, 130, 255, 100)
-		hightLight:Refresh()
-	end
-	node.treeList:process_event(UiTreeList.EVT_MOUSE_NODE, node.id, e) 
 end
 
 function UiTreeList:OnListSized(e, w, h, list)
