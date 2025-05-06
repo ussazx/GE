@@ -32,6 +32,7 @@ function GridLayoutTest(w)
 		
 		local layout = BoxLayout(true)
 		ww:AddChild(layout)
+		ww:AddChild(layout)
 		
 		ww = UiPolyIcon(g_iconFolder, true, 80, 45)
 		layout:AddChild(ww, 1, 0, 5, 5, 5, 5)
@@ -168,6 +169,16 @@ end
 
 function AppCleanUp()
 	cGI:DeviceWaitIdle()
+end
+
+FileBrowser = class(UiWidget)
+FileBrowser.drawSelf = false
+
+function FileBrowser:ctor(w, h)
+	self:SetSize(w, h)
+	
+	
+	self.treeList = UiTreeList()
 end
 
 -- fo = {pass = {}}

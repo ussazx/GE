@@ -79,9 +79,7 @@ function Widget2D:Update(...)
 	if (self.parent) then
 		self.window = self.parent.window
 		self.location:move(self.parent.location.x, self.parent.location.y)
-		if (self.moved == false) then
-			self.moved = self.parent.moved
-		end
+		self.moved = self.moved or self.parent.moved
 	end
 
 	self.moving = false
@@ -1419,32 +1417,58 @@ end
 
 -----Selector-----
 Selector = class(Object)
+Selector.EVT_CHANGED = {}
+Selector.EVT_KEY = {}
 
-function Selector:ctor(panel)
+function Selector:ctor()
 	self.selected = {}
-	self.panel = panel
 end
  
 function Selector:Add(w, h, data)
 	local item = UiWidget(w, h)
 	item.data = data
 	item.color:set(0, 0, 0, 0)
+	item:bind_event(EVT.FOCUS_IN, self, Selector.OnFocus)
+	item:bind_event(EVT.FOCUS_OUT, self, Selector.OnFocus)
+	item:bind_event(EVT.MOVE_IN, self, Selector.OnMouse)
+	item:bind_event(EVT.MOVE_OUT, self, Selector.OnMouse)
 	item:bind_event(EVT.LEFT_DOWN, self, Selector.OnMouse)
 	item:bind_event(EVT.RIGHT_UP, self, Selector.OnMouse)
+	item:bind_event(EVT.KEY_DOWN, self, Selector.OnKeyDown)
 	return item
+end
+
+function Selector:Remove(item)
+	self:Select(item, false, true)
+end
+
+function Selector:OnFocus(e)
+	if (e == EVT.FOCUS_IN) then
+		self.focused = EVT.obj
+		for item in pairs(self.selected) do
+			item.color:set(0, 130, 255, 100)
+			item:Refresh()
+		end
+	else
+		self.focused = nil
+		for item in pairs(self.selected) do
+			item.color:set(100, 100, 100, 100)
+			item:Refresh()
+		end
+	end
 end
 
 function Selector:OnMouse(e, x, y, n)
 	local item = EVT.obj
 	if (e == EVT.LEFT_DOWN) then
-		if (g_actWindow.keyDowns[SYS.VK_CONTROL] and self.panel.SEL_MULTIPLE) then
+		if (g_actWindow.keyDowns[SYS.VK_CONTROL] and self.SEL_MULTIPLE) then
 			if (self.selected[item]) then
 				self:Select(item, false, true)
 			else
 				self:Select(item, true, true)
 			end
 		else
-			self:ClearSelection()
+			self:ClearSelection(item)
 			self:Select(item, true, true)
 		end
 	elseif (e == EVT.RIGHT_UP) then
@@ -1455,18 +1479,30 @@ function Selector:OnMouse(e, x, y, n)
 	end
 end
 
+function Selector:OnKeyDown(t, k, left, right)
+	self:process_event(Selector.EVT_KEY, EVT.KEY_DOWN, k, left, right)
+end
+
 function Selector:Select(item, flag, notify)
+	local changed
 	if (flag) then
-		item.color:set(0, 130, 255, 100)
+		if (self.focused == item) then
+			item.color:set(0, 130, 255, 100)
+		else
+			item.color:set(100, 100, 100, 100)
+		end
+		changed = self.selected[item] ~= item.data
 		self.selected[item] = item.data
 	else
 		item.color:set(0, 0, 0, 0)
+		changed = self.selected[item] ~= nil
 		self.selected[item] = nil
 	end
 	item:Refresh()
-	if (notify) then
-		self.panel:process_event(EVT.SELECTION, e)
+	if (notify and changed) then
+		self:process_event(Selector.EVT_CHANGED, e)
 	end
+	return changed
 end
 
 function Selector:GetSelection(item)
@@ -1477,12 +1513,15 @@ function Selector:GetSelection(item)
 	end
 end
 
-function Selector:ClearSelection(notify)
+function Selector:ClearSelection(ignore, notify)
+	local changed
 	for item in pairs(self.selected) do
-		self:Select(item, false, false)
+		if (item ~= ignore) then
+			changed = self:Select(item, false, false) or changed
+		end
 	end
-	if (notify) then
-		self.panel:process_event(EVT.SELECTION, e, self:GetSelection())
+	if (notify and changed) then
+		self:process_event(Selector.EVT_CHANGED, e)
 	end
 end
 
@@ -1494,7 +1533,7 @@ UiTreeList.SEL_MULTIPLE = true
 function UiTreeList:ctor(w, h)
 	self:SetSize(w, h)
 	
-	self.selector = Selector(self)
+	self.selector = Selector()
 	
 	self.list = BoxLayout(true)
 	self.list:bind_event(EVT.SIZE, self, UiTreeList.OnListSized)
@@ -1512,6 +1551,7 @@ function UiTreeList:AddNode(nodeId, icon, text)
 			superior.iconFold:Show(true)
 			superior.spacer:Show(false)
 		end
+		node.superior = superior
 		node.indent = superior.indent + 17
 	else
 		self.list:AddChild(node, 0, Layout.ALIGN_LEFT)
@@ -1576,6 +1616,25 @@ function UiTreeList:AddNode(nodeId, icon, text)
 	node:AddChild(node.list, 0, Layout.ALIGN_LEFT)
 	
 	return node.id
+end
+
+function UiTreeList:RemoveNode(id)
+	local node = self.nodes[id]
+	if (node) then
+		if (node.superior) then
+			local superior = node.superior
+			superior.list:RemoveChild(node)
+			if (#superior.list.children == 0) then
+				superior.iconFold:Show(false)
+				superior.iconExpand:Show(false)
+				superior.spacer:Show(true)
+			end
+		else
+			self.list:RemoveChild(node)
+		end
+		self.selector:Remove(node.item.hightLight)
+		self.nodes[id] = nil
+	end
 end
 
 function UiTreeList:OnListSized(e, w, h, list)
