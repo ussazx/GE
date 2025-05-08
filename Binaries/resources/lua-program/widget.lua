@@ -232,7 +232,7 @@ function Layout:DoUpdate(...)
 end
 
 local function InitBoxLayoutProp(o, ratio, align, gapLeft, gapRight, gapTop, gapBottom)
-	o.ratio = ratio or 0
+	o.ratio = ratio
 	o.align = align or 0
 	o.gapLeft = gapLeft or 0
 	o.gapRight = gapRight or 0
@@ -256,34 +256,38 @@ local function CaculateLayoutProp(prop)
 	prop.v_expand = prop.align & (Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM) == Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM
 end
 
-local function VerticalLayout(box, w, h)
+-----VBoxLayout-----
+VBoxLayout = class(Layout)
+VBoxLayout.InitProp = InitBoxLayoutProp
+
+function VBoxLayout:Layout(w, h)
 	local ww = w
 	local y = 0
 	local total = 0
 	local expands = {}
-	for v in box:ChildrenPairs() do
-		local prop = box.props[v]
+	for v in self:ChildrenPairs() do
+		local prop = self.props[v]
 		CaculateLayoutProp(prop)
 		
 		if (prop.h_expand) then
-			if (prop.ratio < 1) then
-				table.insert(expands, v)
-			else
+			if (prop.ratio) then
 				total = total + prop.ratio
+			else
+				table.insert(expands, v)
 			end
 		else
 			v:SetSize()
 			ww = math.max(ww, prop.left + v.rect.w + prop.right)
-			if (prop.ratio < 1) then
-				y = y + v.rect.h
-			else
+			if (prop.ratio) then
 				total = total + prop.ratio
+			else
+				y = y + v.rect.h
 			end
 		end
 		y = y + prop.top + prop.bottom
 	end
 	for _, v in pairs(expands) do
-		local prop = box.props[v]
+		local prop = self.props[v]
 		v:SetSize(math.max(0, ww - prop.left - prop.right), nil)
 		y = y + v.rect.h
 	end
@@ -291,11 +295,11 @@ local function VerticalLayout(box, w, h)
 	total = math.max(1, total)
 	
 	h = 0
-	for v in box:ChildrenPairs() do
-		local prop = box.props[v]
+	for v in self:ChildrenPairs() do
+		local prop = self.props[v]
 		
-		local rh = math.floor(prop.ratio / total * n)
-		if (prop.ratio > 0 and (prop.h_expand or prop.v_expand)) then
+		local rh = (prop.ratio or 0) / total * n
+		if (prop.ratio and (prop.h_expand or prop.v_expand)) then
 			local rw
 			if (prop.h_expand) then
 				rw = math.max(0, ww - prop.left - prop.right)
@@ -330,38 +334,42 @@ local function VerticalLayout(box, w, h)
 		v:DoSetPos(x, h)
 		h = h + v.rect.h + d + prop.bottom
 	end
-	box.rect.w = ww
-	box.rect.h = h
+	self.rect.w = ww
+	self.rect.h = h
 end
 
-function HorizontalLayout(box, w, h)
+-----HBoxLayout-----
+HBoxLayout = class(Layout)
+HBoxLayout.InitProp = InitBoxLayoutProp
+
+function HBoxLayout:Layout(w, h)
 	local hh = h
 	local x = 0
 	local total = 0
 	local expands = {}
-	for v in box:ChildrenPairs() do
-		local prop = box.props[v]
+	for v in self:ChildrenPairs() do
+		local prop = self.props[v]
 		CaculateLayoutProp(prop)
 		
 		if (prop.v_expand) then
-			if (prop.ratio < 1) then
-				table.insert(expands, v)
-			else
+			if (prop.ratio) then
 				total = total + prop.ratio
+			else
+				table.insert(expands, v)
 			end
 		else
 			v:SetSize()
 			hh = math.max(hh, prop.top + v.rect.h + prop.bottom)
-			if (prop.ratio < 1) then
-				x = x + v.rect.w
-			else
+			if (prop.ratio) then
 				total = total + prop.ratio
+			else
+				x = x + v.rect.w
 			end
 		end
 		x = x + prop.left + prop.right
 	end
 	for _, v in pairs(expands) do
-		local prop = box.props[v]
+		local prop = self.props[v]
 		v:SetSize(nil, math.max(0, hh - prop.top - prop.bottom))
 		x = x + v.rect.w
 	end
@@ -369,11 +377,11 @@ function HorizontalLayout(box, w, h)
 	total = math.max(1, total)
 	
 	w = 0
-	for v in box:ChildrenPairs() do
-		local prop = box.props[v]
+	for v in self:ChildrenPairs() do
+		local prop = self.props[v]
 		
-		local rw = math.floor(prop.ratio / total * n)
-		if (prop.ratio > 0 and (prop.h_expand or prop.v_expand)) then
+		local rw = (prop.ratio or 0) / total * n
+		if (prop.ratio and (prop.h_expand or prop.v_expand)) then
 			local rh
 			if (prop.v_expand) then
 				rh = math.max(0, hh - prop.top - prop.bottom)
@@ -408,22 +416,11 @@ function HorizontalLayout(box, w, h)
 		v:DoSetPos(w, y)
 		w = w + v.rect.w + d + prop.right
 	end
-	box.rect.w = w
-	box.rect.h = hh
+	self.rect.w = w
+	self.rect.h = hh
 end
 
------BoxLayout-----
-BoxLayout = class(Layout)
-BoxLayout.InitProp = InitBoxLayoutProp
-
-function BoxLayout:ctor(vertical)
-	if (vertical) then
-		self.Layout = VerticalLayout
-	else
-		self.Layout = HorizontalLayout
-	end
-end
-
+-----GridLayout-----
 GridLayout = class(Layout)
 GridLayout.InitProp = InitGridLayoutProp
 
@@ -652,7 +649,7 @@ function UiButton:ctor(w, h, s, font)
 	self.color1 = Color(100, 100, 100, 255)
 	self.color2 = Color(150, 150, 150, 255)
 	self.color = self.color0
-	self.layout = BoxLayout()
+	self.layout = HBoxLayout()
 	self:AddChild(self.layout)
 	self.text = UiText(s, font)
 	self.text.writeId = false
@@ -1269,13 +1266,12 @@ UiScrollPanel.drawSelf = false
 
 function UiScrollPanel:ctor(w, h)
 	self:SetSize(w, h)
-	self.color:set(0 ,0, 0, 0)
 	self:bind_event(EVT.MOUSEWHEEL, self, UiScrollPanel.OnMouseWheel)
 	
-	local vLayout = BoxLayout(true)
+	local vLayout = VBoxLayout()
 	self:AddChild(vLayout)
 	
-	local hLayout = BoxLayout(false)
+	local hLayout = HBoxLayout()
 	vLayout:AddChild(hLayout, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	
 	self.pane = UiWidget()
@@ -1286,12 +1282,12 @@ function UiScrollPanel:ctor(w, h)
 	self.vScrollBar = UiSlideBar(true, 0, UiScrollPanel.barWidth)
 	self.vScrollBar:bind_event(UiSlideBar.EVT_SLIDE, self, UiScrollPanel.OnVScroll)
 	self.vScrollBar:Show(false)
-	hLayout:AddChild(self.vScrollBar, 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 0, 0, 0)
+	hLayout:AddChild(self.vScrollBar, nil, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 0, 0, 0)
 	
 	self.hScrollBar = UiSlideBar(false, 0, UiScrollPanel.barWidth)
 	self.hScrollBar:bind_event(UiSlideBar.EVT_SLIDE, self, UiScrollPanel.OnHScroll)
 	self.hScrollBar:Show(false)
-	vLayout:AddChild(self.hScrollBar, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, UiScrollPanel.barWidth, 0, 0)
+	vLayout:AddChild(self.hScrollBar, nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, UiScrollPanel.barWidth, 0, 0)
 	
 	self:SetSize()
 end
@@ -1535,7 +1531,7 @@ function UiTreeList:ctor(w, h)
 	
 	self.selector = Selector()
 	
-	self.list = BoxLayout(true)
+	self.list = VBoxLayout()
 	self.list:bind_event(EVT.SIZE, self, UiTreeList.OnListSized)
 	self:SetWidget(self.list)
 	
@@ -1543,7 +1539,7 @@ function UiTreeList:ctor(w, h)
 end
 
 function UiTreeList:AddNode(nodeId, icon, text)
-	local node = BoxLayout(true)
+	local node = VBoxLayout()
 	local superior = self.nodes[nodeId]
 	if (superior) then
 		superior.list:AddChild(node)
@@ -1554,7 +1550,7 @@ function UiTreeList:AddNode(nodeId, icon, text)
 		node.superior = superior
 		node.indent = superior.indent + 17
 	else
-		self.list:AddChild(node, 0, Layout.ALIGN_LEFT)
+		self.list:AddChild(node, nil, Layout.ALIGN_LEFT)
 		node.indent = 0
 	end
 	node.fold = true
@@ -1566,15 +1562,15 @@ function UiTreeList:AddNode(nodeId, icon, text)
 	node.item.drawSelf = false
 	node.item.cpuClip = false
 	node.item.color:set(0, 0, 0, 0)
-	node:AddChild(node.item, 0, Layout.ALIGN_LEFT)
+	node:AddChild(node.item, nil, Layout.ALIGN_LEFT)
 	
 	node.item.hightLight = self.selector:Add(0, 0, node.id)
 	node.item:AddChild(node.item.hightLight)
 	
-	node.item.box = BoxLayout(true)
+	node.item.box = VBoxLayout()
 	node.item:AddChild(node.item.box)
-	node.title = BoxLayout(false)
-	node.item.box:AddChild(node.title, 0, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, node.indent, 0, 1, 2)
+	node.title = HBoxLayout()
+	node.item.box:AddChild(node.title, nil, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, node.indent, 0, 1, 2)
 	
 	node.iconFold = UiPolyIcon(g_iconFold, true, 12, 12)
 	node.iconFold.node = node
@@ -1584,7 +1580,7 @@ function UiTreeList:AddNode(nodeId, icon, text)
 	node.iconFold:Show(false)
 	node.iconFold.Expand = UiTreeList.Expand
 	node.iconFold:bind_event(EVT.LEFT_UP, node.iconFold, node.iconFold.Expand)
-	node.title:AddChild(node.iconFold, 0, Layout.ALIGN_LEFT, 2, 0, 0, 0)
+	node.title:AddChild(node.iconFold, nil, Layout.ALIGN_LEFT, 2, 0, 0, 0)
 	
 	node.iconExpand = UiPolyIcon(g_iconExpand, true, 12, 12)
 	node.iconExpand.node = node
@@ -1594,26 +1590,26 @@ function UiTreeList:AddNode(nodeId, icon, text)
 	node.iconExpand:Show(false)
 	node.iconExpand.Fold = UiTreeList.Fold
 	node.iconExpand:bind_event(EVT.LEFT_UP, node.iconExpand, node.iconExpand.Fold)
-	node.title:AddChild(node.iconExpand, 0, Layout.ALIGN_LEFT, 2, 0, 0, 0)
+	node.title:AddChild(node.iconExpand, nil, Layout.ALIGN_LEFT, 2, 0, 0, 0)
 	
-	node.spacer = BoxLayout()
+	node.spacer = HBoxLayout()
 	node.spacer:Show(true)
-	node.title:AddChild(node.spacer, 0, Layout.ALIGN_LEFT, 14, 0, 0, 0)
+	node.title:AddChild(node.spacer, nil, Layout.ALIGN_LEFT, 14, 0, 0, 0)
 	
 	node.icon = UiPolyIcon(icon, true, 20, 14)
 	node.icon.writeId = false
-	node.title:AddChild(node.icon, 0, Layout.ALIGN_LEFT|Layout.ALIGN_BOTTOM, 7, 0, 0, 4)
+	node.title:AddChild(node.icon, nil, Layout.ALIGN_LEFT|Layout.ALIGN_BOTTOM, 7, 0, 0, 4)
 	
 	node.text = UiText(text)
 	node.text.writeId = false
-	node.title:AddChild(node.text, 0, Layout.ALIGN_LEFT, 7, 0, 0, 0)
+	node.title:AddChild(node.text, nil, Layout.ALIGN_LEFT, 7, 0, 0, 0)
 	
 	node.item.box:SetSize()
 	node.item:SetSize(node.indent + node.title.rect.w, node.item.box.rect.h)
 	
-	node.list = BoxLayout(true)
+	node.list = VBoxLayout()
 	node.list:Show(false)
-	node:AddChild(node.list, 0, Layout.ALIGN_LEFT)
+	node:AddChild(node.list, nil, Layout.ALIGN_LEFT)
 	
 	return node.id
 end

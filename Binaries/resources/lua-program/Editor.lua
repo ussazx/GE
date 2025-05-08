@@ -10,10 +10,10 @@ function WindowRecord(w, redo, o)
 end
 
 function GridLayoutTest(w)
-	local layout = BoxLayout(true)
+	local layout = VBoxLayout()
 	w:AddChild(layout)
 	
-	layout:AddChild(UiTextInput(0, uiFont.fontSize), 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 20, 20, 20, 10)
+	layout:AddChild(UiTextInput(0, uiFont.fontSize), nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 20, 20, 20, 10)
 	
 	-- local sb = UiSlideBar(nil, false, 0, 0, 0, 20)
 	-- sb:SetScale(5, 1)
@@ -30,7 +30,7 @@ function GridLayoutTest(w)
 		grid:AddChild(ww, 5, 5, 10, 10)
 		--ww.gpuClip = true
 		
-		local layout = BoxLayout(true)
+		local layout = VBoxLayout()
 		ww:AddChild(layout)
 		ww:AddChild(layout)
 		
@@ -46,12 +46,12 @@ function GridLayoutTest(w)
 		local t = UiText('abcdef')
 		layout:AddChild(t)
 	end
-	local layoutBottom = BoxLayout()
+	local layoutBottom = HBoxLayout()
 	w.idle_cost = 0
 	w.idleText = UiText('--')
-	layoutBottom:AddChild(w.idleText, 0, 0, 0, 0, 0, 0)
+	layoutBottom:AddChild(w.idleText, nil, 0, 0, 0, 0, 0)
 	layoutBottom:AddChild(UiButton(100, 30, _('Load')), 1, Layout.ALIGN_RIGHT, 0, 0, 0, 0)
-	layout:AddChild(layoutBottom, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
+	layout:AddChild(layoutBottom, nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
 	--layout:AddChild(UiButton(0, 0, 100, 30, _('Load')), 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 10, 10, 10)
 end
 
@@ -111,12 +111,12 @@ function NewWindow_CreateProj()
 	local w = Window()
 	w.name = 'create'
 	
-	local layout = BoxLayout(true)
+	local layout = VBoxLayout()
 	w:AddChild(layout)
 	
 	local b = UiButton(100 ,30, _('Create'))
 	b:bind_event(EVT.LEFT_UP, nil, OnCreateProj)
-	layout:AddChild(b, 0, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 0, 10, 10)
+	layout:AddChild(b, nil, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 0, 10, 10)
 	
 	local t = UiTreeList()
 	--t.color:set(200, 200, 200, 100)
