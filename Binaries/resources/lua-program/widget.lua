@@ -67,7 +67,7 @@ function Widget2D:Show(show)
 			self.window.update = true
 		end
 		if (self.inLayout) then
-			self.inLayout:SetUpdate()
+			self.inLayout:SetUpdate(true)
 		end
 		self.show = show
 	end
@@ -160,7 +160,7 @@ function Widget2D:SetSize(w, h)
 	self:process_event(EVT.SIZE, w0, h0)
 	
 	if (self.inLayout) then
-		self.inLayout:SetUpdate()
+		self.inLayout:SetUpdate(true)
 	end
 	
 	if (self.OnSized) then
@@ -193,6 +193,7 @@ function Layout:SetSize(w, h)
 		self:Layout(ww, hh)
 		self.update = false
 		self.sized = false
+		self.upNotified = false
 		self:process_event(EVT.SIZE, w0, h0)
 	end
 end
@@ -203,25 +204,27 @@ end
 
 function Layout:OnAddChild(w, ...)
 	w.inLayout = self
-	self:SetUpdate()
+	self:SetUpdate(true)
 	local o = {}
 	self.props[w] = o
 	self.InitProp(o, ...)
 	return o
 end
 
-function Layout:SetUpdate()
-	if (not self.update) then
-		self.update = true
-		if (self.inLayout) then
-			self.inLayout:SetUpdate()
-		end
+function Layout:SetUpdate(upNotify, updateWindow)
+	self.update = true
+	if (upNotify and self.inLayout and not self.upNotified) then
+		self.inLayout:SetUpdate(true)
+		self.upNotified = true
+	end
+	if (updateWindow and self.window) then
+		self.window.update = true
 	end
 end
 
 function Layout:OnRemoveChild(w)
 	self.props[w] = nil
-	self:SetUpdate()
+	self:SetUpdate(true)
 end
 
 function Layout:DoUpdate(...)
