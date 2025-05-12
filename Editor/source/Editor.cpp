@@ -128,6 +128,10 @@ bool MyApp::OnInit()
 
 	LuaRegGlobalReflected(&Terminal::Lua());
 
+	Terminal::Lua().Run("a = 1.1");
+	uint32_t n;
+	Terminal::Lua().GetValue("a", &n);
+
 	Terminal::Lua().Run("BB.ff(nil, 1)");
 
 	auto t = GetTickCount();
@@ -149,6 +153,8 @@ bool MyApp::OnInit()
 
 	Terminal::Lua().SetValue("SYS", "CURSOR_IBEAM", wxCURSOR_IBEAM);
 	Terminal::Lua().SetValue("SYS", "CURSOR_ARROW", wxCURSOR_ARROW);
+	Terminal::Lua().SetValue("SYS", "CURSOR_SIZEWE", wxCURSOR_SIZEWE);
+	Terminal::Lua().SetValue("SYS", "CURSOR_SIZENS", wxCURSOR_SIZENS);
 
 	wchar_t s[256]{};
 	GetCurrentDirectory(256, s);

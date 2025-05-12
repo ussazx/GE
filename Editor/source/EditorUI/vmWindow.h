@@ -122,7 +122,7 @@ private:
 
 	void OnSetCursor(wxSetCursorEvent& e)
 	{
-		e.SetCursor(g_cursor);
+		//e.SetCursor(g_cursor);
 	}
 
 	void OnTimer(wxTimerEvent&)
@@ -242,6 +242,7 @@ private:
 		Terminal::Lua().GetValue(GetName(), "on_mouse", LuaObjCall(clock(), GetEventId(e.GetEventType()), e.GetX(), e.GetY(), e.GetWheelRotation()), &t, &c);
 		HandleTimer(t);
 		g_cursor = (wxStockCursor)c;
+		wxSetCursor(g_cursor);
 	}
 	void HandleTimer(int t)
 	{

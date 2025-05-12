@@ -410,7 +410,7 @@ public:
 	{
 		int i = idx.idx;
 		if (lua_type(m_lua, i) == LUA_TNUMBER)
-			*v = lua_tointeger(m_lua, i);
+			*v = lua_tonumber(m_lua, i);
 		return lua_type(m_lua, i);
 	}
 
@@ -418,7 +418,7 @@ public:
 	{
 		int i = idx.idx;
 		if (lua_type(m_lua, i) == LUA_TNUMBER)
-			*v = lua_tointeger(m_lua, i);
+			*v = lua_tonumber(m_lua, i);
 		return lua_type(m_lua, i);
 	}
 
@@ -426,7 +426,7 @@ public:
 	{
 		int i = idx.idx;
 		if (lua_type(m_lua, i) == LUA_TNUMBER)
-			*v = lua_tointeger(m_lua, i);
+			*v = lua_tonumber(m_lua, i);
 		return lua_type(m_lua, i);
 	}
 
@@ -434,7 +434,7 @@ public:
 	{
 		int i = idx.idx;
 		if (lua_type(m_lua, i) == LUA_TNUMBER)
-			*v = lua_tointeger(m_lua, i);
+			*v = lua_tonumber(m_lua, i);
 		return lua_type(m_lua, i);
 	}
 

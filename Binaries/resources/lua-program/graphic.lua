@@ -352,6 +352,7 @@ function DrawcallList:CommitCurrent()
 		self.idxCount = 0
 	else 
 	return end
+	self.dc.pl = self.c.pl
 	self.dcCount = self.dcCount + 1
 	self.dc = self:NewDrawcall()
 end

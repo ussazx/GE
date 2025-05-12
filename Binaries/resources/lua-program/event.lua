@@ -24,6 +24,7 @@ EVT.KEY_UP = new_event()
 EVT.ACC_KEY = new_event()
 EVT.CAPTURE_LOST = new_event()
 
+EVT.SHOW = new_event()
 EVT.SIZE = new_event()
 EVT.MOVE = new_event()
 

@@ -121,7 +121,7 @@ inline typename std::enable_if<std::_Is_nonbool_integral<T>::value, T>::type Lua
 {
 	Assert(abs(i) <= lua_gettop(lua));
 	Assert(lua_type(lua, i) == LUA_TNUMBER);
-	return lua_tointeger(lua, i);
+	return lua_tonumber(lua, i);
 }
 
 template<typename T>

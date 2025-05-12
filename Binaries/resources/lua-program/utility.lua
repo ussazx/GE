@@ -283,7 +283,7 @@ end
 ObjectArray = class(Object)
 function ObjectArray:ctor(mode)
 	self.n = 0
-	objNotifier:bind_event(EVT.DELIST, self, ObjectArray.on_obj_delist)
+	objNotifier:bind_event(EVT.DELIST, self, ObjectArray.on_object_delist)
 end
 
 function ObjectArray:on_object_delist(e, obj)

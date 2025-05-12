@@ -60,6 +60,7 @@ function Widget2D:RemoveChild(widget)
 end
 
 function Widget2D:Show(show)
+	show = show or false
 	if (self.show ~= show) then
 		if (g_actWindow) then
 			g_actWindow:OnWidgetShow(self, show)
@@ -70,6 +71,7 @@ function Widget2D:Show(show)
 			self.inLayout:SetUpdate(true)
 		end
 		self.show = show
+		self:process_event(EVT.SHOW)
 	end
 end
 
@@ -266,7 +268,7 @@ VBoxLayout.InitProp = InitBoxLayoutProp
 function VBoxLayout:Layout(w, h)
 	local ww = w
 	local y = 0
-	local total = 0
+	local scale = 0
 	local expands = {}
 	for v in self:ChildrenPairs() do
 		local prop = self.props[v]
@@ -274,7 +276,7 @@ function VBoxLayout:Layout(w, h)
 		
 		if (prop.h_expand) then
 			if (prop.ratio) then
-				total = total + prop.ratio
+				scale = scale + prop.ratio
 			else
 				table.insert(expands, v)
 			end
@@ -282,7 +284,7 @@ function VBoxLayout:Layout(w, h)
 			v:SetSize()
 			ww = math.max(ww, prop.left + v.rect.w + prop.right)
 			if (prop.ratio) then
-				total = total + prop.ratio
+				scale = scale + prop.ratio
 			else
 				y = y + v.rect.h
 			end
@@ -294,18 +296,21 @@ function VBoxLayout:Layout(w, h)
 		v:SetSize(math.max(0, ww - prop.left - prop.right), nil)
 		y = y + v.rect.h
 	end
-	local n = math.max(0, h - y)
-	total = math.max(1, total)
+	self.flex = math.max(0, h - y)
+	self.scale = math.max(0, scale)
 	
 	h = 0
 	for v in self:ChildrenPairs() do
 		local prop = self.props[v]
 		
-		local rh = (prop.ratio or 0) / total * n
+		local rh = 0
+		if (self.flex > 0 and self.scale > 0) then
+			rh = math.floor((prop.ratio or 0) / self.scale * self.flex)
+		end
 		if (prop.ratio and (prop.h_expand or prop.v_expand)) then
 			local rw
 			if (prop.h_expand) then
-				rw = math.max(0, ww - prop.left - prop.right)
+				rw = math.max(0, math.floor(ww - prop.left - prop.right))
 			end
 			if (prop.v_expand) then
 				v:SetSize(rw, rh)
@@ -348,7 +353,7 @@ HBoxLayout.InitProp = InitBoxLayoutProp
 function HBoxLayout:Layout(w, h)
 	local hh = h
 	local x = 0
-	local total = 0
+	local scale = 0
 	local expands = {}
 	for v in self:ChildrenPairs() do
 		local prop = self.props[v]
@@ -356,7 +361,7 @@ function HBoxLayout:Layout(w, h)
 		
 		if (prop.v_expand) then
 			if (prop.ratio) then
-				total = total + prop.ratio
+				scale = scale + prop.ratio
 			else
 				table.insert(expands, v)
 			end
@@ -364,7 +369,7 @@ function HBoxLayout:Layout(w, h)
 			v:SetSize()
 			hh = math.max(hh, prop.top + v.rect.h + prop.bottom)
 			if (prop.ratio) then
-				total = total + prop.ratio
+				scale = scale + prop.ratio
 			else
 				x = x + v.rect.w
 			end
@@ -376,18 +381,21 @@ function HBoxLayout:Layout(w, h)
 		v:SetSize(nil, math.max(0, hh - prop.top - prop.bottom))
 		x = x + v.rect.w
 	end
-	local n = math.max(0, w - x)
-	total = math.max(1, total)
+	self.flex = math.max(0, w - x)
+	self.scale = math.max(0, scale)
 	
 	w = 0
 	for v in self:ChildrenPairs() do
 		local prop = self.props[v]
 		
-		local rw = (prop.ratio or 0) / total * n
+		local rw = 0
+		if (self.flex > 0 and self.scale > 0) then
+			rw = math.floor((prop.ratio or 0) / self.scale * self.flex)
+		end
 		if (prop.ratio and (prop.h_expand or prop.v_expand)) then
 			local rh
 			if (prop.v_expand) then
-				rh = math.max(0, hh - prop.top - prop.bottom)
+				rh = math.max(0, hh - math.floor(prop.top - prop.bottom))
 			end
 			if (prop.h_expand) then
 				v:SetSize(rw, rh)
@@ -422,6 +430,187 @@ function HBoxLayout:Layout(w, h)
 	self.rect.w = w
 	self.rect.h = hh
 end
+
+-----SizerLayout-----
+local function SizerLayout_GetVLen(w)
+	return w.rect.h
+end
+
+local function SizerLayout_GetHLen(w)
+	return w.rect.w
+end
+
+local function SizerLayout_SetVLen(w, n)
+	w:SetSize(nil, n)
+end
+
+local function SizerLayout_SetHLen(w, n)
+	w:SetSize(n, nil)
+end
+
+local function SizerLayout_OnSizerCaptureLost(layout)
+	self.mp = false
+	g_actWindow.cursor = SYS.CURSOR_ARROW
+end
+
+local function SizerLayout_OnSizerMouse(layout, e, x, y)
+	local GetLen = layout.GetLen
+	local SetLen = layout.SetLen
+	local p
+	if (layout.vertical) then
+		p = y
+	else
+		p = x
+	end
+	if (e == EVT.MOVE_IN) then
+		g_actWindow.cursor = layout.cursor
+	elseif (e == EVT.MOVE_OUT) then
+		g_actWindow.cursor = SYS.CURSOR_ARROW
+	elseif (e == EVT.LEFT_DOWN) then
+		layout.c0 = nil
+		layout.c1 = nil
+		local sizer
+		for c in layout:ChildrenPairs() do
+			if (c == EVT.obj) then
+				if (not layout.c0) then
+					return
+				end
+				sizer = c
+			elseif (sizer) then
+				layout.c1 = c
+				break
+			else
+				layout.c0 = c
+			end
+		end
+		if (layout.c0 and layout.c1) then
+			if (layout.vertical) then
+				layout.mp = y
+			else
+				layout.mp = x
+			end
+			g_actWindow:CaptureMouse(EVT.obj)
+		end
+	elseif (e == EVT.MOTION) then
+		if (layout.mp) then
+			local c0 = layout.c0
+			local c1 = layout.c1
+			local dp = p - layout.mp
+			if (dp == 0 or (dp < 0 and GetLen(c0) == 0) or (dp > 0 and GetLen(c1) == 0) or 
+				(GetLen(c0) == 0 and GetLen(c1) == 0)) then
+				return
+			end
+			if (dp > 0) then
+				dp = math.min(dp, GetLen(c1))
+			else
+				dp = math.max(dp, -GetLen(c0))
+			end
+			
+			local prop0 = layout.props[c0]
+			local prop1 = layout.props[c1]
+			if (prop0.ratio) then
+				if (prop1.ratio) then
+					if (layout.flex > 0 and layout.scale > 0) then
+						prop0.ratio = (GetLen(c0) + dp) / layout.flex * layout.scale
+						prop1.ratio = (GetLen(c1) - dp) / layout.flex * layout.scale
+					end
+				else
+					if (prop0.ratio < layout.scale and layout.flex > 0) then
+						prop0.ratio = math.max(0, prop0.ratio - layout.scale * (1 - (layout.flex + dp) / layout.flex))
+					end
+					SetLen(c1, GetLen(c1) - dp)
+				end
+			else
+				SetLen(c0, GetLen(c0) + dp)
+				if (prop1.ratio) then
+					if (prop1.ratio < layout.scale and layout.flex > 0) then
+						prop1.ratio = math.max(0, prop1.ratio - layout.scale * (1 - (layout.flex - dp) / layout.flex))
+					end
+				else
+					SetLen(c1, GetLen(c1) - dp)
+				end
+			end
+			if (layout.vertical) then
+				layout.mp = y
+			else
+				layout.mp = x
+			end
+			layout:SetUpdate(false, true)
+		end
+	elseif (e == EVT.LEFT_UP) then
+		if (g_actWindow.captured == EVT.obj) then
+			layout.mp = false
+			g_actWindow:ReleaseCaptured()
+		end
+	end
+end
+
+local function SizerLayout_AddChild(layout, w, ...)
+	local sizer
+	local align
+	if (layout.vertical) then
+		sizer = UiButton(0, 5)
+		align = Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT
+	else
+		sizer = UiButton(5, 0)
+		align = Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM
+	end
+	sizer:SetDefaultColor(0, 0, 0, 0)
+	sizer:bind_event(EVT.MOVE_IN, layout, SizerLayout_OnSizerMouse)
+	sizer:bind_event(EVT.MOVE_OUT, layout, SizerLayout_OnSizerMouse)
+	sizer:bind_event(EVT.LEFT_DOWN, layout, SizerLayout_OnSizerMouse)
+	sizer:bind_event(EVT.MOTION, layout, SizerLayout_OnSizerMouse)
+	sizer:bind_event(EVT.LEFT_UP, layout, SizerLayout_OnSizerMouse)
+	sizer:bind_event(EVT.CAPTURE_LOST, layout, SizerLayout_OnSizerCaptureLost)
+	local show = false
+	for c in layout:ChildrenPairs() do
+		show = true
+		break
+	end
+	sizer:Show(show)
+	Widget2D.AddChild(layout, sizer, nil, align)
+	layout.sizers[w] = sizer
+	
+	w:bind_event(EVT.SHOW, layout, SizerLayout_OnWidgetShow)
+	Widget2D.AddChild(layout, w, ...)
+end
+
+local function SizerLayout_Ctor(layout)
+	layout.sizers = setmetatable({}, {__mode = 'k'})
+end
+
+local function SizerLayout_OnWidgetShow(layout)
+	if (EVT.obj.show) then
+		layout.sizers[w]:Show(true)
+	else
+		layout.sizers[w]:Show(false)
+	end
+end
+
+local function SizerLayout_OnRemoveChild(layout, w)
+	local sizer = layout.sizers[w]
+	if (sizer) then
+		layout:RemoveChild(sizer)
+	end
+end
+
+VSizerLayout = class(VBoxLayout)
+VSizerLayout.vertical = true
+VSizerLayout.ctor = SizerLayout_Ctor
+VSizerLayout.OnRemoveChild = SizerLayout_OnRemoveChild
+VSizerLayout.AddChild = SizerLayout_AddChild
+VSizerLayout.GetLen = SizerLayout_GetVLen
+VSizerLayout.SetLen = SizerLayout_SetVLen
+VSizerLayout.cursor = SYS.CURSOR_SIZENS
+
+HSizerLayout = class(HBoxLayout)
+HSizerLayout.vertical = false
+HSizerLayout.ctor = SizerLayout_Ctor
+VSizerLayout.OnRemoveChild = SizerLayout_OnRemoveChild
+HSizerLayout.AddChild = SizerLayout_AddChild
+HSizerLayout.GetLen = SizerLayout_GetHLen
+HSizerLayout.SetLen = SizerLayout_SetHLen
+HSizerLayout.cursor = SYS.CURSOR_SIZEWE
 
 -----GridLayout-----
 GridLayout = class(Layout)
