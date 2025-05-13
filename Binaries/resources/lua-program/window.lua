@@ -135,7 +135,7 @@ function Window:on_idle(t, onTimer, show)
 end
 
 function Window:resize(w, h)
-	--local render = w <= self.rect.w and h <= self.rect.h
+	local render = w <= self.rect.w and h <= self.rect.h
 	cGI:DeviceWaitIdle()
 	self:SetSize(w, h)
 	if (w < 1 or h < 1) then
@@ -146,6 +146,10 @@ function Window:resize(w, h)
 	
 	self.copyParam.w = w
 	self.copyParam.h = h
+	
+	if (render) then
+		self:render()
+	end
 end
 
 function Window:render()

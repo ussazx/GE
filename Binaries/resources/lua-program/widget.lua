@@ -675,6 +675,8 @@ UiWidget.drawSelf = true
 
 function UiWidget:ctor(w, h)
 	self.rect:set(0, 0, w, h)
+	self.cr = Rect()
+	self.crNew = Rect()
 	self.crColor = Color()
 	self.color = Color(255, 255, 255, 255)
 	self.renderDisables = {[SubpassId(g_rp0, 1)] = true}
@@ -702,7 +704,7 @@ function UiWidget:OnSized()
 end
 
 function UiWidget:FillRectVB(color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
-	if (self.cr) then
+	if (self.cpuClip) then
 		CAddRectFloat3(vbPos, wpPos, self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D)
 	else
 		CAddRectFloat3(vbPos, wpPos, self.location.x, self.location.y, self.rect.w, self.rect.h, Z_2D)
@@ -732,27 +734,22 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 	local crCpuNew
 	local crGpuNew
 	if (self.cpuClip or self.gpuClip) then
-		local crNew = Rect(self.location.x, self.location.y, self.rect.w, self.rect.h)
+		self.crNew:set(self.location.x, self.location.y, self.rect.w, self.rect.h)
 		if (self.cpuClip) then
-			if (crCpu) then
-				crCpuNew = crNew:intersect(crCpu)
-				if (crCpuNew == nil) then
-					return false
-				end
-			else
-				crCpuNew = crNew
+			if (crCpu and not self.crNew:intersect(crCpu, self.crNew)) then
+				return false
 			end
+			crCpuNew = self.crNew
 		end
 		if (self.gpuClip) then
 			if (crCpuNew and (crCpu == crGpu or crGpu == nil)) then
 				crGpuNew = crCpuNew
-			elseif (crGpu or crCpu) then
-				crGpuNew = crNew:intersect(crGpu or crCpu)
-				if (crGpuNew == nil) then
+			else
+				local cr = crGpu or crCpu
+				if (cr and not self.crNew:intersect(cr, self.crNew)) then
 					return false
 				end
-			else
-				crGpuNew = crNew
+				crGpuNew = self.crNew
 			end
 		end
 	end
@@ -763,14 +760,11 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 		DrawcallList.cr = crGpuNew
 	end
 	
-	local changed = self.mesh.doCache and (self.mesh.update or (self.moved or self.sized or
-	((self.cr or crCpuNew) and ((self.cr == nil and crCpuNew) or (self.cr and crCpuNew == nil) or
-	(self.cr.x ~= crCpuNew.x or self.cr.y ~= crCpuNew.y or self.cr.w ~= crCpuNew.w or self.cr.h ~= crCpuNew.h)))))
+	local changed = self.mesh.doCache and (self.mesh.update or self.moved or self.sized or
+	(crCpuNew and self.cr:diff(crCpuNew)))
 	
 	if (self.cpuClip) then
-		self.cr = crCpuNew
-	else
-		self.cr = nil
+		self.cr:copy(crCpuNew)
 	end
 	
 	local d
@@ -778,7 +772,7 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 		d = self.renderDisables
 	end
 	
-	if (self.drawClipRect) then
+	if (self.cpuClip and self.drawClipRect) then
 		self.rcMesh:Render(d)
 	end
 	self.mesh.update = changed
@@ -875,7 +869,7 @@ end
 -----Text-----
 UiText = class(UiWidget)
 UiText.cached = true
-UiText.cpuClip = false
+UiText.cpuClip = true
 
 function UiText:ctor(s, font)
 	self.text = LString('')
@@ -896,7 +890,7 @@ end
 
 function UiText:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 	local n
-	if (self.cr) then
+	if (self.cpuClip) then
 		n = CAddTextClip(vbPos, wpPos, vbUVW, wpUVW, self.font,
 		self.location.x - self.cr.x, self.location.y - self.cr.y + self.font.fontSize + self.font.descender,
 			self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D, self.text)

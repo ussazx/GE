@@ -90,14 +90,21 @@ end
 Rect = class()
 
 function Rect:ctor(x, y, w, h)
-	self:set(x, y, w, h)
+	self:set(x or 0, y or 0, w or 0, h or 0)
 end
 
 function Rect:set(x, y, w, h)
-	self.x = x or 0
-	self.y = y or 0
-	self.w = w or 0
-	self.h = h or 0
+	self.x = x or self.x
+	self.y = y or self.y
+	self.w = w or self.w
+	self.h = h or self.h
+end
+
+function Rect:copy(rect)
+	self.x = rect.x or self.x
+	self.y = rect.y or self.y
+	self.w = rect.w or self.w
+	self.h = rect.h or self.h
 end
 
 function Rect:set_pos(x, y)
@@ -110,22 +117,19 @@ function Rect:move(x, y)
 	self.y = self.y + y
 end
 
-function Rect:intersect(rect)
-	if (rect == nil) then
-		return nil
-	end
-
-	x = math.max(self.x, rect.x)
-	right = math.min(self.x + self.w, rect.x + rect.w)
+function Rect:intersect(rectIn, rectOut)
+	x = math.max(self.x, rectIn.x)
+	right = math.min(self.x + self.w, rectIn.x + rectIn.w)
 	if (x >= right) then
-		return nil
+		return false
 	end
-	y = math.max(self.y, rect.y)
-	h = math.min(self.y + self.h, rect.y + rect.h)
+	y = math.max(self.y, rectIn.y)
+	h = math.min(self.y + self.h, rectIn.y + rectIn.h)
 	if (y >= h) then
-		return nil
+		return false
 	end
-	return Rect(x, y, right - x, h - y)
+	rectOut:set(x, y, right - x, h - y)
+	return true
 end
 
 function Rect:diff(rect)
@@ -134,13 +138,10 @@ end
 
 Color = class()
 function Color:ctor(r, g, b, a)
-	self.r = r or 0
-	self.g = g or 0
-	self.b = b or 0
-	self.a = a or 0
+	self:set(r or 0, g or 0, b or 0, a or 0)
 end
 
-function Color:read(color)
+function Color:copy(color)
 	self.r = color.r or self.r
 	self.g = color.r or self.g
 	self.b = color.r or self.b
@@ -152,10 +153,10 @@ function Color:diff(color)
 end
 
 function Color:set(r, g, b, a)
-	self.r = r or 0
-	self.g = g or 0
-	self.b = b or 0
-	self.a = a or 0
+	self.r = r or self.r
+	self.g = g or self.g
+	self.b = b or self.b
+	self.a = a or self.a
 end
 
 function Copy(src, dst)
