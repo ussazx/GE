@@ -115,7 +115,6 @@ function NewWindow_CreateProj()
 	w:AddChild(layout)
 	
 	local b = UiButton(100 ,30, _('Create'))
-	b.text.z = 1
 	b:bind_event(EVT.LEFT_UP, nil, OnCreateProj)
 	layout:AddChild(b, nil, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 0, 10, 10)
 	

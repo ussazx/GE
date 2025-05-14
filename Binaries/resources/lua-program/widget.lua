@@ -869,7 +869,6 @@ end
 -----Text-----
 UiText = class(UiWidget)
 UiText.cached = true
-UiText.cpuClip = true
 
 function UiText:ctor(s, font)
 	self.text = LString('')
