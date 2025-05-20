@@ -136,6 +136,7 @@ function Rect:diff(rect)
 	return self.x ~= rect.x or self.y ~= rect.y or self.w ~= rect.w or self.h ~= rect.h
 end
 
+-----Color-----
 Color = class()
 function Color:ctor(r, g, b, a)
 	self:set(r or 0, g or 0, b or 0, a or 0)
@@ -174,6 +175,112 @@ function DiffAndCopy(dst, src)
 		end
 	end
 	return diff
+end
+
+function Normalize2D(vx, vy)
+	local d = vx * vx + vy * vy
+	if (d == 0) then
+		d = 1
+	elseif (d > 1) then
+		d = math.sqrt(d)
+	end
+	return vx / d, vy / d
+end
+
+function GetLineNormal2D(x0, y0, x1, y1, clockwise)
+	if (x0 == x1) then
+		if (y0 == y1) then
+			return 0, 0
+		end
+		local nx = y1 - y0
+		if (clockwise) then
+			return -nx / math.abs(nx), 0
+		end
+		return nx / math.abs(nx), 0
+	end
+	if (y0 == y1) then
+		local ny = x0 - x1
+		if (clockwise) then
+			return 0, -ny / math.abs(ny)
+		end
+		return 0, ny / math.abs(ny)
+	end
+	local nx = y1 - y0
+	local ny = x0 - x1
+	if (clockwise) then
+		nx = -nx
+		ny = -ny
+	end
+	return Normalize2D(nx, ny)
+end
+
+local function _ExtrudeLines2D(pt, k, vol, clockwise, n0x, n0y, nnx, nny)
+	local p0
+	k, p0 = next(pt, k)
+	local x0, y0 = p0[1], p0[2]
+	local n1x, n1y = nnx, nny
+	local _, p1 = next(pt, k)
+	if (p1) then
+		n1x, n1y = GetLineNormal2D(x0, y0, p1[1], p1[2], clockwise)
+	end
+	local nx, ny = n0x, n0y
+	if (nx == 0 and ny == 0) then
+		nx, ny = n1x, n1y
+	elseif (n1x ~= 0 or n1y ~= 0) then
+		nx, ny = Normalize2D((nx + n1x) * 0.5, (ny + n1y) * 0.5)
+	end
+	if (p1) then
+		return {x0 + nx * vol, y0 + ny * vol}, _ExtrudeLines2D(pt, k, vol, clockwise, n1x, n1y, nnx, nny)
+	end
+	return {x0 + nx * vol, y0 + ny * vol}
+end
+	
+
+-----ExtrudeLines-----
+function ExtrudeLines2D(pt, vol, clockwise, closed)
+	local n = #pt
+	if (n < 2) then
+		return
+	end
+	local nx = 0
+	local ny = 0
+	if (closed and n > 2) then
+		nx, ny = GetLineNormal2D(pt[n][1], pt[n][2], pt[1][1], pt[1][2], clockwise)
+		_ExtrudeLines2D(pt, nil, vol, clockwise, nx, ny, nx, ny)
+	end
+	return _ExtrudeLines2D(pt, nil, vol, clockwise, nx, ny, nx, ny)
+end
+
+-----DrawLines-----
+function DrawLines(thickness, closed, ...)
+	local n0 = {...}
+	local pn0 = n0[#n0]
+	local n1 = {ExtrudeLines2D(n0, thickness, true, closed)}
+	local nn1 = #n1
+	for i = nn1, 1, -1 do
+		table.insert(n0, n1[i])
+	end
+	if (closed) then
+		table.insert(n0, n1[nn1])
+		table.insert(n0, pn0)
+	end
+	return n0
+end
+
+-----DrawOutLine-----
+function DrawOutLine(vertices, width, gap)
+	width = width or 1
+	gap = gap or 0
+	local n0 = {ExtrudeLines2D(vertices, width + gap, false, true)}
+	local pn0 = n0[#n0]
+	local n1 = {ExtrudeLines2D(n0, math.max(1, width), true, true)}
+	local nn1 = #n1
+	for i = nn1, 1, -1 do
+		table.insert(n0, n1[i])
+	end
+	table.insert(n0, n1[nn1])
+	table.insert(n0, pn0)
+	return n0
 end
 
 -----SizeGroup-----
@@ -285,6 +392,18 @@ ObjectArray = class(Object)
 function ObjectArray:ctor(mode)
 	self.n = 0
 	objNotifier:bind_event(EVT.DELIST, self, ObjectArray.on_object_delist)
+	
+	self.newPairs = load('i = i + 1 return o[i], i', '', 't', self)
+	
+	self.o = self
+	local filterredPairs = [[
+		i = i + 1
+		while (o[i] and filter_func(o[i], filter_param) == false) do
+			i = i + 1
+		end
+		return o[i], i
+	]]
+	self.filterredPairs = load(filterredPairs, '', 't', self)
 end
 
 function ObjectArray:on_object_delist(e, obj)
@@ -323,19 +442,12 @@ function ObjectArray:pop_back()
 	return self:remove_idx(self.n)
 end
 
-function ObjectArray:pairs(filter_func, ...)
-	local i = 0
+function ObjectArray:pairs(filter_func, filter_param)
+	self.i = 0
 	if (filter_func) then
-		return function(...)
-			i = i + 1
-			while (self[i] and filter_func(self[i], ...) == false) do
-				i = i + 1
-			end
-			return self[i], i
-		end
+		self.filter_func = filter_func
+		self.filter_param = filter_param
+		return self.filterredPairs
 	end
-	return function()
-		i = i + 1
-		return self[i], i
-	end
+	return self.newPairs
 end

@@ -772,7 +772,7 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 		d = self.renderDisables
 	end
 	
-	if (self.cpuClip and self.drawClipRect) then
+	if (self.drawClipRect) then
 		self.rcMesh:Render(d)
 	end
 	self.mesh.update = changed

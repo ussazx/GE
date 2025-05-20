@@ -143,6 +143,19 @@ function NewWindow_CreateProj()
 	return w
 end
 
+ContentPanel = class(UiWidget)
+
+function ContentPanel:ctor()
+	local layout = HSizerLayout()
+	self:AddChild(layout)
+	
+	self.list = UiTreeList()
+	layout:AddChild(self.list, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	
+	self.grid = UiGridLayout()
+	layout:AddChild(self.grid, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+end
+
 function NewWindow_LoadProj()
 	local w = Window()
 	w.name = 'load'
@@ -153,7 +166,7 @@ function NewWindow_LoadProj()
 	
 	--VLayoutTest(w)
 	--HLayoutTest(w)
-	GridLayoutTest(w)
+	--GridLayoutTest(w)
 	--w:AddChild(UiWidget(150, 130), 0, 0)
 	--w:AddChild(UiWidget(150, 130), 200, 0)
 	
@@ -163,6 +176,8 @@ function NewWindow_LoadProj()
 	--w:AddChild(UiText('abcdef'), 0, 0)
 	--w:AddChild(UiText('abcdef'), 100, 0)
 	--w:AddChild(UiText('abcdef'), 200, 0)
+	
+	w:AddChild(UiPolyIcon(g_iconLine))
 	
 	w.OnLeftDown = WindowOnLeftDown
 	--w:bind_event(EVT.LEFT_DOWN, w, w.OnLeftDown)
