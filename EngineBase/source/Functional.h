@@ -365,7 +365,7 @@ inline size_t CAddConvexPolyIndex(LuacObj<CBuffer> ib, int wp, int count, int id
 }
 Lua_global_add_cfunc(CAddConvexPolyIndex)
 
-inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_seq, BufferWriter<uint1>& ibw, int idx_offset, bool inv_y)
+inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_seq, BufferWriter<uint1>& ibw, int idx_offset)
 {
 	size_t vnum = vtx_seq.size();
 	if (vnum < 3)
@@ -389,10 +389,10 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 		float3& p2 = vbw[vtx_seq[i2]];
 		float3& p3 = vbw[vtx_seq[i3]];
 
-		v0 = float3::Vector(p1, p2, inv_y);
-		v1 = float3::Vector(p2, p3, inv_y);
+		v0 = float3::Vector(p1, p2);
+		v1 = float3::Vector(p2, p3);
 
-		if (Cross2D(v0.x, v0.y, v1.x, v1.y) > 0)
+		if (Cross2D(v0.x, v0.y, v1.x, v1.y) < 0)
 			concaveFound = true;
 		else
 			firstConvexFound = true;
@@ -402,40 +402,39 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 
 	float3 v = float3::Vector(vbw[vtx_seq[i0]], vbw[vtx_seq[i1]]);
 	concaveFound = false;
-	for (i = 0; i < vnum && !concaveFound; i++, i1 = i2, i2 = i3, i3 = ++i3 % vnum)
+	for (i = 0; !concaveFound && i < vnum; i++, i1 = i2, i2 = i3, i3 = ++i3 % vnum)
 	{
 		float3& p1 = vbw[vtx_seq[i1]];
 		float3& p2 = vbw[vtx_seq[i2]];
 		float3& p3 = vbw[vtx_seq[i3]];
 
-		v0 = float3::Vector(p1, p2, inv_y);
-		v1 = float3::Vector(p2, p3, inv_y);
+		v0 = float3::Vector(p1, p2);
+		v1 = float3::Vector(p2, p3);
 
-		if (Cross2D(v.x, v.y, v1.x, v1.y) > 0)
+		concaveFound = Cross2D(v0.x, v0.y, v1.x, v1.y) < 0;
+		if (!concaveFound && Cross2D(v.x, v.y, v1.x, v1.y) < 0)
 		{
 			v = v0;
 			i0 = i1;
 		}
-		concaveFound = Cross2D(v0.x, v0.y, v1.x, v1.y) > 0;
 	}
 	if (!concaveFound)
 		return AddConvexPolyIndex(ibw, vtx_seq, idx_offset);
 
 	bool halfConvex = true;
-	for (i = i0; i3 != i0; i2 = i3, i3 = ++i3 % vnum)
+	for (i = i0; i3 != i; i2 = i3, i3 = ++i3 % vnum)
 	{
 		float3& p0 = vbw[vtx_seq[i1]];
-		float3& p1 = vbw[vtx_seq[i]];
+		float3& p1 = vbw[vtx_seq[i0]];
 		float3& p2 = vbw[vtx_seq[i2]];
 		float3& p3 = vbw[vtx_seq[i3]];
 		auto t = CIntersect2D(p0.x, p0.y, p1.x, p1.y, false, p2.x, p2.y, p3.x, p3.y, true, false);
 		if (std::get<0>(t))
 		{
 			halfConvex = false;
-			i = i3;
+			i0 = i3;
 		}
 	}
-	i0 = i;
 
 	std::vector<uint1> vtx_seq0;
 	for (size_t i = i0; ; i = ++i % vnum)
@@ -444,7 +443,7 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 		if (i == i1)
 			break;
 	}
-	size_t n = halfConvex ? AddConvexPolyIndex(ibw, vtx_seq0, idx_offset) : AddPolyIndex(vbw, vtx_seq0, ibw, idx_offset, inv_y);
+	size_t n = halfConvex ? AddConvexPolyIndex(ibw, vtx_seq0, idx_offset) : AddPolyIndex(vbw, vtx_seq0, ibw, idx_offset);
 	ibw.SkipUsed();
 
 	std::vector<uint1> vtx_seq1;
@@ -454,10 +453,10 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 		if (i == i0)
 			break;
 	}
-	return n + AddPolyIndex(vbw, vtx_seq1, ibw, idx_offset, inv_y);
+	return n + AddPolyIndex(vbw, vtx_seq1, ibw, idx_offset);
 }
 
-inline size_t CAddPolyIndex(size_t count, LuacObj<CBuffer> vb, int vpos, uint32_t vnum, LuacObj<CBuffer> ib, int iwp, int idx_offset, bool inv_y)
+inline size_t CAddPolyIndex(size_t count, LuacObj<CBuffer> vb, int vpos, uint32_t vnum, LuacObj<CBuffer> ib, int iwp, int idx_offset)
 {
 	if (vnum < 3)
 		return 0;
@@ -467,7 +466,7 @@ inline size_t CAddPolyIndex(size_t count, LuacObj<CBuffer> vb, int vpos, uint32_
 	std::vector<uint1> vtx_seq(vnum);
 	for (uint1 i = 0; i < vnum; i++)
 		vtx_seq[i] = i;
-	size_t n = AddPolyIndex(vbw, vtx_seq, ibw, idx_offset, inv_y);
+	size_t n = AddPolyIndex(vbw, vtx_seq, ibw, idx_offset);
 	vbw[vnum - 1];
 
 	idx_offset += vnum;
