@@ -60,11 +60,14 @@ function AddPoly2D(...)
 		end
 		nv = WritePolyIndex2D(o, nv)
 		if (t.AA) then
+			if (not t.has_normal) then
+				BakePolyNormals2D(t)
+			end
 			local aa = PolyAntiAlias(t, 2, 5)
 			for _, t in pairs(aa) do
 				--t[#t].color = Color(255, 150, 150, 255)
-				for _, v in pairs(t) do
-					x, y, nv, nvc = AddPolyVertex2D(o, v, x, y, nv, nvc)
+				for i = 1, #t do
+					x, y, nv, nvc = AddPolyVertex2D(o, t[i], x, y, nv, nvc)
 				end
 				nv = WritePolyIndex2D(o, nv)
 			end
@@ -119,7 +122,6 @@ nn[#nn].color = Color(150, 150, 150, 255)
 
 v = DrawLines(10, true, {100, 100}, {200, 100}, {150, 200})
 v.AA = true
-BakePolyNormals2D(v)
 g_iconLine = AddPoly2D(v)
 
 -- TargetViewDescs = {view1 = {samples = 1, format = FORMAT}}

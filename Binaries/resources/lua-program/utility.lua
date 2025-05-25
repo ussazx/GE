@@ -229,10 +229,12 @@ local function _ExtrudeLines2D(pt, k, vol, clockwise, n0x, n0y, nnx, nny)
 	elseif (n1x ~= 0 or n1y ~= 0) then
 		nx, ny = Normalize2D((nx + n1x) * 0.5, (ny + n1y) * 0.5)
 	end
+	p0.normal = {-nx, -ny}
+	
 	if (p1) then
-		return {x0 + nx * vol, y0 + ny * vol}, _ExtrudeLines2D(pt, k, vol, clockwise, n1x, n1y, nnx, nny)
+		return {x0 + nx * vol, y0 + ny * vol, normal = {nx, ny}}, _ExtrudeLines2D(pt, k, vol, clockwise, n1x, n1y, nnx, nny)
 	end
-	return {x0 + nx * vol, y0 + ny * vol}
+	return {x0 + nx * vol, y0 + ny * vol, normal = {nx, ny}}
 end
 	
 
@@ -268,6 +270,7 @@ function DrawLines(thickness, closed, ...)
 		pn0.combined = {n, n2 + 2}
 		table.insert(n0, pn0)
 	end
+	n0.has_normal = true
 	return n0
 end
 
@@ -354,6 +357,7 @@ function PolyAntiAlias(vertices, width, gap)
 			table.insert(n0, pn1)
 			pn0.combined = {n, n2 + 2}
 			table.insert(n0, pn0)
+			n0.has_normal = true
 			
 			table.insert(t, n0)
 		end
