@@ -33,7 +33,7 @@ struct float3
 	float3 operator * (const CMatrix3D& m) const;
 	float& operator [] (size_t i);
 	float operator [] (size_t i) const;
-	static float3 Vector(const float3& p0, const float3& p1, bool inv_y = false);
+	static float3 Vector(const float3& p0, const float3& p1);
 
 	float x = 0;
 	float y = 0;
@@ -105,9 +105,9 @@ inline float float3::Length() const
 	return sqrtf(x * x + y * y + z * z);
 }
 
-inline float3 float3::Vector(const float3& p0, const float3& p1, bool inv_y)
+inline float3 float3::Vector(const float3& p0, const float3& p1)
 {
-	return { p1.x - p0.x, inv_y ? p0.y - p1.y : p1.y - p0.y, p1.z - p0.z };
+	return { p1.x - p0.x, p1.y - p0.y, p1.z - p0.z };
 }
 
 inline float3 float3::operator + (const float3& v) const

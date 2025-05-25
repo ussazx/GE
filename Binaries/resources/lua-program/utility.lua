@@ -254,33 +254,111 @@ end
 -----DrawLines-----
 function DrawLines(thickness, closed, ...)
 	local n0 = {...}
-	local pn0 = n0[#n0]
+	local n = #n0
+	local pn0 = n0[n]
 	local n1 = {ExtrudeLines2D(n0, thickness, true, closed)}
-	local nn1 = #n1
-	for i = nn1, 1, -1 do
+	local pn1 = n1[n]
+	for i = n, 1, -1 do
 		table.insert(n0, n1[i])
 	end
 	if (closed) then
-		table.insert(n0, n1[nn1])
+		local n2 = n * 2
+		pn1.combined = {n + 1, n2 + 1}
+		table.insert(n0, pn1)
+		pn0.combined = {n, n2 + 2}
 		table.insert(n0, pn0)
 	end
 	return n0
 end
 
------DrawOutLine-----
-function DrawOutLine(vertices, width, gap)
-	width = width or 1
-	gap = gap or 0
-	local n0 = {ExtrudeLines2D(vertices, width + gap, false, true)}
-	local pn0 = n0[#n0]
-	local n1 = {ExtrudeLines2D(n0, math.max(1, width), true, true)}
-	local nn1 = #n1
-	for i = nn1, 1, -1 do
-		table.insert(n0, n1[i])
+-----BakePolyNormals-----
+function BakePolyNormals2D(v)
+	local num = #v
+	if (num < 3) then
+		return
 	end
-	table.insert(n0, n1[nn1])
-	table.insert(n0, pn0)
-	return n0
+	local combined = {}
+	local p0, p1 = v[num], v[1]
+	local nx, ny = GetLineNormal2D(p0[1], p0[2], p1[1], p1[2], false)
+	local n0x, n0y = nx, ny
+	for i = 1, num do
+		local n1x, n1y = nx, ny
+		
+		p0 = v[i]
+		if (i < num) then
+			p1 = v[i + 1]
+			n1x, n1y = GetLineNormal2D(p0[1], p0[2], p1[1], p1[2], false)
+		else
+			n1x, n1y = nx, ny
+		end
+		if (combined[p0]) then
+			p0.normal[1] = p0.normal[1] + n0x + n1x
+			p0.normal[2] = p0.normal[2] + n0y + n1y
+		elseif (p0.combined) then
+			p0.normal = {n0x + n1x, n0y + n1y}
+			combined[p0] = p0
+		else
+			p0.normal = {Normalize2D((n0x + n1x) * 0.5, (n0y + n1y) * 0.5)}
+		end
+		n0x, n0y = n1x, n1y
+	end
+	for _, v in pairs(combined) do
+		v.normal[1], v.normal[2] = Normalize2D(v.normal[1] * 0.5, v.normal[2] * 0.5)
+	end
+end
+
+-----PolyAntiAlias-----
+function PolyAntiAlias(vertices, width, gap)
+	width = math.max(1, width or 1)
+	gap = gap or 0
+	local outer = width + gap
+	local v = vertices
+	
+	local num = #v
+	
+	--remove vertices with 0, 0 normal
+	
+	local t = {}
+	local i = 1
+	while (i) do
+		local n0 = {}
+		local j = i
+		i = nil
+		local n = 0
+		local w = false
+		while (j <= num) do
+			local vp = v[j]
+			if (n > 0 and vp.combined) then
+				if (vp.combined[2] == j) then
+					break
+				end
+				i = j + 1
+				j = vp.combined[2] + 1
+			else
+				j = j + 1
+			end
+			n = n + 1
+			local vn = vp.normal
+			table.insert(n0, {vp[1] + vn[1] * outer, vp[2] + vn[2] * outer, normal = {vn[1], vn[2]}})
+		end
+		if (n > 0) then
+			for k = n, 1, -1 do
+				local vp = n0[k]
+				local vn = vp.normal
+				table.insert(n0, {vp[1] - vn[1] * width, vp[2] - vn[2] * width, normal = {-vn[1], -vn[2]}})
+			end
+			local pn0 = n0[n]
+			local pn1 = n0[n + 1]
+			local n2 = n * 2
+			pn1.combined = {n + 1, n2 + 1}
+			table.insert(n0, pn1)
+			pn0.combined = {n, n2 + 2}
+			table.insert(n0, pn0)
+			
+			table.insert(t, n0)
+		end
+	end
+	return t
 end
 
 -----SizeGroup-----

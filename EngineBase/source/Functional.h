@@ -428,7 +428,7 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, std::vector<uint1>& vtx_se
 		float3& p1 = vbw[vtx_seq[i0]];
 		float3& p2 = vbw[vtx_seq[i2]];
 		float3& p3 = vbw[vtx_seq[i3]];
-		auto t = CIntersect2D(p0.x, p0.y, p1.x, p1.y, false, p2.x, p2.y, p3.x, p3.y, true, false);
+		auto t = CIntersect2D(p0.x, p0.y, p1.x, p1.y, false, p2.x, p2.y, p3.x, p3.y, true, true);
 		if (std::get<0>(t))
 		{
 			halfConvex = false;

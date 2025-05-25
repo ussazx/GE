@@ -13,51 +13,65 @@ g_innerPolyVB.offset = 0
 g_innerPolyIB = CMBuffer(1024)
 g_innerPolyIB.offset = 0
 
+local function AddPolyVertex2D(o, v, x, y, nv, nvc)
+	nv = nv + 1
+	nvc = nvc + 1
+	CAddFloat3(g_innerPolyVB, APPEND, 1, v[1], v[2], Z_2D)
+	if (v[1] < x) then
+		x = v[1]
+	elseif (v[1] > o.w) then
+		o.w = v[1]
+	end
+	if (v[2] < y) then
+		y = v[2]
+	elseif (v[2] > o.h) then
+		o.h = v[2]
+	end
+	if (v.color) then
+		table.insert(o.colors, {nvc, v.color})
+		nvc = 0
+	end
+	return x, y, nv, nvc
+end
+
+local function WritePolyIndex2D(o, nv)
+	if (nv > 0) then
+		o.idx_count = o.idx_count + CAddPolyIndex(1, g_innerPolyVB, 
+			o.vb_offset + SIZE_FLOAT3 * o.vtx_count, nv, g_innerPolyIB, APPEND, o.vtx_count)
+		o.vtx_count = o.vtx_count + nv
+	end
+	return 0
+end
+
 function AddPoly2D(...)
-	local o = {colors = {}}
-	o.w = 0
-	o.h = 0
-	o.vtx_count = 0
-	o.idx_count = 0
+	local o = {colors = {}, w = 0, h = 0, vtx_count = 0, idx_count = 0}
 	o.vb_offset = g_innerPolyVB.offset
 	o.ib_offset = g_innerPolyIB.offset
+	
 	local x = 0
 	local y = 0
-	for _, v in pairs({...}) do
-		local nv = 0
-		local nvc = 0
-		local vv = v.vertices or v
-		for i = 1, #vv  do
-			local w = vv[i]
-			if (w == 1) then
-				--CAddConvexPolyIndex(g_innerPolyIB, APPEND, 1, o.vtx_count, nv)
-				o.idx_count = o.idx_count + CAddPolyIndex(1, g_innerPolyVB, 
-					o.vb_offset + SIZE_FLOAT3 * o.vtx_count, nv, g_innerPolyIB, APPEND, o.vtx_count)
-				o.vtx_count = o.vtx_count + nv
-				nvc = nvc + nv
-				nv = 0
-			else
-				nv = nv + 1
-				CAddFloat3(g_innerPolyVB, APPEND, 1, w[1], w[2], Z_2D)
-				if (w[1] < x) then
-					x = w[1]
-				elseif (w[1] > o.w) then
-					o.w = w[1]
+	local nv = 0
+	local nvc = 0
+	local w = {...}
+	for _, t in pairs(w) do
+		--t[#t].color = Color(150, 150, 150, 255)
+		for i = 1, #t do
+			x, y, nv, nvc = AddPolyVertex2D(o, t[i], x, y, nv, nvc)
+		end
+		nv = WritePolyIndex2D(o, nv)
+		if (t.AA) then
+			local aa = PolyAntiAlias(t, 2, 5)
+			for _, t in pairs(aa) do
+				--t[#t].color = Color(255, 150, 150, 255)
+				for _, v in pairs(t) do
+					x, y, nv, nvc = AddPolyVertex2D(o, v, x, y, nv, nvc)
 				end
-				if (w[2] < y) then
-					y = w[2]
-				elseif (w[2] > o.h) then
-					o.h = w[2]
-				end
+				nv = WritePolyIndex2D(o, nv)
 			end
 		end
-		if (nv > 0) then
-			o.idx_count = o.idx_count + CAddPolyIndex(1, g_innerPolyVB, 
-				o.vb_offset + SIZE_FLOAT3 * o.vtx_count, nv, g_innerPolyIB, APPEND, o.vtx_count)
-			o.vtx_count = o.vtx_count + nv
-			nvc = nvc + nv
-		end
-		table.insert(o.colors, {nvc, v.color or Color(150, 150, 150, 255)})
+	end
+	if (nvc > 0) then
+		table.insert(o.colors, {nvc, Color(150, 150, 150, 255)})
 	end
 	if (x < 0 or y < 0) then
 		if (x < 0) then
@@ -77,24 +91,36 @@ function AddPoly2D(...)
 	return o
 end
 
-g_iconFolder = AddPoly2D({{5, 0}, {50, 0}, {55, 5},
-						{110, 5}, {110, 10}, {0, 10}, {0, 5}, 1,
-						{0, 12}, {110, 12}, {110, 62}, {0, 62}})
+g_iconFolder = AddPoly2D({ {5, 0}, {50, 0}, {55, 5},
+						{110, 5}, {110, 10}, {0, 10}, {0, 5} },
+						{ {0, 12}, {110, 12}, {110, 62}, {0, 62} })
 
 local v = 10
 local w = v * v
-g_iconFold = AddPoly2D({{0, 0}, {math.sqrt(w - math.sqrt(2 * w) / 2), math.sqrt(2 * w) / 2}, {0, math.sqrt(2 * w)}})
-g_iconExpand = AddPoly2D({{0, v}, {v, 0}, {v, v}})
+g_iconFold = AddPoly2D({ {0, 0}, {math.sqrt(w - math.sqrt(2 * w) / 2), math.sqrt(2 * w) / 2}, {0, math.sqrt(2 * w)} })
+g_iconExpand = AddPoly2D({ {0, v}, {v, 0}, {v, v} })
 
 local nn = DrawLines(10, false, {200, 10}, {150, 100}, {10, 200})
+--local nn = DrawLines(10, true, {100, 100}, {100, 200}, {200, 200}, {200, 100})
+nn[#nn].color = Color(150, 150, 150, 255)
+
+--local nn2 = DrawOutLine(nn, 10, 2)
+--nn2[#nn2 / 2 - 1].color = Color(150, 150, 150, 255)
+--nn2[#nn2 - 1].color = Color(150, 150, 150, 255)
+--nn2[#nn2].color = Color(150, 150, 150, 0)
 
 --g_iconLine = AddPoly2D({vertices = DrawLines(10, false, {10, 10}, {100, 100}, {10, 190})})
 --g_iconLine = AddPoly2D({vertices = DrawLines(10, false, {10, 10}, {100, 100}, {200, 110}, {100, 200})})
-g_iconLine = AddPoly2D({vertices = nn}, {vertices = DrawOutLine(nn, 2, 0), color = Color(150, 150, 150, 50)})
+--g_iconLine = AddPoly2D(nn, nn2)
 --g_iconLine = AddPoly2D({vertices = DrawLines(10, false, {100, 10}, {100, 100}, {10, 100})})
 --g_iconLine = AddPoly2D({vertices = DrawLines(10, false, {100, 10}, {100, 100}, {200, 100})})
 
 --g_iconLine = AddPoly2D({vertices = DrawLines(10, true, {10, 10}, {100, 10}, {100, 100})})
+
+v = DrawLines(10, true, {100, 100}, {200, 100}, {150, 200})
+v.AA = true
+BakePolyNormals2D(v)
+g_iconLine = AddPoly2D(v)
 
 -- TargetViewDescs = {view1 = {samples = 1, format = FORMAT}}
 
