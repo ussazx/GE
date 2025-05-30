@@ -374,14 +374,14 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, size_t vnum, BufferWriter<
 		stack.top()[i] = i;
 
 	size_t count = 0;
-	bool popped = true;
+	bool pushed = true;
 	while (true)
 	{
-		if (!popped)
+		if (!pushed)
 			stack.pop();
 		if (stack.empty())
 			break;
-		popped = false;
+		pushed = false;
 
 		ibw.SkipUsed();
 		std::vector<uint1>& vtx_seq = stack.top();
@@ -466,7 +466,6 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, size_t vnum, BufferWriter<
 
 		std::vector<uint1> vtemp = stack.top();
 		stack.pop();
-		popped = true;
 
 		stack.emplace(std::vector<uint1>());
 		std::vector<uint1>& vtx_seq0 = stack.top();
@@ -490,6 +489,7 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, size_t vnum, BufferWriter<
 			if (i == i0)
 				break;
 		}
+		pushed = true;
 	}
 	return count;
 }
