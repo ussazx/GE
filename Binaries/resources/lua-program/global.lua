@@ -147,6 +147,10 @@ local v = DrawLines(5, false, false, {0, 0}, {100, 0}, {50, 100}, {366, 210}, {5
 v.AA = true
 g_iconLine = AddPoly2D(v)
 
+--local c = DrawLines(5, false, true, MakeCircle(0, 0, 100))
+--c.AA = true
+--g_iconLine = AddPoly2D(c)
+
 --local nn2 = DrawOutLine(nn, 10, 2)
 --nn2[#nn2 / 2 - 1].color = Color(150, 150, 150, 255)
 --nn2[#nn2 - 1].color = Color(150, 150, 150, 255)
