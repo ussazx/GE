@@ -1513,6 +1513,8 @@ UiPolyIcon = class(UiButtonBase)
 UiPolyIcon.cpuClip = false
 UiPolyIcon.cached = false
 UiPolyIcon.drawClipRect = true
+UiPolyIcon.funcSetColors = {}
+UiPolyIcon.CAddUByte4 = CAddUByte4
 
 function UiPolyIcon:ctor(iconPoly, stretch, w, h)
 	self.poly = iconPoly
@@ -1528,6 +1530,25 @@ function UiPolyIcon:ctor(iconPoly, stretch, w, h)
 		self:SetSize(iconPoly.w, iconPoly.h)
 	end
 	self.crColor:set(0, 0, 0, 0)
+	
+	local SetColors = UiPolyIcon.funcSetColors[iconPoly]
+	if (SetColors) then
+		self.SetColors = SetColors
+		return
+	end
+	
+	SetColors = 'local c, o, aa '
+	for k, v in pairs(self.poly.colors) do
+		SetColors = SetColors .. 'o = oldColors[' .. k .. '] '
+		SetColors = SetColors .. 'c = newColors[' .. k .. '] or o '
+		SetColors = SetColors .. 'CAddUByte4(vbColor, wpColor + o.wp, o.nvc, c.r, c.g, c.b, c.a) '
+		for k, _ in pairs(v.aa) do
+			SetColors = SetColors .. 'aa = o.aa[' .. k .. '] '
+			SetColors = SetColors .. 'CAddUByte4(vbColor, wpColor + o.wp + aa[1], aa[2], c.r, c.g, c.b, 0) '
+		end
+	end
+	self.SetColors = load(SetColors, '', 't', UiPolyIcon)
+	UiPolyIcon.funcSetColors[iconPoly] = self.SetColors
 end
 
 function UiPolyIcon:OnDefault()
@@ -1581,13 +1602,12 @@ function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 		CMoveFloat3(g_innerPolyVB, self.poly.vb_offset, n, self.location.x, self.location.y, 0, vbPos, wpPos)
 	end
 	CAddFloat3(vbUVW, wpUVW, n, self.font.pixels, 0, 0)
-	for k, v in pairs(self.poly.colors) do
-		if (k > 1) then
-			wpColor = APPEND
-		end
-		local c = self.colors[k] or v[2]
-		CAddUByte4(vbColor, wpColor, v[1], c.r, c.g, c.b, c.a)
-	end
+	
+	UiPolyIcon.oldColors = self.poly.colors
+	UiPolyIcon.newColors = self.colors
+	UiPolyIcon.vbColor = vbColor
+	UiPolyIcon.wpColor = wpColor
+	self.SetColors()
 	return n
 end
 

@@ -177,7 +177,8 @@ function NewWindow_LoadProj()
 	--w:AddChild(UiText('abcdef'), 100, 0)
 	--w:AddChild(UiText('abcdef'), 200, 0)
 	
-	w:AddChild(UiPolyIcon(g_iconLine))
+	--w:AddChild(UiPolyIcon(g_iconLine), 200, 200)
+	w:AddChild(UiPolyIcon(g_iconMagnifier), 200, 100)
 	
 	w.OnLeftDown = WindowOnLeftDown
 	--w:bind_event(EVT.LEFT_DOWN, w, w.OnLeftDown)

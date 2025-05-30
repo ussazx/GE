@@ -128,6 +128,11 @@ function Window:on_idle(t, onTimer, show)
 		self.idleText:SetText(self.idle_cost..'')
 	end
 	
+	if (g_gcStopped) then
+		collectgarbage('restart')
+		g_gcStopped = false
+	end
+	
 	self:Show(show)
 	self:render()
 
@@ -135,6 +140,11 @@ function Window:on_idle(t, onTimer, show)
 end
 
 function Window:resize(w, h)
+	if (not g_gcStopped) then
+		collectgarbage('stop')
+		g_gcStopped = true
+	end
+
 	local render = w <= self.rect.w and h <= self.rect.h
 	cGI:DeviceWaitIdle()
 	self:SetSize(w, h)
