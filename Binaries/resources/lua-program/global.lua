@@ -83,7 +83,7 @@ function AddPoly2D(...)
 		cwp = cwp + nv
 		nv = WritePolyIndex2D(o, nv, replaces)
 		if (t.AA) then
-			local aa = PolyAntiAlias(t, 1, 0)
+			local aa = DrawPolyOutline(t, 1, 0)
 			for _, t in pairs(aa) do
 				for i = 1, #t do
 					replaces, x, y, nv, nvc = AddPolyVertex2D(o, t, i, x, y, nv, nvc)
@@ -137,17 +137,17 @@ g_iconFold = AddPoly2D({ {0, 0}, {math.sqrt(w - math.sqrt(2 * w) / 2), math.sqrt
 g_iconExpand = AddPoly2D({ {0, v}, {v, 0}, {v, v}, AA = true })
 
 local r = 8
-local m = DrawLines(3, false, true, MakeCircle(0, 0, r, 16))
+local m = DrawLine(3, false, true, MakeCircle(0, 0, r, 16))
 m.AA = true
-local h = DrawLines(4, true, false, {r + r - 4, r + r - 4}, {r + 15, r + 15})
+local h = DrawLine(4, true, false, {r + r - 4, r + r - 4}, {r + 15, r + 15})
 h.AA = true
 g_iconMagnifier = AddPoly2D(m, h)
 
-local v = DrawLines(5, false, false, {0, 0}, {100, 0}, {50, 100}, {366, 210}, {500, 710})
+local v = DrawLine(5, false, false, {0, 0}, {100, 0}, {50, 100}, {366, 210}, {500, 710})
 v.AA = true
 g_iconLine = AddPoly2D(v)
 
---local c = DrawLines(5, false, true, MakeCircle(0, 0, 100))
+--local c = DrawLine(5, false, true, MakeCircle(0, 0, 100))
 --c.AA = true
 --g_iconLine = AddPoly2D(c)
 
