@@ -77,7 +77,7 @@ function OnCreateProj()
 end
 
 function LoadProject()
-	LoadAssets(path)
+	--LoadAssets(g_projPath)
 end
 
 function LoadAssets(path)
@@ -124,7 +124,6 @@ function NewWindow_CreateProj()
 	layout:AddChild(ww, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
 	
 	local t = UiTreeList()
-	--t.color:set(200, 200, 200, 100)
 	local n = t:AddNode(nil, g_iconFolder, 'main')
 	n = t:AddNode(n, g_iconFolder, 'sub')
 	t:AddNode(n, g_iconFolder, 'sub111111111111111')
