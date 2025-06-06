@@ -96,7 +96,7 @@ function LoadAssets(path)
 		local name = f:GetName()
 		if (f:IsDirectory()) then
 			if (name:ch(0) ~= '.') then
-				LoadProject(path .. '\\' .. name)
+				LoadAssets(path .. '\\' .. name)
 			end
 		elseif (name:rfind('.xasset') ~= -1) then
 			CLoadAsset(path .. '\\' .. name)
