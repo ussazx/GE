@@ -110,6 +110,7 @@ end
 function NewWindow_CreateProj()
 	local w = Window()
 	w.name = 'create'
+	w.color:set(70, 70, 70, 255)
 	
 	local layout = VSizerLayout()
 	w:AddChild(layout)
@@ -119,7 +120,7 @@ function NewWindow_CreateProj()
 	layout:AddChild(b, nil, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 0, 10, 10)
 	
 	local ww = UiWidget()
-	ww.color:set(150, 150, 150, 100)
+	ww.color:set(40, 40, 40, 255)
 	layout:AddChild(ww, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
 	
 	local t = UiTreeList()
@@ -128,37 +129,64 @@ function NewWindow_CreateProj()
 	n = t:AddNode(n, g_iconFolder, 'sub')
 	t:AddNode(n, g_iconFolder, 'sub111111111111111')
 	
-	local vs = HSizerLayout()
+	local cp = ContentPanel()
+	layout:AddChild(cp, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 0, 10)
+	
+	cp:ScanDirectory()
+	
+	--local vs = HSizerLayout()
 	--local w0 = UiWidget(200, 100)
 	--w0.color:set(150, 150, 150, 100)
-	local w1 = UiWidget(200, 100)
-	w1.color:set(150, 150, 150, 100)
-	local w2 = UiWidget(200, 100)
-	w2.color:set(150, 150, 150, 100)
-	vs:AddChild(t, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
-	vs:AddChild(w1, nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
-	vs:AddChild(w2, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
-	layout:AddChild(vs, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	--local w1 = UiWidget(200, 100)
+	--w1.color:set(40, 40, 40, 255)
+	--local w2 = UiWidget(200, 100)
+	-- w2.color:set(40, 40, 40, 255)
+	-- vs:AddChild(t, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	-- vs:AddChild(w1, nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	-- vs:AddChild(w2, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	-- layout:AddChild(vs, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	
 	return w
 end
 
-ContentPanel = class(UiWidget)
+ContentPanel = class(HSizerLayout)
 
 function ContentPanel:ctor()
-	local layout = HSizerLayout()
-	self:AddChild(layout)
-	
 	self.list = UiTreeList()
-	layout:AddChild(self.list, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	self:AddChild(UiScrollPanel(self.list), 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	
-	self.grid = UiGridLayout()
-	layout:AddChild(self.grid, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	local mag = UiPolyIcon(g_iconMagnifier)
+	self.searcher = UiTextInput(0, uiFont.fontSize)
+	local h = HBoxLayout()
+	h:AddChild(mag, nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT, 5, 5)
+	h:AddChild(self.searcher, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT)
+	h:SetSize()
+	
+	local bkg = UiWidget()
+	bkg.gpuClip = true
+	bkg:SetSize(0, h.rect.h + 8)
+	bkg.color:copy(self.searcher.crColor)
+	bkg:AddChild(h)
+	
+	local v = VBoxLayout()
+	v:AddChild(bkg, nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT)
+	
+	self.grid = GridLayout()
+	v:AddChild(UiScrollPanel(self.grid), 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 0, 8, 0)
+	
+	self:AddChild(v, 3, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+end
+
+function ContentPanel:ScanDirectory(d)
+	local n = self.list:AddNode(nil, g_iconFolder, 'main')
+	n = self.list:AddNode(n, g_iconFolder, 'sub')
+	self.list:AddNode(n, g_iconFolder, 'sub111111111111111')
 end
 
 function NewWindow_LoadProj()
 	local w = Window()
 	w.name = 'load'
+	w.color:set(40, 40, 40, 255)
 	--t0:bind_event(EVT.TIMER, t0, t0.Func)
 	--t1:bind_event(EVT.TIMER, t1, t1.Func)
 	--t0:Start(w, 300, true)
@@ -166,7 +194,7 @@ function NewWindow_LoadProj()
 	
 	--VLayoutTest(w)
 	--HLayoutTest(w)
-	--GridLayoutTest(w)
+	GridLayoutTest(w)
 	--w:AddChild(UiWidget(150, 130), 0, 0)
 	--w:AddChild(UiWidget(150, 130), 200, 0)
 	
@@ -177,7 +205,7 @@ function NewWindow_LoadProj()
 	--w:AddChild(UiText('abcdef'), 100, 0)
 	--w:AddChild(UiText('abcdef'), 200, 0)
 	
-	w:AddChild(UiPolyIcon(g_iconLine), 200, 200)
+	--w:AddChild(UiPolyIcon(g_iconLine), 200, 200)
 	--w:AddChild(UiPolyIcon(g_iconMagnifier), 200, 100)
 	
 	w.OnLeftDown = WindowOnLeftDown

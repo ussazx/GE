@@ -55,7 +55,7 @@ local function WritePolyIndex2D(o, nv, replaces)
 	return 0
 end
 
-function AddPoly2D(...)
+function AddPoly2D(antiAlias, ...)
 	local o = {colors = {}, aa = {}, w = 0, h = 0, vtx_count = 0, idx_count = 0}
 	o.vb_offset = g_innerPolyVB.offset
 	o.ib_offset = g_innerPolyIB.offset
@@ -70,19 +70,19 @@ function AddPoly2D(...)
 	local cwp = 0
 	color.aa = {}
 	for _, t in pairs({...}) do
-		if (t.AA and not t.has_normal) then
+		if (antiAlias and not t.has_normal) then
 			BakePolyNormals2D(t)
 		end
 		for i = 1, #t do
 			local v = t[i]
-			if (t.AA and (not v.combined or v.combined[1] == i)) then
+			if (antiAlias and (not v.combined or v.combined[1] == i)) then
 				v[1], v[2] = v[1] - v.normal[1], v[2] - v.normal[2]
 			end
 			replaces, x, y, nv, nvc = AddPolyVertex2D(o, t, i, x, y, nv, nvc)
 		end
 		cwp = cwp + nv
 		nv = WritePolyIndex2D(o, nv, replaces)
-		if (t.AA) then
+		if (antiAlias) then
 			local aa = DrawPolyOutline(t, 1, 0)
 			for _, t in pairs(aa) do
 				for i = 1, #t do
@@ -127,25 +127,19 @@ function AddPoly2D(...)
 	return o
 end
 
-g_iconFolder = AddPoly2D({ {5, 0}, {50, 0}, {55, 5},
-						{110, 5}, {110, 10}, {0, 10}, {0, 5}, AA = true },
-						{ {0, 12}, {110, 12}, {110, 62}, {0, 62}, AA = true })
-
+g_iconFolder = AddPoly2D(true, { {5, 0}, {50, 0}, {55, 5},
+						{110, 5}, {110, 10}, {0, 10}, {0, 5} },
+						{ {0, 12}, {110, 12}, {110, 62}, {0, 62} })
 local v = 10
 local w = v * v
-g_iconFold = AddPoly2D({ {0, 0}, {math.sqrt(w - math.sqrt(2 * w) / 2), math.sqrt(2 * w) / 2}, {0, math.sqrt(2 * w)}, AA = true })
-g_iconExpand = AddPoly2D({ {0, v}, {v, 0}, {v, v}, AA = true })
+g_iconFold = AddPoly2D(true, { {0, 0}, {math.sqrt(w - math.sqrt(2 * w) / 2), math.sqrt(2 * w) / 2}, {0, math.sqrt(2 * w)}, AA = true })
+g_iconExpand = AddPoly2D(true, { {0, v}, {v, 0}, {v, v} })
 
 local r = 8
-local m = DrawLine(3, false, true, MakeCircle(0, 0, r, 16))
-m.AA = true
-local h = DrawLine(4, true, false, {r + r - 4, r + r - 4}, {r + 15, r + 15})
-h.AA = true
-g_iconMagnifier = AddPoly2D(m, h)
+g_iconMagnifier = AddPoly2D(true, DrawLine(3, false, true, MakeCircle(0, 0, r, 16)), 
+	DrawLine(4, true, false, {r + r - 4, r + r - 4}, {r + 15, r + 15}))
 
-local v = DrawLine(5, false, false, {0, 0}, {100, 0}, {50, 100}, {366, 210}, {500, 710})
-v.AA = true
-g_iconLine = AddPoly2D(v)
+g_iconLine = AddPoly2D(true, DrawLine(5, false, false, {0, 0}, {100, 0}, {50, 100}, {366, 210}, {500, 710}))
 
 --local c = DrawLine(5, false, true, MakeCircle(0, 0, 100))
 --c.AA = true

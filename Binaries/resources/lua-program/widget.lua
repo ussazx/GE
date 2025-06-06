@@ -549,10 +549,10 @@ local function SizerLayout_AddChild(layout, w, ...)
 	local sizer
 	local align
 	if (layout.vertical) then
-		sizer = UiButton(0, 5)
+		sizer = UiButton(0, layout.sizerWidth)
 		align = Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT
 	else
-		sizer = UiButton(5, 0)
+		sizer = UiButton(layout.sizerWidth, 0)
 		align = Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM
 	end
 	sizer:SetDefaultColor(0, 0, 0, 0)
@@ -602,6 +602,7 @@ VSizerLayout.AddChild = SizerLayout_AddChild
 VSizerLayout.GetLen = SizerLayout_GetVLen
 VSizerLayout.SetLen = SizerLayout_SetVLen
 VSizerLayout.cursor = SYS.CURSOR_SIZENS
+VSizerLayout.sizerWidth = 7
 
 HSizerLayout = class(HBoxLayout)
 HSizerLayout.vertical = false
@@ -611,6 +612,7 @@ HSizerLayout.AddChild = SizerLayout_AddChild
 HSizerLayout.GetLen = SizerLayout_GetHLen
 HSizerLayout.SetLen = SizerLayout_SetHLen
 HSizerLayout.cursor = SYS.CURSOR_SIZEWE
+HSizerLayout.sizerWidth = 7
 
 -----GridLayout-----
 GridLayout = class(Layout)
@@ -831,7 +833,7 @@ UiButton = class(UiButtonBase)
 
 function UiButton:ctor(w, h, s, font)
 	self.rect:set(0, 0, w, h)
-	self.color0 = Color(70, 70, 70, 255)
+	self.color0 = Color(50, 50, 50, 255)
 	self.color1 = Color(100, 100, 100, 255)
 	self.color2 = Color(150, 150, 150, 255)
 	self.color = self.color0
@@ -934,7 +936,7 @@ end
 function UiTextInput:ctor(w, h, font)
 	self.rect:set(0, 0, w, h)
 	
-	self.crColor:set(100, 100, 100, 100)
+	self.crColor:set(80, 80, 80, 255)
 	self.selectedColor = Color(0, 130, 255, 100)
 	
 	self.caret = UiWidget(1, self.rect.h)
@@ -1447,11 +1449,12 @@ end
 -----UiScrollPanel-----
 UiScrollPanel = class(UiWidget)
 UiScrollPanel.barWidth = 12
-UiScrollPanel.drawSelf = false
 
-function UiScrollPanel:ctor(w, h)
+function UiScrollPanel:ctor(widget, w, h)
 	self:SetSize(w, h)
 	self:bind_event(EVT.MOUSEWHEEL, self, UiScrollPanel.OnMouseWheel)
+	
+	self.color:set(40, 40, 40, 255)
 	
 	local vLayout = VBoxLayout()
 	self:AddChild(vLayout)
@@ -1460,7 +1463,7 @@ function UiScrollPanel:ctor(w, h)
 	vLayout:AddChild(hLayout, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	
 	self.pane = UiWidget()
-	self.pane.color:set(0, 0, 0, 0)
+	self.pane.drawSelf = false
 	self.pane.gpuClip = true
 	hLayout:AddChild(self.pane, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	
@@ -1473,6 +1476,10 @@ function UiScrollPanel:ctor(w, h)
 	self.hScrollBar:bind_event(UiSlideBar.EVT_SLIDE, self, UiScrollPanel.OnHScroll)
 	self.hScrollBar:Show(false)
 	vLayout:AddChild(self.hScrollBar, nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, UiScrollPanel.barWidth, 0, 0)
+	
+	if (widget) then
+		self:SetWidget(widget)
+	end
 	
 	self:SetSize()
 end
@@ -1527,7 +1534,7 @@ function UiPolyIcon:ctor(iconPoly, stretch, w, h)
 		self.mat3d = CMatrix3D()
 		self:SetSize(w, h)
 	else
-		self:SetSize(iconPoly.w, iconPoly.h)
+		self:SetSize(math.ceil(iconPoly.w), math.ceil(iconPoly.h))
 	end
 	self.crColor:set(0, 0, 0, 0)
 	
@@ -1727,18 +1734,14 @@ function Selector:ClearSelection(ignore, notify)
 end
 
 -----UiTreeList-----
-UiTreeList = class(UiScrollPanel)
+UiTreeList = class(VBoxLayout)
 UiTreeList.EVT_MOUSE_NODE = {}
 UiTreeList.SEL_MULTIPLE = true
 
-function UiTreeList:ctor(w, h)
-	self:SetSize(w, h)
-	
+function UiTreeList:ctor()
 	self.selector = Selector()
-	
-	self.list = VBoxLayout()
-	self.list:bind_event(EVT.SIZE, self, UiTreeList.OnListSized)
-	self:SetWidget(self.list)
+
+	self:bind_event(EVT.SIZE, self, UiTreeList.OnListSized)
 	
 	self.nodes = {}
 end
@@ -1755,7 +1758,7 @@ function UiTreeList:AddNode(nodeId, icon, text)
 		node.superior = superior
 		node.indent = superior.indent + 17
 	else
-		self.list:AddChild(node, nil, Layout.ALIGN_LEFT)
+		self:AddChild(node, nil, Layout.ALIGN_LEFT)
 		node.indent = 0
 	end
 	node.fold = true
@@ -1831,7 +1834,7 @@ function UiTreeList:RemoveNode(id)
 				superior.spacer:Show(true)
 			end
 		else
-			self.list:RemoveChild(node)
+			self:RemoveChild(node)
 		end
 		self.selector:Remove(node.item.hightLight)
 		self.nodes[id] = nil
@@ -1839,9 +1842,9 @@ function UiTreeList:RemoveNode(id)
 end
 
 function UiTreeList:OnListSized(e, w, h, list)
-	list = list or self.list
+	list = list or self
 	for node in list.children:pairs() do
-		node.item.hightLight:SetSize(self.list.rect.w, node.item.box.rect.h)
+		node.item.hightLight:SetSize(self.rect.w, node.item.box.rect.h)
 		UiTreeList.OnListSized(self, e, w, h, node.list)
 	end
 end

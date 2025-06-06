@@ -3,7 +3,7 @@ require 'event'
 require 'widget'
 require 'global'
 
-Window = class(Widget2D)
+Window = class(UiWidget)
 Window.acceptFocus = true
 Window.cursor = SYS.CURSOR_ARROW
 Window.recycle = true
@@ -140,17 +140,18 @@ function Window:on_idle(t, onTimer, show)
 end
 
 function Window:resize(w, h)
-	if (not g_gcStopped) then
-		collectgarbage('stop')
-		g_gcStopped = true
-	end
-
 	local render = w <= self.rect.w and h <= self.rect.h
-	cGI:DeviceWaitIdle()
 	self:SetSize(w, h)
 	if (w < 1 or h < 1) then
 		return
 	end
+	
+	cGI:DeviceWaitIdle()
+	if (not g_gcStopped) then
+		collectgarbage('stop')
+		g_gcStopped = true
+	end
+	
 	self.cbWnd:Set(1, self.rect.w, self.rect.h, 1)
 	self.sizegroup:resize(w, h)
 	

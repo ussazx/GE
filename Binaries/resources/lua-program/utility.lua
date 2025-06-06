@@ -144,9 +144,9 @@ end
 
 function Color:copy(color)
 	self.r = color.r or self.r
-	self.g = color.r or self.g
-	self.b = color.r or self.b
-	self.a = color.r or self.a
+	self.g = color.g or self.g
+	self.b = color.b or self.b
+	self.a = color.a or self.a
 end
 
 function Color:diff(color)
