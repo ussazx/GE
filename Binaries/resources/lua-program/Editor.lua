@@ -213,16 +213,28 @@ function NewWindow_LoadProj()
 	return w
 end
 
+local function PaneWindow()
+	local w = Window()
+	w.color:set(70, 70, 70, 255)
+	return w
+end
+
 function LoadEntrance()
 	cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
 	cEntrance:AddPageWindow('new_proj', 'New Project', NewWindow_CreateProj())
 end
 
 function LoadMainFrame()
-	cMainFrame:AddPageWindow('page0', 'page0', Window())
-	cMainFrame:AddPageWindow('page1', 'page1', Window())
-	cMainFrame:AddPageWindow('page2', 'page2', Window())
-	cMainFrame:AddPageWindow('panel', 'page3', Window())
+	cMainFrame:AddPageWindow('page0', 'page0', PaneWindow())
+	local w = PaneWindow()
+	local layout = VBoxLayout()
+	w:AddChild(layout)
+	local cp = ContentPanel()
+	cp:ScanDirectory()
+	layout:AddChild(cp, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	cMainFrame:AddPageWindow('page1', 'page1', w)
+	cMainFrame:AddPageWindow('page2', 'page2', PaneWindow())
+	cMainFrame:AddPageWindow('panel', 'page3', PaneWindow())
 end
 
 function AppCleanUp()

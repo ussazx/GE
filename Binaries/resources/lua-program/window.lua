@@ -89,6 +89,7 @@ function Window:init(t, hwnd, w, h)
 	--cParamFrameBuffer:AddView(self.scTargetView, 0)
 	cParamFrameBuffer:AddView(self.idTargetView, 0)
 	self.frameBuffer = cGI:NewFrameBuffer(g_rp0, cParamFrameBuffer, w, h)
+	self.frameBuffer.rp = g_rp0
 	
 	self.frameBuffer:ClearSwapchain(0.15, 0.15, 0.15, 0.2)
 	self.frameBuffer:ClearViewUint4(0, self.id, 0, 0, 0)
@@ -105,12 +106,11 @@ function Window:init(t, hwnd, w, h)
 	self.sizegroup:add_rtv(self.idTexture, true)
 	
 	self.fp = FramePipeline()
-	local fpParam0 = {spId = SubpassId(g_rp0, 0), surface = self}
-	local fpParam1 = {spId = SubpassId(g_rp0, 1), surface = self}
+	local fpParam = {surface = self}
 	self.copyParam = {srcView = self.idTargetView, srcLayer = 0, src_x = 0, src_y = 0,
 					dstView = self.idTexture, dstLayer = 0, dst_x = 0, dst_y = 0, 
 					numLayers = 1, w = self.rect.w, h = self.rect.h}
-	self.fp:AddFrameOutput(self.frameBuffer, fpParam0, fpParam1)
+	self.fp:AddFrameOutput(self.frameBuffer, fpParam, fpParam)
 	self.fp:AddCopyImage(self.copyParam)
 	self.fp:Bake()
 	

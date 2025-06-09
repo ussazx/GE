@@ -207,6 +207,8 @@ cParamRenderPass:AddViewOutput(0, 1, false, 0)
 -- cParamRenderPass:AddViewOutput(1, 1, false, 0)
 
 g_rp0 = cGI:NewRenderPass(cParamRenderPass)
+g_rp0[1] = SubpassId(g_rp0, 1)
+g_rp0[2] = SubpassId(g_rp0, 2)
 
 --resource layout
 cParamResourceLayout:Reset()
@@ -246,21 +248,21 @@ g_mtlUi.slot[1] = 1
 g_mtlUi.slot[2] = 2
 g_mtlUi.slot[4] = 3
 g_mtlUi.insSlot = {}
-g_mtlUi.insSlot[SubpassId(g_rp0, 0)] = 1
-g_mtlUi.insSlot[SubpassId(g_rp0, 1)] = 2
+g_mtlUi.insSlot[g_rp0[1]] = 1
+g_mtlUi.insSlot[g_rp0[2]] = 2
 
 uiFont.res = ResourceSetNew(g_rl1)
 uiFont.res:BindTexelView(uiFont.view)
 
 g_mtlUi.func = {}
 
-g_mtlUi.func[SubpassId(g_rp0, 0)] = function(dcList)
+g_mtlUi.func[g_rp0[1]] = function(dcList)
 	dcList:AddResourceSet(ui_resourceSet)
 	dcList:AddResourceSet(uiFont.res)
 	dcList:SetPipeline(g_plUi, g_mtlUi.vtxLayout, 0)
 end
 
-g_mtlUi.func[SubpassId(g_rp0, 1)] = function(dcList)
+g_mtlUi.func[g_rp0[2]] = function(dcList)
 	dcList:AddResourceSet(ui_resourceSet)  
 	dcList:SetPipeline(g_plId2D, g_mtlUi.vtxLayout, 0)
 	dcList:SetInsVB(g_idVbSet, 3)

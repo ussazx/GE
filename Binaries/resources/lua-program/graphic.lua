@@ -569,7 +569,8 @@ function FramePipeline:AddCopyImage(params)
 end
 
 function FramePipeline:UpdateSurface(input)
-	for surface, dcLists in pairs(self.foParams) do
+	for param, dcLists in pairs(self.foParams) do
+		local surface = param.surface
 		DrawcallList.vp = surface.rect
 		DrawcallList.cr = surface.rect
 		
@@ -596,16 +597,17 @@ function FramePipeline:Bake()
 		if (c.type == 0) then
 			code = code .. 'cmd:RenderBegin(c.fb, false)\n'
 			
-			for k, param in pairs(c.params) do				
-				code = code .. 'c.dcLists['..k..']:SetupDrawcalls(cmd)\n'
+			for k, param in pairs(c.params) do
+				local spId = c.fb.rp[k]
+				code = code .. 'c.dcLists['..spId..']:SetupDrawcalls(cmd)\n'
 				if (k ~= #c.params) then
 					code = code..'cmd:NextSubpass(false)\n'
 				end
 				
-				c.dcLists[k] = c.dcLists[k] or DrawcallList()
-				local dcLists = self.foParams[param.surface] or {}
-				dcLists[param.spId] = c.dcLists[k]
-				self.foParams[param.surface] = dcLists
+				c.dcLists[spId] = c.dcLists[spId] or DrawcallList()
+				local dcLists = self.foParams[param] or {}
+				dcLists[spId] = c.dcLists[spId]
+				self.foParams[param] = dcLists
 			end
 			code = code..'cmd:RenderEnd()\n'
 		elseif (c.type == 1) then

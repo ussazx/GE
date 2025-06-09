@@ -183,14 +183,14 @@ bool MyApp::OnInit()
 	Terminal::Lua().Run("for i = 1, 100000 do c:f() end");
 	DebugLog(L"%d", GetTickCount() - t);
 
-	Entrance en(nullptr, "");
-	Terminal::Lua().SetValue("cEntrance", Lua_set_cobj(&en));
-	Terminal::Lua().GetValue("LoadEntrance", LuaCall());
+	//Entrance en(nullptr, "");
+	//Terminal::Lua().SetValue("cEntrance", Lua_set_cobj(&en));
+	//Terminal::Lua().GetValue("LoadEntrance", LuaCall());
 
-	assert(Terminal::Lua().GetTop() == 0);
-	
-	if (en.ShowModal() != wxID_OK)
-		return false;
+	//assert(Terminal::Lua().GetTop() == 0);
+	//
+	//if (en.ShowModal() != wxID_OK)
+	//	return false;
 
 	Terminal::Lua().GetValue("LoadProject", LuaCall());
 

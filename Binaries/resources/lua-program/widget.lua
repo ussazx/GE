@@ -681,7 +681,7 @@ function UiWidget:ctor(w, h)
 	self.crNew = Rect()
 	self.crColor = Color()
 	self.color = Color(255, 255, 255, 255)
-	self.renderDisables = {[SubpassId(g_rp0, 1)] = true}
+	self.renderDisables = {[g_rp0[2]] = true}
 	
 	self.mesh = Mesh(self.FillVB, self.FillIB, self, self.cached, 1|2|4)
 	self.mesh:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
