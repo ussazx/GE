@@ -558,19 +558,20 @@ FramePipeline = class()
 
 function FramePipeline:ctor()
 	self.cmdList = {}
+	self.dcLists = {}
+	self.surfaces = {}
 end
 
-function FramePipeline:AddFrameOutput(fb, ...)
-	table.insert(self.cmdList, {type = 0, fb = fb, dcLists = {}, params = {...}})
+function FramePipeline:AddFrameOutput(fb)
+	table.insert(self.cmdList, {type = 0, fb = fb})
 end
 
 function FramePipeline:AddCopyImage(params)
 	table.insert(self.cmdList, {type = 1, params = params})
 end
 
-function FramePipeline:UpdateSurface(input)
-	for param, dcLists in pairs(self.foParams) do
-		local surface = param.surface
+function FramePipeline:UpdateSurface(input, window)
+	for surface, dcLists in pairs(self.foParams) do
 		DrawcallList.vp = surface.rect
 		DrawcallList.cr = surface.rect
 		
@@ -579,6 +580,7 @@ function FramePipeline:UpdateSurface(input)
 		end
 		g_dcLists = dcLists
 		g_input = input
+		surface.window = window
 		surface:Update(nil, surface.rect)
 	end
 end
@@ -588,26 +590,46 @@ function FramePipeline:FillCommand(cmd)
 	self.code()
 end
 
+function FramePipeline:SetSurface(s, spId)
+	if (self.dcLists[spId] and self.surfaces[spId] ~= s) then
+		local o = self.surfaces[spId]
+		self.surfaces[spId] = s
+		if (o) then
+			local remove = true
+			for _, v in pairs(self.surfaces) do
+				if (o == v) then
+					remove = false
+					break
+				end
+			end
+			if (remove) then
+				self.foParams[o] = nil
+			end
+		end
+		
+		o = self.foParams[s] or {}
+		o[spId] = self.dcLists[spId]
+		self.foParams[s] = o
+	end
+end
+
 function FramePipeline:Bake()
 	self.foParams = {}
-
+	
 	local code = 'local c local o\n'
 	for k, c in pairs(self.cmdList) do
 		code = code .. 'c = cmdList[' .. k .. ']\n'
 		if (c.type == 0) then
 			code = code .. 'cmd:RenderBegin(c.fb, false)\n'
 			
-			for k, param in pairs(c.params) do
-				local spId = c.fb.rp[k]
-				code = code .. 'c.dcLists['..spId..']:SetupDrawcalls(cmd)\n'
-				if (k ~= #c.params) then
+			local n = #c.fb.rp
+			for i = 1, n do
+				local spId = c.fb.rp[i]
+				code = code .. 'dcLists['..spId..']:SetupDrawcalls(cmd)\n'
+				if (i ~= n) then
 					code = code..'cmd:NextSubpass(false)\n'
 				end
-				
-				c.dcLists[spId] = c.dcLists[spId] or DrawcallList()
-				local dcLists = self.foParams[param] or {}
-				dcLists[spId] = c.dcLists[spId]
-				self.foParams[param] = dcLists
+				 self.dcLists[spId] = self.dcLists[spId] or DrawcallList()
 			end
 			code = code..'cmd:RenderEnd()\n'
 		elseif (c.type == 1) then

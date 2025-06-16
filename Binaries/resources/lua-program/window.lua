@@ -15,6 +15,8 @@ function Window:ctor()
 	self.sysCaptured = false
 	self.keyDowns = {}
 	
+	self.defaultRQ = {}
+	self.renderQueue = self.defaultRQ
 	self.cmd = Command.NewRenderCmd()
 	 
 	self.cbWnd = ResBuffer(self.cmd, CAddFloat3)
@@ -90,6 +92,8 @@ function Window:init(t, hwnd, w, h)
 	cParamFrameBuffer:AddView(self.idTargetView, 0)
 	self.frameBuffer = cGI:NewFrameBuffer(g_rp0, cParamFrameBuffer, w, h)
 	self.frameBuffer.rp = g_rp0
+	self.frameBuffer.rt = {}
+	self.frameBuffer.rt[1] = self.idTargetView
 	
 	self.frameBuffer:ClearSwapchain(0.15, 0.15, 0.15, 0.2)
 	self.frameBuffer:ClearViewUint4(0, self.id, 0, 0, 0)
@@ -106,13 +110,16 @@ function Window:init(t, hwnd, w, h)
 	self.sizegroup:add_rtv(self.idTexture, true)
 	
 	self.fp = FramePipeline()
-	local fpParam = {surface = self}
 	self.copyParam = {srcView = self.idTargetView, srcLayer = 0, src_x = 0, src_y = 0,
 					dstView = self.idTexture, dstLayer = 0, dst_x = 0, dst_y = 0, 
 					numLayers = 1, w = self.rect.w, h = self.rect.h}
-	self.fp:AddFrameOutput(self.frameBuffer, fpParam, fpParam)
+	self.fp:AddFrameOutput(self.frameBuffer)
 	self.fp:AddCopyImage(self.copyParam)
 	self.fp:Bake()
+	self.fp:SetSurface(self, g_rp0[1])
+	self.fp:SetSurface(self, g_rp0[2])
+	
+	self.renderQueue[1] = self.fp
 	
 	self.update = true
 	
@@ -175,7 +182,7 @@ function Window:render()
 		self.update = true
 		while (self.update) do
 			self.update = false
-			self.fp:UpdateSurface(self.cmd:Reset())
+			self.fp:UpdateSurface(self.cmd:Reset(), self)
 		end
 		self.sized = false
 	end
