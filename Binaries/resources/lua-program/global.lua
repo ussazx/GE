@@ -130,10 +130,14 @@ end
 g_iconFolder = AddPoly2D(true, { {5, 0}, {50, 0}, {55, 5},
 						{110, 5}, {110, 10}, {0, 10}, {0, 5} },
 						{ {0, 12}, {110, 12}, {110, 62}, {0, 62} })
-local v = 10
-local w = v * v
-g_iconFold = AddPoly2D(true, { {0, 0}, {math.sqrt(w - math.sqrt(2 * w) / 2), math.sqrt(2 * w) / 2}, {0, math.sqrt(2 * w)}, AA = true })
-g_iconExpand = AddPoly2D(true, { {0, v}, {v, 0}, {v, v} })
+
+local s = 12
+local h = s / 2
+g_iconArrowHeadL = AddPoly2D(true, { {0, h}, {s, 0}, {s, s} })
+g_iconTriangleR = AddPoly2D(true, { {0, 0}, {s, h}, {0, s} })
+g_iconTriangleU = AddPoly2D(true, { {h, 0}, {s, s}, {0, s} })
+g_iconTriangleD = AddPoly2D(true, { {0, 0}, {s, 0}, {h, s} })
+g_iconTriangleDR = AddPoly2D(true, { {0, s}, {s, 0}, {s, s} })
 
 local r = 8
 g_iconMagnifier = AddPoly2D(true, DrawLine(3, false, true, MakeCircle(0, 0, r, 16)), 

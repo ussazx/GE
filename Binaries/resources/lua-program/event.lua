@@ -17,6 +17,8 @@ EVT.MOVE_IN = new_event()
 EVT.MOVE_OUT = new_event()
 EVT.FOCUS_IN = new_event()
 EVT.FOCUS_OUT = new_event()
+EVT.ACTIVE = new_event()
+EVT.INACTIVE = new_event()
 
 EVT.CHAR = new_event()
 EVT.KEY_DOWN = new_event()

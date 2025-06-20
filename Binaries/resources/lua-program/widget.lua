@@ -20,10 +20,28 @@ function Widget2D:ctor(parent)
 end
 
 function Widget2D:dtor()
-	if (g_actWindow) then
-		g_actWindow:OnWidgetShow(self, show)
+	if (self.window) then
+		self.window:OnWidgetShow(self, show)
 	end
-end	
+end
+
+function Widget2D:EnableActive(flag)
+	local o = self.active
+	if (flag) then
+		self.active = self
+	else
+		self.active = false
+	end
+	if (self.window and o ~= self.active) then
+		self.window.update = true
+	end
+end
+
+function Widget2D:SetActive(flag)
+	if (self.window) then
+		self.window:SetActive(self, flag)
+	end
+end
 
 function Widget2D:AddChild(widget, ...)
 	if (widget.parent) then
@@ -32,6 +50,7 @@ function Widget2D:AddChild(widget, ...)
 		end
 		widget.parent:RemoveChild(widget)
 	end
+	widget.active = widget.active or self.active
 	widget.parent = self
 	widget.window = self.window
 	widget.w_idx = self.children:insert(widget)
@@ -47,11 +66,14 @@ end
 
 function Widget2D:RemoveChild(widget)
 	if (widget.parent == self) then
+		if (widget.active == self) then
+			widget.active = false
+		end
 		widget.parent = nil
 		widget.window = nil
 		self.children:remove_idx(widget.w_idx)
-		if (g_actWindow) then
-			g_actWindow:OnWidgetShow(self, show)
+		if (self.window) then
+			self.window:OnWidgetShow(self, show)
 		end
 		if (self.OnRemoveChild) then
 			self:OnRemoveChild(widget)
@@ -62,8 +84,8 @@ end
 function Widget2D:Show(show)
 	show = show or false
 	if (self.show ~= show) then
-		if (g_actWindow) then
-			g_actWindow:OnWidgetShow(self, show)
+		if (self.window) then
+			self.window:OnWidgetShow(self, show)
 		elseif(self.window) then
 			self.window.update = true
 		end
@@ -76,9 +98,13 @@ function Widget2D:Show(show)
 end
 
 function Widget2D:Update(...)
+	if (self.active) then
+		self.active = self
+	end
 	self.location.x = self.rect.x
 	self.location.y = self.rect.y
 	if (self.parent) then
+		self.active = self.active or self.parent.active
 		self.window = self.parent.window
 		self.location:move(self.parent.location.x, self.parent.location.y)
 		self.moved = self.moved or self.parent.moved
@@ -832,7 +858,6 @@ end
 UiButton = class(UiButtonBase)
 
 function UiButton:ctor(w, h, s, font)
-	self.rect:set(0, 0, w, h)
 	self.color0 = Color(50, 50, 50, 255)
 	self.color1 = Color(100, 100, 100, 255)
 	self.color2 = Color(150, 150, 150, 255)
@@ -842,6 +867,7 @@ function UiButton:ctor(w, h, s, font)
 	self.text = UiText(s, font)
 	self.text.writeId = false
 	self.layout:AddChild(self.text, 1)
+	self:SetSize(w or self.text.rect.w, h or self.text.rect.h)
 end
 
 function UiButton:OnDefault()
@@ -878,7 +904,7 @@ function UiText:ctor(s, font)
 end
 
 function UiText:SetText(s, font)
-	s = s or ''
+	s = s or self.text
 	font = font or uiFont
 	self:Show(s ~= '')
 	if (self.text ~= s or self.font ~= font) then
@@ -1780,7 +1806,7 @@ function UiTreeList:AddNode(nodeId, icon, text)
 	node.title = HBoxLayout()
 	node.item.box:AddChild(node.title, nil, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, node.indent, 0, 1, 2)
 	
-	node.iconFold = UiPolyIcon(g_iconFold, true, 12, 12)
+	node.iconFold = UiPolyIcon(g_iconTriangleR, false)
 	node.iconFold.node = node
 	node.iconFold:SetDefaultColor(1, 150, 150, 150, 255)
 	node.iconFold:SetHoveringColor(1, 200, 200, 200, 255)
@@ -1790,7 +1816,7 @@ function UiTreeList:AddNode(nodeId, icon, text)
 	node.iconFold:bind_event(EVT.LEFT_UP, node.iconFold, node.iconFold.Expand)
 	node.title:AddChild(node.iconFold, nil, Layout.ALIGN_LEFT, 2, 0, 0, 0)
 	
-	node.iconExpand = UiPolyIcon(g_iconExpand, true, 12, 12)
+	node.iconExpand = UiPolyIcon(g_iconTriangleDR, false)
 	node.iconExpand.node = node
 	node.iconExpand:SetDefaultColor(1, 150, 150, 150, 255)
 	node.iconExpand:SetHoveringColor(1, 200, 200, 200, 255)
@@ -1859,4 +1885,98 @@ function UiTreeList.Fold(icon)
 	icon.node.iconExpand:Show(false)
 	icon.node.iconFold:Show(true)
 	icon.node.list:Show(false)
+end
+
+-----UiCombo-----
+UiCombo = class(UiButton)
+UiCombo.width = 150
+UiCombo.height = 28
+UiCombo.maxListWidth = 500
+UiCombo.maxListHeight = 500
+
+function UiCombo:ctor(w, h)
+	w = w or UiCombo.width
+	h = h or UiCombo.height
+	self:SetSize(w, h)
+
+	self.selector = Selector()
+	
+	self.layout:AddChild(self.text, nil, Layout.ALIGN_LEFT, 5)
+	local iconDown = UiPolyIcon(g_iconTriangleD)
+	iconDown:SetDefaultColor(200, 200, 200, 255)
+	iconDown.writeId = false
+	self.layout:AddChild(iconDown, 1, Layout.ALIGN_RIGHT, 0, 5)
+	
+	self:bind_event(EVT.SIZE, self, UiCombo.OnListSized)
+
+	self.box = UiScrollPanel()
+	self.box:Show(false)
+	self.box:EnableActive(true)
+	self.box:bind_event(EVT.INACTIVE, self.box, UiCombo.OnBoxInactive)
+	
+	self.list = VBoxLayout()
+	self.box:AddChild(self.list)
+	
+	if (UiCombo.maxListWidth < w) then
+		self.maxListWidth = w
+	end
+end
+
+function UiCombo:SetDefault(index)
+	local item = self.list.children[index]
+	if (item) then
+		self:SetText(item.text)
+		self.selector:Select(item.hightLight, true, true)
+	end
+end
+
+function UiCombo:OnLeftUp()
+	if (#self.list > 0 and self.window) then
+		self.window:AddChild(self.box)
+		self.box:SetActive(true)
+	end
+end
+
+function UiCombo:OnBoxInactive()
+	if (self.window) then
+		self.window:RemoveChild(self.box)
+	end
+end
+
+function UiCombo:AddItem(text)
+	local item = UiWidget()
+	--if (index) then
+		--index = math.min(math.max(1, index), #self.list)
+	--end
+	self.list:AddChild(item)
+	
+	item.drawSelf = false
+	item.cpuClip = false
+	item.color:set(0, 0, 0, 0)
+	
+	local n = #self.list
+	item.hightLight = self.selector:Add(0, 0, n)
+	item:AddChild(item.hightLight, nil, Layout.ALIGN_LEFT)
+	
+	item.box = VBoxLayout()
+	item:AddChild(item.box)
+	
+	item.title = HBoxLayout()
+	item.item.box:AddChild(item.title, nil, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 2, 0, 1, 2)
+	
+	item.text = UiText(text)
+	item.text.writeId = false
+	item.title:AddChild(item.text, nil, Layout.ALIGN_LEFT, 7, 0, 0, 0)
+	
+	item.box:SetSize()
+	item:SetSize(item.box.rect.w, item.box.rect.h)
+	
+	return n
+end
+
+function UiCombo:OnListSized(e, w, h)
+	local list = self.list
+	for item in list.children:pairs() do
+		item.hightLight:SetSize(list.rect.w, node.item.box.rect.h)
+	end
 end

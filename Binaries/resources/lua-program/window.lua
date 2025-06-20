@@ -5,6 +5,7 @@ require 'global'
 
 Window = class(UiWidget)
 Window.acceptFocus = true
+Window.active = true
 Window.cursor = SYS.CURSOR_ARROW
 Window.recycle = true
 
@@ -36,20 +37,54 @@ function Window:dtor()
 	end
 end
 
+function Window:SetFocus(w, flag)
+	if (not w.acceptFocus) then
+	return end
+	if (flag and EVT.focus_id ~= w.id) then
+		local o = get_object(EVT.focus_id)
+		EVT.focus_id = w.id
+		if (o) then
+			o:process_event(EVT.FOCUS_OUT)
+		end
+		w:process_event(EVT.FOCUS_IN)
+		self.update = true
+	elseif (not flag and EVT.focus_id == w.id) then
+		EVT.focus_id = nil
+		w:process_event(EVT.FOCUS_OUT)
+		self.update = true
+	end
+end	
+
+function Window:SetActive(w, flag)
+	if  (w.active ~= w) then
+	return end
+	if (flag and EVT.active_id ~= w.id) then
+		local o = get_object(EVT.active_id)
+		EVT.active_id = w.id
+		if (o) then
+			o:process_event(EVT.INACTIVE)
+		end
+		w:process_event(EVT.ACTIVE)
+		self.update = true
+	elseif (not flag and EVT.active_id == w.id) then
+		EVT.active_id = nil
+		w:process_event(EVT.INACTIVE)
+		self.update = true
+	end
+end
+
 function Window:OnWidgetShow(w, show)
 	if (not show) then
 		if (self.captured == w) then
 			w:process_event(EVT.CAPTURE_LOST)
 			self.captured = nil
 		end
-		if (EVT.focus_id == w.id) then
-			w:process_event(EVT.FOCUS_OUT)
-			EVT.focus_id = 0
-		end
 		if (EVT.entered_id == w.id) then
 			w:process_event(EVT.MOVE_OUT)
-			EVT.moved_in = 0
+			EVT.moved_in = nil
 		end
+		self:SetFocus(w, false)
+		self:SetActive(w, false)
 	end
 	self.update = true
 end
@@ -257,13 +292,9 @@ function Window:on_mouse(t, e, x, y, n)
 	end
 	
 	if (e == EVT.LEFT_DOWN or e == EVT.RIGHT_DOWN) then
-		if (EVT.focus_id ~= id and obj and obj.acceptFocus) then
-			local last_obj = get_object(EVT.focus_id)
-			if (last_obj) then
-				last_obj:process_event(EVT.FOCUS_OUT)
-			end
-			obj:process_event(EVT.FOCUS_IN)
-			EVT.focus_id = id
+		if (obj) then
+			self:SetFocus(obj, true)
+			self:SetActive(obj, true)
 		end
 	end
 	

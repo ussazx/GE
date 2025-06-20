@@ -148,6 +148,15 @@ function NewWindow_CreateProj()
 	return w
 end
 
+---FrameBufferPanel---
+FrameBufferPanel = class(VBoxLayout)
+
+function FrameBufferPanel:ctor()
+	local combo = UiCombo()
+	self:AddChild(combo, nil, Layout.ALIGN_LEFT|Layout.ALIGN_TOP, 100, 0, 100)
+end
+
+---ContentPanel---
 ContentPanel = class(HSizerLayout)
 
 function ContentPanel:ctor()
@@ -226,6 +235,7 @@ end
 
 function LoadMainFrame()
 	cMainFrame:AddPageWindow('page0', 'page0', PaneWindow())
+	
 	local w = PaneWindow()
 	local layout = VBoxLayout()
 	w:AddChild(layout)
@@ -233,8 +243,12 @@ function LoadMainFrame()
 	cp:ScanDirectory()
 	layout:AddChild(cp, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
 	cMainFrame:AddPageWindow('page1', 'page1', w)
+	
 	cMainFrame:AddPageWindow('page2', 'page2', PaneWindow())
-	cMainFrame:AddPageWindow('panel', 'page3', PaneWindow())
+	
+	w = PaneWindow()
+	w:AddChild(FrameBufferPanel())
+	cMainFrame:AddPageWindow('panel', 'page3', w)
 end
 
 function AppCleanUp()
