@@ -152,7 +152,8 @@ end
 FrameBufferPanel = class(VBoxLayout)
 
 function FrameBufferPanel:ctor()
-	local combo = UiCombo()
+	local combo = UiLine()
+	combo:SetSize(100, 100)
 	self:AddChild(combo, nil, Layout.ALIGN_LEFT|Layout.ALIGN_TOP, 100, 0, 100)
 end
 

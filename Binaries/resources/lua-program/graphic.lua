@@ -388,6 +388,9 @@ local function RenderMesh(mesh, disables)
 	Mesh.mesh = mesh
 	local mtl = mesh.mtl
 	mesh.vbDst = g_input.vtx[mtl.vtxLayout].vb
+	mesh.ibDst = g_input.ib
+	mesh.iwp = g_input.idxCount * SIZE_INDEX
+	mesh.ibStart = mesh.vwp.idxAddOn
 	local draw = true
 	local iwp = g_input.idxCount * SIZE_INDEX
 	for spId, func in pairs(mtl.func) do
@@ -399,7 +402,6 @@ local function RenderMesh(mesh, disables)
 			end
 			if (draw) then
 				mesh.vtxHandler()
-				mesh.n_idx = mesh.idxFunc(mesh.funcData, g_input.ib, mesh.vwp.idxAddOn, iwp)
 				draw = false
 			end
 			local insArgs = mesh.insArgs[mtl.insSlot[spId]]
@@ -416,7 +418,6 @@ local function RenderMeshCached(mesh, disables)
 	Mesh.mesh = mesh
 	if (mesh.update) then
 		mesh.updateCached()
-		mesh.n_idx = mesh.idxFunc(mesh.funcData, mesh.ib, 0, 0)
 		mesh.update = false
 	end
 	local mtl = mesh.mtl
@@ -443,9 +444,8 @@ local function RenderMeshCached(mesh, disables)
 	end
 end
 
-function Mesh:ctor(vtxFunc, idxFunc, funcData, doCache, layout)
+function Mesh:ctor(vtxFunc, funcData, doCache, layout)
 	self.vtxFunc = vtxFunc
-	self.idxFunc = idxFunc
 	self.funcData = funcData
 	self.doCache = doCache
 	self.layout = layout
@@ -455,23 +455,19 @@ function Mesh:ctor(vtxFunc, idxFunc, funcData, doCache, layout)
 		self.copy = CBufferCopy
 		Mesh.VtxHandlerCached[layout] = Mesh.VtxHandlerCached[layout] or {}
 		self.vb = {}
-		local c = 'local vb = mesh.vb mesh.n_vtx = mesh.vtxFunc(mesh.funcData, '
+		local c = 'local vb = mesh.vb mesh.n_vtx, mesh.n_idx = mesh.vtxFunc(mesh.funcData, '
 		local f = Mesh.UpdateCached[layout]
 		local i = 1
 		while (i <= layout and i ~= 0) do
 			if (i & layout ~= 0) then
 				self.vb[i] = CMBuffer(8)
 				if (f == nil) then
-					c = c .. 'vb[' .. i ..'], 0'
-					if (i << 1 < layout and i << 1 ~= 0) then
-						c = c .. ', '
-					else
-						c = c .. ')'
-					end
+					c = c .. 'vb[' .. i ..'], 0, '
 				end
 			end
 			i = i << 1
 		end
+		c = c .. 'mesh.ib, 0, 0)'
 		self.ib = CMBuffer(SIZE_INDEX)
 		self.render = RenderMeshCached
 		if (f == nil) then
@@ -504,7 +500,7 @@ function Mesh:SetMaterial(mtl, ...)
 	end
 	if (f == nil) then
 		local c = [[local copy = mesh.copy local vb = mesh.vb local n_vtx = mesh.n_vtx 
-		local vbDst = mesh.vbDst local vwp = mesh.vwp local stride = mesh.stride ]]
+			local vbDst = mesh.vbDst local vwp = mesh.vwp local stride = mesh.stride ]]
 		local c1 = ''
 		local i = 1
 		if (self.vb) then
@@ -522,25 +518,22 @@ function Mesh:SetMaterial(mtl, ...)
 			f = load(c..c1, '', 't', Mesh)
 			Mesh.VtxHandlerCached[layout][mtl.vtxLayout] = f
 		else
-			c = 'local vbDst = mesh.vbDst local vwp = mesh.vwp local stride = mesh.stride mesh.n_vtx = mesh.vtxFunc(mesh.funcData, '
+			c = [[local vbDst = mesh.vbDst local vwp = mesh.vwp local stride = mesh.stride
+				mesh.n_vtx, mesh.n_idx = mesh.vtxFunc(mesh.funcData, ]]
 			c1 = 'local n_vtx = mesh.n_vtx '
 			while (i <= self.layout and i ~= 0) do
 				if (i & layout ~= 0) then
 					local slot = mtl.slot[i]
 					if (slot) then
 						c1 = c1 .. 'vwp['..slot..'] = vwp['..slot..'] + n_vtx * stride['..slot..'] '
-						c = c .. 'vbDst[' .. slot ..'], vwp[' .. slot ..']'
+						c = c .. 'vbDst[' .. slot ..'], vwp[' .. slot ..'], '
 					else
-						c = c .. 'g_vbNull, 0'
-					end
-					if (i << 1 < layout and i << 1 ~= 0) then
-						c = c .. ', '
-					else
-						c = c .. ')'
+						c = c .. 'g_vbNull, 0, '
 					end
 				end
 				i = i << 1
 			end
+			c = c .. 'mesh.ibDst, mesh.iwp, mesh.ibStart) '
 			f = load(c..c1, '', 't', Mesh)
 			Mesh.VtxHandler[layout][mtl.vtxLayout] = f
 		end

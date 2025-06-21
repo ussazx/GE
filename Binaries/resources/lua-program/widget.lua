@@ -709,10 +709,10 @@ function UiWidget:ctor(w, h)
 	self.color = Color(255, 255, 255, 255)
 	self.renderDisables = {[g_rp0[2]] = true}
 	
-	self.mesh = Mesh(self.FillVB, self.FillIB, self, self.cached, 1|2|4)
+	self.mesh = Mesh(self.FillVB, self, self.cached, 1|2|4)
 	self.mesh:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
 	
-	self.rcMesh = Mesh(self.FillClipRectVB, self.FillClipRectIB, self, false, 1|2|4)
+	self.rcMesh = Mesh(self.FillClipRectVB, self, false, 1|2|4)
 	self.rcMesh:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
 end
 
@@ -731,7 +731,7 @@ function UiWidget:OnSized()
 	self:Refresh()
 end
 
-function UiWidget:FillRectVB(color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+function UiWidget:FillRectVB(color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 	if (self.cpuClip) then
 		CAddRectFloat3(vbPos, wpPos, self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D)
 	else
@@ -739,23 +739,15 @@ function UiWidget:FillRectVB(color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor
 	end
 	CAddFloat3(vbUVW, wpUVW, 4, self.font.pixels, 0, 0)
 	CAddUByte4(vbColor, wpColor, 4, color.r, color.g, color.b, color.a)
-	return 4
+	return 4, CAddConvexPolyIndex(ib, iwp, 1, ibStart, 4)
 end
 
-function UiWidget:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
-	return self:FillRectVB(self.color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+function UiWidget:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
+	return self:FillRectVB(self.color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 end
 
-function UiWidget:FillIB(ib, ib_start, wp)
-	return CAddConvexPolyIndex(ib, wp, 1, ib_start, 4)
-end
-
-function UiWidget:FillClipRectVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
-	return self:FillRectVB(self.crColor, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
-end
-
-function UiWidget:FillClipRectIB(ib, ib_start, wp)
-	return CAddConvexPolyIndex(ib, wp, 1, ib_start, 4)
+function UiWidget:FillClipRectVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
+	return self:FillRectVB(self.crColor, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 end
 
 function UiWidget:DoUpdate(crCpu, crGpu)
@@ -915,7 +907,7 @@ function UiText:SetText(s, font)
 	end
 end
 
-function UiText:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+function UiText:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 	local n
 	if (self.cpuClip) then
 		n = CAddTextClip(vbPos, wpPos, vbUVW, wpUVW, self.font,
@@ -926,12 +918,7 @@ function UiText:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 	end
 	
 	CAddUByte4(vbColor, wpColor, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
-	self.nText = n
-	return 4 * n
-end
-
-function UiText:FillIB(ib, ib_start, wp)
-	return CAddConvexPolyIndex(ib, wp, self.nText, ib_start, 4)
+	return 4 * n, CAddConvexPolyIndex(ib, iwp, n, ibStart, 4)
 end
 
 -----TextInput-----
@@ -1325,7 +1312,7 @@ function UiTextInput:SetText(s, font)
 	end
 end
 
-function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 	local rect = self.cr or self.rect
 	local n0 = 0
 	if (self.selectedIdx >= 0 and self.selectedIdx ~= self.insertIdx) then
@@ -1352,12 +1339,7 @@ function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 	rect.x, rect.y, rect.w, rect.h, Z_2D, self.text)
 	CAddUByte4(vbColor, wpColor, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
 	n = n + n0
-	self.nText = n
-	return 4 * n
-end
-
-function UiTextInput:FillIB(ib, ib_start, wp)
-	return CAddConvexPolyIndex(ib, wp, self.nText, ib_start, 4)
+	return 4 * n, CAddConvexPolyIndex(ib, iwp, n, ibStart, 4)
 end
 
 UiSlideBar = class(UiWidget)
@@ -1620,7 +1602,7 @@ function UiPolyIcon:SetPressingColor(idx, r, g, b, a)
 	end
 end
 
-function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
+function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 	local n = self.poly.vtx_count
 	if (self.scale) then
 		if (self.sized) then
@@ -1641,12 +1623,8 @@ function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor)
 	UiPolyIcon.vbColor = vbColor
 	UiPolyIcon.wpColor = wpColor
 	self.SetColors()
-	return n
-end
-
-function UiPolyIcon:FillIB(ib, ib_start, wp)
-	CCopyIndexBuffer(g_innerPolyIB, self.poly.ib_offset, self.poly.idx_count, ib_start, ib, wp)
-	return self.poly.idx_count
+	CCopyIndexBuffer(g_innerPolyIB, self.poly.ib_offset, self.poly.idx_count, ibStart, ib, iwp)
+	return n, self.poly.idx_count
 end
 
 -----Selector-----
@@ -1979,4 +1957,27 @@ function UiCombo:OnListSized(e, w, h)
 	for item in list.children:pairs() do
 		item.hightLight:SetSize(list.rect.w, node.item.box.rect.h)
 	end
+end
+
+UiLine = class(UiWidget)
+
+function UiLine:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
+	CAddFloat3(vbPos, wpPos, 1, self.location.x, self.location.y, 0)
+	CAddFloat3(vbPos, APPEND, 1, self.location.x + 100, self.location.y + 100, 0)
+	CAddFloat3(vbPos, APPEND, 1, self.location.x + 200, self.location.y - 50, 0)
+	
+	local n = CAddLine2D(vbPos, wpPos, 3, false, 10, false, false, vbPos, wpPos, ib, iwp, ibStart)
+	
+	n = n + CAddLine2D(vbPos, wpPos, 6, true, 10, true, false, vbPos, wpPos, ib, APPEND, ibStart)
+	
+	CAddFloat3(vbUVW, wpUVW, 12, self.font.pixels, 0, 0)
+	CAddUByte4(vbColor, wpColor, 6, self.color.r, self.color.g, self.color.b, self.color.a)
+	CAddUByte4(vbColor, APPEND, 6, self.color.r, self.color.g, self.color.b, 0)
+	
+	return 12, n
+	
+	-- CAddRectFloat3(vbPos, wpPos, self.location.x, self.location.y, self.rect.w, self.rect.h, Z_2D)
+	-- CAddFloat3(vbUVW, wpUVW, 8, self.font.pixels, 0, 0)
+	-- CAddUByte4(vbColor, wpColor, 8, self.color.r, self.color.g, self.color.b, self.color.a)
+	-- return 8, CAddLine2D(vbPos, wpPos, 4, true, 2, 1, vbPos, wpPos, ib, iwp, ibStart)
 end

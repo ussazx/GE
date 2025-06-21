@@ -19,6 +19,8 @@ struct float3
 	const float3& operator -= (const float3& v);
 	float Dot(const float3& v) const;
 	float3 Cross(const float3& v) const;
+	const float3& operator = (const std::tuple<float, float>& t);
+	const float3& operator = (const std::tuple<float, float, float>& t);
 	float3 operator - () const;
 	float3 operator + (float n) const;
 	float3 operator - (float n) const;
@@ -143,6 +145,19 @@ inline float3 float3::Cross(const float3& v) const
 	vv.y = z * v.x - x * v.z;
 	vv.z = x * v.y - y * v.x;
 	return vv;
+}
+inline const float3& float3::operator = (const std::tuple<float, float>& t)
+{
+	x = std::get<0>(t);
+	y = std::get<1>(t);
+	return *this;
+}
+inline const float3& float3::operator = (const std::tuple<float, float, float>& t)
+{
+	x = std::get<0>(t);
+	y = std::get<1>(t);
+	z = std::get<2>(t);
+	return *this;
 }
 inline float3 float3::operator - () const
 {

@@ -131,7 +131,6 @@ public:
 	virtual byte* GetPtr() = 0;
 
 	size_t m_writePos = 0;
-	size_t m_max = 0;
 
 	Lua_wrap_cpp_class(CBuffer, Lua_abstract, Lua_mf(GetWritePos), Lua_mf(SetWritePos), Lua_mf(Resize));
 };
@@ -173,10 +172,11 @@ class BufferWriter
 public:
 	BufferWriter(CBuffer& cb, size_t reserve, int wp = -1) : m_cb(cb) 
 	{
+		m_writePos = m_cb.m_writePos;
 		if (wp >= 0)
-			m_cb.m_writePos = wp;
-		if (m_cb.m_writePos + sizeof(T) * reserve > m_cb.GetSize())
-			m_cb.Resize(m_cb.m_writePos + sizeof(T) * reserve);
+			m_writePos = wp;
+		if (m_writePos + sizeof(T) * reserve > m_cb.GetSize())
+			m_cb.Resize(m_writePos + sizeof(T) * reserve);
 	}
 	~BufferWriter()
 	{
@@ -184,22 +184,26 @@ public:
 	}
 	T& operator [] (size_t n)
 	{
-		if (m_cb.m_max < n + 1)
+		if (m_max < n + 1)
 		{
-			m_cb.m_max = n + 1;
-			size_t sizeNew = m_cb.m_writePos + sizeof(T) * m_cb.m_max;
+			m_max = n + 1;
+			size_t sizeNew = m_writePos + sizeof(T) * m_max;
 			if (sizeNew > m_cb.GetSize())
 				m_cb.Resize(sizeNew);
 		}
-		return *(T*)(m_cb.GetPtr() + m_cb.m_writePos + sizeof(T) * n);
+		return *(T*)(m_cb.GetPtr() + m_writePos + sizeof(T) * n);
 	}
 	void SkipUsed()
 	{
-		m_cb.m_writePos += sizeof(T) * m_cb.m_max;
-		m_cb.m_max = 0;
+		m_writePos += sizeof(T) * m_max;
+		m_max = 0;
+		if (m_writePos > m_cb.m_writePos)
+			m_cb.m_writePos = m_writePos;
 	}
 
 private:
+	size_t m_writePos = 0;
+	size_t m_max = 0;
 	CBuffer& m_cb;
 };
 
@@ -279,6 +283,111 @@ inline void CAddRectFloat3(LuacObj<CBuffer> vb, int wp, float x, float y, float 
 }
 Lua_global_add_cfunc(CAddRectFloat3)
 
+inline std::tuple<float, float> CNormalize2D(float vx, float vy)
+{
+	float d = vx * vx + vy * vy;
+	if (d == 0)
+		d = 1;
+	else if (d > 1)
+		d = sqrt(d);
+	return { vx / d, vy / d };
+}
+Lua_global_add_cfunc(CNormalize2D)
+
+inline std::tuple<float, float> CGetLineNormal2D(float x0, float y0, float x1, float y1, bool counter_clockwise)
+{
+	float n = counter_clockwise ? 1 : -1;
+	if (x0 == x1)
+		return { y0 == y1 ? 0 : (y0 < y1 ? 1 : -1) * n, 0 };
+	if (y0 == y1)
+		return { 0, (x0 < x1 ? -1 : 1) * n };
+	return CNormalize2D((y1 - y0) * n, (x0 - x1) * n);
+}
+Lua_global_add_cfunc(CGetLineNormal2D)
+
+inline size_t CAddLine2D(LuacObj<CBuffer> vb_src, int rp, int count, bool closed, float thickness, bool outer, bool mid,
+	LuacObj<CBuffer> vb_dst, int vwp, LuacObj<CBuffer> ib_dst, int iwp, int ioffset)
+{
+	if (count < 2)
+		return 0;
+
+	if (mid)
+		thickness *= 0.5;
+	closed = closed && count > 2;
+
+	size_t last = count - 1;
+	size_t icount = 6 * (closed ? count : last);
+	BufferWriter<float3> src(*vb_src, count, rp);
+	BufferWriter<float3> dst(*vb_dst, count * 2, vwp);
+	BufferWriter<uint1> idst(*ib_dst, icount, iwp);
+
+	float3 n0, n1, nn;
+	if (closed)
+		n0 = nn = CGetLineNormal2D(src[last].x, src[last].y, src[0].x, src[0].y, outer);
+
+	for (size_t i = 0, j = count * 2 - 1, k = 0, ii = ioffset, jj = j + ioffset; i < count; i++, j--, ii++, jj--, n0 = n1)
+	{
+		float3 normal = n0;
+		float3 p0 = src[i];
+		if (i < last)
+		{
+			float3 p1 = src[i + 1];
+			n1 = CGetLineNormal2D(p0.x, p0.y, p1.x, p1.y, outer);
+			if (i == 0 && !closed)
+				normal = n1;
+			else
+				normal = CNormalize2D((n0.x + n1.x) * 0.5, (n0.y + n1.y) * 0.5);
+
+			if (outer)
+			{
+				idst[k++] = jj;
+				idst[k++] = jj - 1;
+				idst[k++] = ii;
+				idst[k++] = ii;
+				idst[k++] = jj - 1;
+				idst[k++] = ii + 1;
+			}
+			else
+			{
+				idst[k++] = ii;
+				idst[k++] = ii + 1;
+				idst[k++] = jj;
+				idst[k++] = jj;
+				idst[k++] = ii + 1;
+				idst[k++] = jj - 1;
+			}
+		}
+		else if (closed)
+		{
+			normal = CNormalize2D((n0.x + nn.x) * 0.5, (n0.y + nn.y) * 0.5);
+
+			if (outer)
+			{
+				idst[k++] = jj;
+				idst[k++] = count * 2 - 1 + ioffset;
+				idst[k++] = ii;
+				idst[k++] = ii;
+				idst[k++] = count * 2 - 1 + ioffset;
+				idst[k++] = ioffset;
+			}
+			else
+			{
+				idst[k++] = ii;
+				idst[k++] = ioffset;
+				idst[k++] = jj;
+				idst[k++] = jj;
+				idst[k++] = ioffset;
+				idst[k++] = count * 2 - 1 + ioffset;
+			}
+		}
+		normal *= thickness;
+		dst[i] = mid ? p0 - normal : p0;
+		dst[j] = p0 + normal;
+	}
+	return icount;
+}
+Lua_global_add_cfunc(CAddLine2D)
+
 inline std::tuple<bool, float, float> CIntersect2D(float p0x, float p0y, float p1x, float p1y, bool p1AsDirection,
 	float p2x, float p2y, float p3x, float p3y, bool p2Opened, bool p3Opened)
 {
@@ -325,6 +434,7 @@ inline std::tuple<bool, float, float> CIntersect2D(float p0x, float p0y, float p
 
 	return { true, p0x + v0.x * t0, p0y + v0.y * t0 };
 }
+Lua_global_add_cfunc(CIntersect2D)
 
 inline size_t AddConvexPolyIndex(BufferWriter<uint1>& ibw, int idx_offset, uint32_t num_vtx)
 {
