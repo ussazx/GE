@@ -13,7 +13,7 @@ function GridLayoutTest(w)
 	local layout = VBoxLayout()
 	w:AddChild(layout)
 	
-	layout:AddChild(UiTextInput(0, uiFont.fontSize), nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 20, 20, 20, 10)
+	layout:AddChild(UiTextInput(0, uiFont.fontSize), nil, 20, 10, true, 20, 20)
 	
 	-- local sb = UiSlideBar(nil, false, 0, 0, 0, 20)
 	-- sb:SetScale(5, 1)
@@ -23,7 +23,7 @@ function GridLayoutTest(w)
 	local grid = GridLayout()
 	local scrollPanel = UiScrollPanel()
 	scrollPanel:SetWidget(grid)
-	layout:AddChild(scrollPanel, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
+	layout:AddChild(scrollPanel, 1, 10, 10, true, 10, 10)
 	for i = 1, 100 do
 		local ww = UiWidget(150, 150)
 		ww.color:set(100, 100, 100, 100)
@@ -35,7 +35,7 @@ function GridLayoutTest(w)
 		ww:AddChild(layout)
 		
 		ww = UiPolyIcon(g_iconFolder, true, 80, 45)
-		layout:AddChild(ww, 1, 0, 5, 5, 5, 5)
+		layout:AddChild(ww, 1)
 		
 		-- ww = UiPolyIcon(g_iconFolder, true)
 		-- layout:AddChild(ww, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 5, 5, 5, 5)
@@ -49,9 +49,9 @@ function GridLayoutTest(w)
 	local layoutBottom = HBoxLayout()
 	w.idle_cost = 0
 	w.idleText = UiText('--')
-	layoutBottom:AddChild(w.idleText, nil, 0, 0, 0, 0, 0)
-	layoutBottom:AddChild(UiButton(100, 30, _('Load')), 1, Layout.ALIGN_RIGHT, 0, 0, 0, 0)
-	layout:AddChild(layoutBottom, nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
+	layoutBottom:AddChild(w.idleText)
+	layoutBottom:AddChild(UiButton(100, 30, _('Load')), 1, nil, 0, false)
+	layout:AddChild(layoutBottom, nil, 10, 10, true, 10, 10)
 	--layout:AddChild(UiButton(0, 0, 100, 30, _('Load')), 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 10, 10, 10)
 end
 
@@ -117,11 +117,20 @@ function NewWindow_CreateProj()
 	
 	local b = UiButton(100 ,30, _('Create'))
 	b:bind_event(EVT.LEFT_UP, nil, OnCreateProj)
-	layout:AddChild(b, nil, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 0, 10, 10)
+	layout:AddChild(b, nil, 10, 10, false, 10)
 	
 	local ww = UiWidget()
 	ww.color:set(40, 40, 40, 255)
-	layout:AddChild(ww, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 10, 10)
+	layout:AddChild(ww, 1, 10, 10, true, 10, 10)
+	
+	local combo = UiCombo()
+	combo:AddItem('zzzz')
+	combo:AddItem('zzzz')
+	combo:AddItem('zzzzzzzzzzzzzzzzzzzzzzzzzzzzz')
+	combo:AddItem('zzzz')
+	combo:AddItem('zzzz')
+	combo:SetDefault(5)
+	ww:AddChild(combo, 100, 100)
 	
 	local t = UiTreeList()
 	local n = t:AddNode(nil, g_iconFolder, 'main')
@@ -129,7 +138,7 @@ function NewWindow_CreateProj()
 	t:AddNode(n, g_iconFolder, 'sub111111111111111')
 	
 	local cp = ContentPanel()
-	layout:AddChild(cp, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 10, 10, 0, 10)
+	layout:AddChild(cp, 1, 0, 10, true, 10, 10)
 	
 	cp:ScanDirectory()
 	
@@ -152,9 +161,14 @@ end
 FrameBufferPanel = class(VBoxLayout)
 
 function FrameBufferPanel:ctor()
-	local combo = UiLine()
-	combo:SetSize(100, 100)
-	self:AddChild(combo, nil, Layout.ALIGN_LEFT|Layout.ALIGN_TOP, 100, 0, 100)
+	local combo = UiCombo()
+	combo:AddItem('zzzz')
+	combo:AddItem('zzzz')
+	combo:AddItem('zzzzzzzzzzzzzzzzzzzzzzzzzzzzz')
+	combo:AddItem('zzzz')
+	combo:AddItem('zzzz')
+	combo:SetDefault(5)
+	self:AddChild(combo, nil, 100, 0, false, 100)
 end
 
 ---ContentPanel---
@@ -162,28 +176,27 @@ ContentPanel = class(HSizerLayout)
 
 function ContentPanel:ctor()
 	self.list = UiTreeList()
-	self:AddChild(UiScrollPanel(self.list), 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	self:AddChild(UiScrollPanel(self.list), 1, 0, 0, true)
 	
 	local mag = UiPolyIcon(g_iconMagnifier)
 	self.searcher = UiTextInput(0, uiFont.fontSize)
 	local h = HBoxLayout()
-	h:AddChild(mag, nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT, 5, 5)
-	h:AddChild(self.searcher, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT)
+	h:AddChild(mag, nil, 5, 5, false)
+	h:AddChild(self.searcher, 1, 0, 0, false)
 	h:SetSize()
 	
-	local bkg = UiWidget()
+	local bkg = UiWidget(0, h.rect.h + 8)
 	bkg.gpuClip = true
-	bkg:SetSize(0, h.rect.h + 8)
 	bkg.color:copy(self.searcher.crColor)
 	bkg:AddChild(h)
 	
 	local v = VBoxLayout()
-	v:AddChild(bkg, nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT)
+	v:AddChild(bkg, nil, 0, 0, true)
 	
 	self.grid = GridLayout()
-	v:AddChild(UiScrollPanel(self.grid), 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 0, 8, 0)
+	v:AddChild(UiScrollPanel(self.grid), 1, 8, 0, true)
 	
-	self:AddChild(v, 3, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	self:AddChild(v, 3, 0, 0, true)
 end
 
 function ContentPanel:ScanDirectory(d)
@@ -242,7 +255,7 @@ function LoadMainFrame()
 	w:AddChild(layout)
 	local cp = ContentPanel()
 	cp:ScanDirectory()
-	layout:AddChild(cp, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	layout:AddChild(cp, 1, 0, 0, true)
 	cMainFrame:AddPageWindow('page1', 'page1', w)
 	
 	cMainFrame:AddPageWindow('page2', 'page2', PaneWindow())

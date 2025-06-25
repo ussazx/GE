@@ -30,7 +30,7 @@ function Widget2D:EnableActive(flag)
 	if (flag) then
 		self.active = self
 	else
-		self.active = false
+		self.active = nil
 	end
 	if (self.window and o ~= self.active) then
 		self.window.update = true
@@ -45,9 +45,6 @@ end
 
 function Widget2D:AddChild(widget, ...)
 	if (widget.parent) then
-		if (widget.parent == self) then
-			return
-		end
 		widget.parent:RemoveChild(widget)
 	end
 	widget.active = widget.active or self.active
@@ -66,8 +63,8 @@ end
 
 function Widget2D:RemoveChild(widget)
 	if (widget.parent == self) then
-		if (widget.active == self) then
-			widget.active = false
+		if (widget.active ~= widget) then
+			widget.active = nil
 		end
 		widget.parent = nil
 		widget.window = nil
@@ -98,9 +95,6 @@ function Widget2D:Show(show)
 end
 
 function Widget2D:Update(...)
-	if (self.active) then
-		self.active = self
-	end
 	self.location.x = self.rect.x
 	self.location.y = self.rect.y
 	if (self.parent) then
@@ -198,15 +192,12 @@ end
 
 --Layout--
 Layout = class(Widget2D)
-Layout.ALIGN_LEFT = 1
-Layout.ALIGN_RIGHT = 2
-Layout.ALIGN_TOP = 4
-Layout.ALIGN_BOTTOM = 8
 
 function Layout:ctor()
 	self.props = setmetatable({}, {__mode = 'k'})
 	self.update = true
 	self.sized = false
+	self.expands = {}
 end
 
 function Layout:SetSize(w, h)
@@ -262,13 +253,21 @@ function Layout:DoUpdate(...)
 	return true, ...
 end
 
-local function InitBoxLayoutProp(o, ratio, align, gapLeft, gapRight, gapTop, gapBottom)
+local function InitVBoxLayoutProp(o, ratio, gapTop, gapBottom, expand, gapLeft, gapRight)
 	o.ratio = ratio
-	o.align = align or 0
-	o.gapLeft = gapLeft or 0
-	o.gapRight = gapRight or 0
-	o.gapTop = gapTop or 0
-	o.gapBottom = gapBottom or 0
+	o.expand = expand
+	o.left = gapLeft or 0
+	o.alignL = gapLeft
+	o.right = gapRight or 0
+	o.alignR = gapRight
+	o.top = gapTop or 0
+	o.alignT = gapTop
+	o.bottom = gapBottom or 0
+	o.alignB = gapBottom
+end
+
+local function InitHBoxLayoutProp(o, ratio, gapLeft, gapRight, expand, gapTop, gapBottom)
+	InitVBoxLayoutProp(o, ratio, gapTop, gapBottom, expand, gapLeft, gapRight)
 end
 
 local function InitGridLayoutProp(o, gapLeft, gapRight, gapTop, gapBottom)
@@ -278,33 +277,25 @@ local function InitGridLayoutProp(o, gapLeft, gapRight, gapTop, gapBottom)
 	o.gapBottom = gapBottom or 0
 end
 
-local function CaculateLayoutProp(prop)
-	prop.left = prop.gapLeft * (prop.align & Layout.ALIGN_LEFT) // Layout.ALIGN_LEFT
-	prop.top = prop.gapTop * (prop.align & Layout.ALIGN_TOP) // Layout.ALIGN_TOP
-	prop.right = prop.gapRight * (prop.align & Layout.ALIGN_RIGHT) // Layout.ALIGN_RIGHT
-	prop.bottom = prop.gapBottom * (prop.align & Layout.ALIGN_BOTTOM) // Layout.ALIGN_BOTTOM
-	prop.h_expand = prop.align & (Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT) == Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT
-	prop.v_expand = prop.align & (Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM) == Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM
-end
-
 -----VBoxLayout-----
 VBoxLayout = class(Layout)
-VBoxLayout.InitProp = InitBoxLayoutProp
+VBoxLayout.InitProp = InitVBoxLayoutProp
 
 function VBoxLayout:Layout(w, h)
 	local ww = w
 	local y = 0
 	local scale = 0
-	local expands = {}
-	for v in self:ChildrenPairs() do
+	local expands = self.expands
+	local exnum = 0
+	for v, k in self:ChildrenPairs() do
 		local prop = self.props[v]
-		CaculateLayoutProp(prop)
-		
-		if (prop.h_expand) then
+	
+		if (prop.expand) then
 			if (prop.ratio) then
 				scale = scale + prop.ratio
 			else
-				table.insert(expands, v)
+				exnum = exnum + 1
+				expands[exnum] = k
 			end
 		else
 			v:SetSize()
@@ -317,28 +308,29 @@ function VBoxLayout:Layout(w, h)
 		end
 		y = y + prop.top + prop.bottom
 	end
-	for _, v in pairs(expands) do
+	for i = 1, exnum do
+		local v = self.children[expands[i]]
 		local prop = self.props[v]
-		v:SetSize(math.max(0, ww - prop.left - prop.right), nil)
+		v:SetSize(math.max(0, math.floor(ww - prop.left - prop.right)), nil)
 		y = y + v.rect.h
 	end
 	self.flex = math.max(0, h - y)
 	self.scale = math.max(0, scale)
 	
 	h = 0
-	for v in self:ChildrenPairs() do
+	for v, k in self:ChildrenPairs() do
 		local prop = self.props[v]
 		
 		local rh = 0
 		if (self.flex > 0 and self.scale > 0) then
 			rh = math.floor((prop.ratio or 0) / self.scale * self.flex)
 		end
-		if (prop.ratio and (prop.h_expand or prop.v_expand)) then
+		if (prop.ratio) then
 			local rw
-			if (prop.h_expand) then
+			if (prop.expand) then
 				rw = math.max(0, math.floor(ww - prop.left - prop.right))
 			end
-			if (prop.v_expand) then
+			if (prop.alignT and prop.alignB) then
 				v:SetSize(rw, rh)
 			else
 				v:SetSize(rw, nil)
@@ -346,18 +338,18 @@ function VBoxLayout:Layout(w, h)
 		end
 		
 		local x = 0
-		if (prop.align & Layout.ALIGN_LEFT ~= 0) then
+		if (prop.alignL) then
 			x = prop.left
-		elseif (prop.align & Layout.ALIGN_RIGHT ~= 0) then
+		elseif (prop.alignR) then
 			x = ww - v.rect.w - prop.right
 		else
 			x = (ww - v.rect.w) // 2
 		end
 		
 		local d = math.max(0, rh - v.rect.h)
-		if (prop.align & Layout.ALIGN_TOP ~= 0) then
+		if (prop.alignT) then
 			h = h + prop.top
-		elseif (prop.align & Layout.ALIGN_BOTTOM ~= 0) then
+		elseif (prop.alignB) then
 			h = h + d
 			d = 0
 		else
@@ -374,22 +366,23 @@ end
 
 -----HBoxLayout-----
 HBoxLayout = class(Layout)
-HBoxLayout.InitProp = InitBoxLayoutProp
+HBoxLayout.InitProp = InitHBoxLayoutProp
 
 function HBoxLayout:Layout(w, h)
 	local hh = h
 	local x = 0
 	local scale = 0
-	local expands = {}
-	for v in self:ChildrenPairs() do
+	local expands = self.expands
+	local exnum = 0
+	for v, k in self:ChildrenPairs() do
 		local prop = self.props[v]
-		CaculateLayoutProp(prop)
 		
-		if (prop.v_expand) then
+		if (prop.expand) then
 			if (prop.ratio) then
 				scale = scale + prop.ratio
 			else
-				table.insert(expands, v)
+				exnum = exnum + 1
+				expands[exnum] = k
 			end
 		else
 			v:SetSize()
@@ -402,7 +395,8 @@ function HBoxLayout:Layout(w, h)
 		end
 		x = x + prop.left + prop.right
 	end
-	for _, v in pairs(expands) do
+	for i = 1, exnum do
+		local v = self.children[expands[i]]
 		local prop = self.props[v]
 		v:SetSize(nil, math.max(0, hh - prop.top - prop.bottom))
 		x = x + v.rect.w
@@ -418,12 +412,12 @@ function HBoxLayout:Layout(w, h)
 		if (self.flex > 0 and self.scale > 0) then
 			rw = math.floor((prop.ratio or 0) / self.scale * self.flex)
 		end
-		if (prop.ratio and (prop.h_expand or prop.v_expand)) then
+		if (prop.ratio) then
 			local rh
-			if (prop.v_expand) then
+			if (prop.expand) then
 				rh = math.max(0, hh - math.floor(prop.top - prop.bottom))
 			end
-			if (prop.h_expand) then
+			if (prop.alignL and prop.alignR) then
 				v:SetSize(rw, rh)
 			else
 				v:SetSize(nil, rh)
@@ -431,18 +425,18 @@ function HBoxLayout:Layout(w, h)
 		end
 		
 		local y = 0
-		if (prop.align & Layout.ALIGN_TOP ~= 0) then
+		if (prop.alignT) then
 			y = prop.top
-		elseif (prop.align & Layout.ALIGN_BOTTOM ~= 0) then
+		elseif (prop.alignB) then
 			y = hh - v.rect.h - prop.bottom
 		else
 			y = (hh - v.rect.h) // 2
 		end
 		
 		local d = math.max(0, rw - v.rect.w)
-		if (prop.align & Layout.ALIGN_LEFT ~= 0) then
+		if (prop.alignL) then
 			w = w + prop.left
-		elseif (prop.align & Layout.ALIGN_RIGHT ~= 0) then
+		elseif (prop.alignR) then
 			w = w + d
 			d = 0
 		else
@@ -576,10 +570,8 @@ local function SizerLayout_AddChild(layout, w, ...)
 	local align
 	if (layout.vertical) then
 		sizer = UiButton(0, layout.sizerWidth)
-		align = Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT
 	else
 		sizer = UiButton(layout.sizerWidth, 0)
-		align = Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM
 	end
 	sizer:SetDefaultColor(0, 0, 0, 0)
 	sizer:bind_event(EVT.MOVE_IN, layout, SizerLayout_OnSizerMouse)
@@ -594,7 +586,7 @@ local function SizerLayout_AddChild(layout, w, ...)
 		break
 	end
 	sizer:Show(show)
-	Widget2D.AddChild(layout, sizer, nil, align)
+	Widget2D.AddChild(layout, sizer, nil, 0, 0, true)
 	layout.sizers[w] = sizer
 	
 	w:bind_event(EVT.SHOW, layout, SizerLayout_OnWidgetShow)
@@ -616,7 +608,7 @@ end
 local function SizerLayout_OnRemoveChild(layout, w)
 	local sizer = layout.sizers[w]
 	if (sizer) then
-		layout:RemoveChild(sizer)
+		layout:OnRemoveChild(sizer)
 	end
 end
 
@@ -731,6 +723,10 @@ function UiWidget:OnSized()
 	self:Refresh()
 end
 
+function UiWidget:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
+	return self:FillRectVB(self.color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
+end
+
 function UiWidget:FillRectVB(color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 	if (self.cpuClip) then
 		CAddRectFloat3(vbPos, wpPos, self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D)
@@ -740,10 +736,6 @@ function UiWidget:FillRectVB(color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor
 	CAddFloat3(vbUVW, wpUVW, 4, self.font.pixels, 0, 0)
 	CAddUByte4(vbColor, wpColor, 4, color.r, color.g, color.b, color.a)
 	return 4, CAddConvexPolyIndex(ib, iwp, 1, ibStart, 4)
-end
-
-function UiWidget:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
-	return self:FillRectVB(self.color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 end
 
 function UiWidget:FillClipRectVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
@@ -819,17 +811,17 @@ function UiButtonBase:OnMouse(e)
 	elseif (e == EVT.LEFT_UP) then
 		self.down = false
 	elseif (e == EVT.MOVE_IN) then
-		self.hovering = true
+		self.hoverring = true
 	elseif (e == EVT.MOVE_OUT) then
 		self.down = false
-		self.hovering = false
+		self.hoverring = false
 	end
 	
 	if (self.down) then
 		self:OnPressing()
 		
-	elseif (self.hovering) then
-		self:OnHovering()
+	elseif (self.hoverring) then
+		self:OnHoverring()
 	else
 		self:OnDefault()
 	end
@@ -840,7 +832,7 @@ end
 function UiButtonBase:OnDefault()
 end
 
-function UiButtonBase:OnHovering()
+function UiButtonBase:OnHoverring()
 end
 
 function UiButtonBase:OnPressing()
@@ -848,11 +840,17 @@ end
 
 -----UiButton-----
 UiButton = class(UiButtonBase)
+UiButton.colorDefault = Color(50, 50, 50, 255)
+UiButton.colorHoverring = Color(100, 100, 100, 255)
+UiButton.colorPressing = Color(150, 150, 150, 255)
 
 function UiButton:ctor(w, h, s, font)
-	self.color0 = Color(50, 50, 50, 255)
-	self.color1 = Color(100, 100, 100, 255)
-	self.color2 = Color(150, 150, 150, 255)
+	self.color0 = Color()
+	self.color0:copy(UiButton.colorDefault)
+	self.color1 = Color()
+	self.color1:copy(UiButton.colorHoverring)
+	self.color2 = Color()
+	self.color2:copy(UiButton.colorPressing)
 	self.color = self.color0
 	self.layout = HBoxLayout()
 	self:AddChild(self.layout)
@@ -866,7 +864,7 @@ function UiButton:OnDefault()
 	self.color = self.color0
 end
 
-function UiButton:OnHovering()
+function UiButton:OnHoverring()
 	self.color = self.color1
 end
 
@@ -878,11 +876,23 @@ function UiButton:SetDefaultColor(r, g, b, a)
 	self.color0:set(r, g, b, a)
 end
 
-function UiButton:SetHoveringColor(r, g, b, a)
+function UiButton:SetHoverringColor(r, g, b, a)
 	self.color1:set(r, g, b, a)
 end
 
 function UiButton:SetPressingColor(r, g, b, a)
+	self.color2:set(r, g, b, a)
+end
+
+function UiButton:ResetAllColors()
+	self.color0:copy(UiButton.colorDefault)
+	self.color1:copy(UiButton.colorHoverring)
+	self.color2:copy(UiButton.colorPressing)
+end
+
+function UiButton:SetAllColors(r, g, b, a)
+	self.color0:set(r, g, b, a)
+	self.color1:set(r, g, b, a)
 	self.color2:set(r, g, b, a)
 end
 
@@ -1360,7 +1370,7 @@ function UiSlideBar:ctor(vertical, length, width)
 		self:SetSize(length, width)
 	end
 	self.slider:SetDefaultColor(150, 150, 150, 255)
-	self.slider:SetHoveringColor(200, 200, 200, 255)
+	self.slider:SetHoverringColor(200, 200, 200, 255)
 	self.slider:SetPressingColor(230, 230, 230, 255)
 	
 	self:AddChild(self.slider)
@@ -1461,6 +1471,7 @@ UiScrollPanel.barWidth = 12
 function UiScrollPanel:ctor(widget, w, h)
 	self:SetSize(w, h)
 	self:bind_event(EVT.MOUSEWHEEL, self, UiScrollPanel.OnMouseWheel)
+	self:bind_event(EVT.SIZE, self, UiScrollPanel.OnWidgetSize)
 	
 	self.color:set(40, 40, 40, 255)
 	
@@ -1468,28 +1479,26 @@ function UiScrollPanel:ctor(widget, w, h)
 	self:AddChild(vLayout)
 	
 	local hLayout = HBoxLayout()
-	vLayout:AddChild(hLayout, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	vLayout:AddChild(hLayout, 1, 0, 0, true)
 	
 	self.pane = UiWidget()
 	self.pane.drawSelf = false
 	self.pane.gpuClip = true
-	hLayout:AddChild(self.pane, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
+	hLayout:AddChild(self.pane, 1, 0, 0, true)
 	
 	self.vScrollBar = UiSlideBar(true, 0, UiScrollPanel.barWidth)
 	self.vScrollBar:bind_event(UiSlideBar.EVT_SLIDE, self, UiScrollPanel.OnVScroll)
 	self.vScrollBar:Show(false)
-	hLayout:AddChild(self.vScrollBar, nil, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 0, 0, 0)
+	hLayout:AddChild(self.vScrollBar, nil, 0, 0, true)
 	
 	self.hScrollBar = UiSlideBar(false, 0, UiScrollPanel.barWidth)
 	self.hScrollBar:bind_event(UiSlideBar.EVT_SLIDE, self, UiScrollPanel.OnHScroll)
 	self.hScrollBar:Show(false)
-	vLayout:AddChild(self.hScrollBar, nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_BOTTOM, 0, UiScrollPanel.barWidth, 0, 0)
+	vLayout:AddChild(self.hScrollBar, nil, 0, 0, true, nil, UiScrollPanel.barWidth)
 	
 	if (widget) then
 		self:SetWidget(widget)
 	end
-	
-	self:SetSize()
 end
 
 function UiScrollPanel:SetWidget(widget)
@@ -1503,8 +1512,8 @@ function UiScrollPanel:SetWidget(widget)
 end
 
 function UiScrollPanel:OnWidgetSize()
-	self.vScrollBar:Show(self.widget.rect.h > self.pane.rect.h)
-	self.hScrollBar:Show(self.widget.rect.w > self.pane.rect.w)
+	self.vScrollBar:Show(self.widget.rect.h > self.rect.h)
+	self.hScrollBar:Show(self.widget.rect.w > self.rect.w)
 	self.vScrollBar:SetScale(self.widget.rect.h, self.pane.rect.h)
 	self.hScrollBar:SetScale(self.widget.rect.w, self.pane.rect.w)
 end
@@ -1570,7 +1579,7 @@ function UiPolyIcon:OnDefault()
 	self.colors = self.colors0
 end
 
-function UiPolyIcon:OnHovering()
+function UiPolyIcon:OnHoverring()
 	self.colors = self.colors1
 end
 
@@ -1586,7 +1595,7 @@ function UiPolyIcon:SetDefaultColor(idx, r, g, b, a)
 	end
 end
 
-function UiPolyIcon:SetHoveringColor(idx, r, g, b, a)
+function UiPolyIcon:SetHoverringColor(idx, r, g, b, a)
 	if (self.colors1[idx]) then
 		self.colors1[idx]:set(r, g, b, a)
 	else
@@ -1637,9 +1646,9 @@ function Selector:ctor()
 end
  
 function Selector:Add(w, h, data)
-	local item = UiWidget(w, h)
+	local item = UiButton(w, h)
+	item:SetDefaultColor(0, 0, 0, 0)
 	item.data = data
-	item.color:set(0, 0, 0, 0)
 	item:bind_event(EVT.FOCUS_IN, self, Selector.OnFocus)
 	item:bind_event(EVT.FOCUS_OUT, self, Selector.OnFocus)
 	item:bind_event(EVT.MOVE_IN, self, Selector.OnMouse)
@@ -1658,13 +1667,14 @@ function Selector:OnFocus(e)
 	if (e == EVT.FOCUS_IN) then
 		self.focused = EVT.obj
 		for item in pairs(self.selected) do
-			item.color:set(0, 130, 255, 100)
+			item:SetAllColors(0, 130, 255, 100)
 			item:Refresh()
 		end
 	else
 		self.focused = nil
 		for item in pairs(self.selected) do
-			item.color:set(100, 100, 100, 100)
+			item:ResetAllColors()
+			item:SetDefaultColor(100, 100, 100, 100)
 			item:Refresh()
 		end
 	end
@@ -1699,14 +1709,16 @@ function Selector:Select(item, flag, notify)
 	local changed
 	if (flag) then
 		if (self.focused == item) then
-			item.color:set(0, 130, 255, 100)
+			item:SetAllColors(0, 130, 255, 100)
 		else
-			item.color:set(100, 100, 100, 100)
+			item:ResetAllColors()
+			item:SetDefaultColor(100, 100, 100, 100)
 		end
 		changed = self.selected[item] ~= item.data
 		self.selected[item] = item.data
 	else
-		item.color:set(0, 0, 0, 0)
+		item:ResetAllColors()
+		item:SetDefaultColor(0, 0, 0, 0)
 		changed = self.selected[item] ~= nil
 		self.selected[item] = nil
 	end
@@ -1762,7 +1774,7 @@ function UiTreeList:AddNode(nodeId, icon, text)
 		node.superior = superior
 		node.indent = superior.indent + 17
 	else
-		self:AddChild(node, nil, Layout.ALIGN_LEFT)
+		self:AddChild(node, nil, 0, 0, false, 0)
 		node.indent = 0
 	end
 	node.fold = true
@@ -1774,54 +1786,54 @@ function UiTreeList:AddNode(nodeId, icon, text)
 	node.item.drawSelf = false
 	node.item.cpuClip = false
 	node.item.color:set(0, 0, 0, 0)
-	node:AddChild(node.item, nil, Layout.ALIGN_LEFT)
+	node:AddChild(node.item, nil, 0, 0, false, 0)
 	
-	node.item.hightLight = self.selector:Add(0, 0, node.id)
-	node.item:AddChild(node.item.hightLight)
+	node.item.highlight = self.selector:Add(0, 0, node.id)
+	node.item:AddChild(node.item.highlight)
 	
 	node.item.box = VBoxLayout()
 	node.item:AddChild(node.item.box)
 	node.title = HBoxLayout()
-	node.item.box:AddChild(node.title, nil, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, node.indent, 0, 1, 2)
+	node.item.box:AddChild(node.title, nil, 1, 2, false, node.indent)
 	
 	node.iconFold = UiPolyIcon(g_iconTriangleR, false)
 	node.iconFold.node = node
 	node.iconFold:SetDefaultColor(1, 150, 150, 150, 255)
-	node.iconFold:SetHoveringColor(1, 200, 200, 200, 255)
+	node.iconFold:SetHoverringColor(1, 200, 200, 200, 255)
 	node.iconFold:SetPressingColor(1, 230, 230, 230, 255)
 	node.iconFold:Show(false)
 	node.iconFold.Expand = UiTreeList.Expand
 	node.iconFold:bind_event(EVT.LEFT_UP, node.iconFold, node.iconFold.Expand)
-	node.title:AddChild(node.iconFold, nil, Layout.ALIGN_LEFT, 2, 0, 0, 0)
+	node.title:AddChild(node.iconFold, nil, 0, 2, false)
 	
 	node.iconExpand = UiPolyIcon(g_iconTriangleDR, false)
 	node.iconExpand.node = node
 	node.iconExpand:SetDefaultColor(1, 150, 150, 150, 255)
-	node.iconExpand:SetHoveringColor(1, 200, 200, 200, 255)
+	node.iconExpand:SetHoverringColor(1, 200, 200, 200, 255)
 	node.iconExpand:SetPressingColor(1, 230, 230, 230, 255)
 	node.iconExpand:Show(false)
 	node.iconExpand.Fold = UiTreeList.Fold
 	node.iconExpand:bind_event(EVT.LEFT_UP, node.iconExpand, node.iconExpand.Fold)
-	node.title:AddChild(node.iconExpand, nil, Layout.ALIGN_LEFT, 2, 0, 0, 0)
+	node.title:AddChild(node.iconExpand, nil, 0, 2, false)
 	
 	node.spacer = HBoxLayout()
 	node.spacer:Show(true)
-	node.title:AddChild(node.spacer, nil, Layout.ALIGN_LEFT, 14, 0, 0, 0)
+	node.title:AddChild(node.spacer, nil, 14, 0, false)
 	
 	node.icon = UiPolyIcon(icon, true, 20, 14)
 	node.icon.writeId = false
-	node.title:AddChild(node.icon, nil, Layout.ALIGN_LEFT|Layout.ALIGN_BOTTOM, 7, 0, 0, 4)
+	node.title:AddChild(node.icon, nil, 7, 0, false, nil, 4)
 	
 	node.text = UiText(text)
 	node.text.writeId = false
-	node.title:AddChild(node.text, nil, Layout.ALIGN_LEFT, 7, 0, 0, 0)
+	node.title:AddChild(node.text, nil, 7, 0, false)
 	
 	node.item.box:SetSize()
 	node.item:SetSize(node.indent + node.title.rect.w, node.item.box.rect.h)
 	
 	node.list = VBoxLayout()
 	node.list:Show(false)
-	node:AddChild(node.list, nil, Layout.ALIGN_LEFT)
+	node:AddChild(node.list, nil, 0, 0, false, 0)
 	
 	return node.id
 end
@@ -1840,7 +1852,7 @@ function UiTreeList:RemoveNode(id)
 		else
 			self:RemoveChild(node)
 		end
-		self.selector:Remove(node.item.hightLight)
+		self.selector:Remove(node.item.highlight)
 		self.nodes[id] = nil
 	end
 end
@@ -1848,7 +1860,7 @@ end
 function UiTreeList:OnListSized(e, w, h, list)
 	list = list or self
 	for node in list.children:pairs() do
-		node.item.hightLight:SetSize(self.rect.w, node.item.box.rect.h)
+		node.item.highlight:SetSize(self.rect.w, node.item.box.rect.h)
 		UiTreeList.OnListSized(self, e, w, h, node.list)
 	end
 end
@@ -1869,8 +1881,8 @@ end
 UiCombo = class(UiButton)
 UiCombo.width = 150
 UiCombo.height = 28
-UiCombo.maxListWidth = 500
-UiCombo.maxListHeight = 500
+UiCombo.maxBoxWidth = 500
+UiCombo.maxBoxHeight = 2000
 
 function UiCombo:ctor(w, h)
 	w = w or UiCombo.width
@@ -1878,40 +1890,42 @@ function UiCombo:ctor(w, h)
 	self:SetSize(w, h)
 
 	self.selector = Selector()
+	self:bind_event(EVT.LEFT_UP, self, UiCombo.OnLeftUp)
 	
-	self.layout:AddChild(self.text, nil, Layout.ALIGN_LEFT, 5)
+	self.layout:AddChild(self.text, nil, 5, 0, false)
 	local iconDown = UiPolyIcon(g_iconTriangleD)
 	iconDown:SetDefaultColor(200, 200, 200, 255)
 	iconDown.writeId = false
-	self.layout:AddChild(iconDown, 1, Layout.ALIGN_RIGHT, 0, 5)
-	
-	self:bind_event(EVT.SIZE, self, UiCombo.OnListSized)
+	self.layout:AddChild(iconDown, 1, nil, 5, false)
 
 	self.box = UiScrollPanel()
-	self.box:Show(false)
 	self.box:EnableActive(true)
-	self.box:bind_event(EVT.INACTIVE, self.box, UiCombo.OnBoxInactive)
+	self.box:bind_event(EVT.INACTIVE, self, UiCombo.OnBoxInactive)
 	
 	self.list = VBoxLayout()
-	self.box:AddChild(self.list)
+	self.list:bind_event(EVT.SIZE, self, UiCombo.OnListSized)
+	self.box:SetWidget(self.list)
 	
-	if (UiCombo.maxListWidth < w) then
-		self.maxListWidth = w
+	if (UiCombo.maxBoxWidth < w) then
+		self.maxBoxWidth = w
 	end
 end
 
 function UiCombo:SetDefault(index)
 	local item = self.list.children[index]
 	if (item) then
-		self:SetText(item.text)
-		self.selector:Select(item.hightLight, true, true)
+		self.text:SetText(item.text.text)
+		self.selector:Select(item.highlight, true, true)
 	end
 end
 
 function UiCombo:OnLeftUp()
-	if (#self.list > 0 and self.window) then
+	if (#self.list.children > 0 and self.window) then
 		self.window:AddChild(self.box)
+		self.list:SetSize()
+		self.box:SetSize(math.min(self.list.rect.w, self.maxBoxWidth), math.min(self.list.rect.h, self.maxBoxHeight))
 		self.box:SetActive(true)
+		self.box:SetPos(self.location.x, self.location.y + self.rect.h)
 	end
 end
 
@@ -1926,28 +1940,25 @@ function UiCombo:AddItem(text)
 	--if (index) then
 		--index = math.min(math.max(1, index), #self.list)
 	--end
-	self.list:AddChild(item)
+	self.list:AddChild(item, nil, 0, 0, false, 0)
 	
 	item.drawSelf = false
 	item.cpuClip = false
 	item.color:set(0, 0, 0, 0)
 	
 	local n = #self.list
-	item.hightLight = self.selector:Add(0, 0, n)
-	item:AddChild(item.hightLight, nil, Layout.ALIGN_LEFT)
+	item.highlight = self.selector:Add(0, 0, n)
+	item:AddChild(item.highlight)
 	
-	item.box = VBoxLayout()
-	item:AddChild(item.box)
-	
-	item.title = HBoxLayout()
-	item.item.box:AddChild(item.title, nil, Layout.ALIGN_LEFT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 2, 0, 1, 2)
+	item.layout = HBoxLayout()
+	item:AddChild(item.layout)
 	
 	item.text = UiText(text)
 	item.text.writeId = false
-	item.title:AddChild(item.text, nil, Layout.ALIGN_LEFT, 7, 0, 0, 0)
+	item.layout:AddChild(item.text, nil, 5, 5, false, 1, 2)
 	
-	item.box:SetSize()
-	item:SetSize(item.box.rect.w, item.box.rect.h)
+	item.layout:SetSize()
+	item:SetSize(math.max(item.layout.rect.w, self.rect.w), item.layout.rect.h)
 	
 	return n
 end
@@ -1955,10 +1966,11 @@ end
 function UiCombo:OnListSized(e, w, h)
 	local list = self.list
 	for item in list.children:pairs() do
-		item.hightLight:SetSize(list.rect.w, node.item.box.rect.h)
+		item.highlight:SetSize(list.rect.w, item.layout.rect.h)
 	end
 end
 
+-----UiLine-----
 UiLine = class(UiWidget)
 
 function UiLine:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)

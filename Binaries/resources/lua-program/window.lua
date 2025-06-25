@@ -5,12 +5,12 @@ require 'global'
 
 Window = class(UiWidget)
 Window.acceptFocus = true
-Window.active = true
 Window.cursor = SYS.CURSOR_ARROW
 Window.recycle = true
 
 function Window:ctor()
 	self.window = self
+	self:EnableActive(true)
 	self.time = 0
 	self.timers = ObjectArray()
 	self.sysCaptured = false
@@ -56,7 +56,8 @@ function Window:SetFocus(w, flag)
 end	
 
 function Window:SetActive(w, flag)
-	if  (w.active ~= w) then
+	w = w.active
+	if  (not w) then
 	return end
 	if (flag and EVT.active_id ~= w.id) then
 		local o = get_object(EVT.active_id)
