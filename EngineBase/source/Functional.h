@@ -181,6 +181,8 @@ public:
 	~BufferWriter()
 	{
 		SkipUsed();
+		if (m_writePos > m_cb.m_writePos)
+			m_cb.m_writePos = m_writePos;
 	}
 	T& operator [] (size_t n)
 	{
@@ -197,8 +199,6 @@ public:
 	{
 		m_writePos += sizeof(T) * m_max;
 		m_max = 0;
-		if (m_writePos > m_cb.m_writePos)
-			m_cb.m_writePos = m_writePos;
 	}
 
 private:

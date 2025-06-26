@@ -723,6 +723,72 @@ function UiWidget:OnSized()
 	self:Refresh()
 end
 
+local function OlUpdateChildren(ol, b, ...)
+	local rect = ol.w.rect
+	local location = ol.w.location
+	ol.w.rect = ol.rect
+	ol.w.location = ol.location
+	local b = Widget2D.UpdateChildren(ol, b, ...)
+	ol.w.rect = rect
+	ol.w.location = location
+	return b
+end
+
+function UiWidget:ShowOutline(flag, color)
+	local olLayout = self.olLayout
+	if (not flag) then
+		if (olLayout) then
+			self.children = self.oc
+			self:Refresh()
+		end
+		return
+	end
+	if (not olLayout) then	
+		olLayout = VBoxLayout()
+		self.olLayout = olLayout
+		
+		olLayout.lineTop = UiWidget(0, 1)
+		olLayout.lineTop.writeId = false
+		olLayout:AddChild(olLayout.lineTop, nil, 0, 0, true)
+		
+		local midLayout = HBoxLayout()
+		olLayout:AddChild(midLayout, 1, 0, 0, true)
+		
+		olLayout.lineLeft = UiWidget(1, 0)
+		olLayout.lineLeft.writeId = false
+		midLayout:AddChild(olLayout.lineLeft, nil, 0, 0, true)
+		
+		local midWidget = UiWidget()
+		midWidget.drawSelf = false
+		midWidget.children = self.children
+		midWidget.w = self
+		midWidget.UpdateChildren = OlUpdateChildren
+		midLayout:AddChild(midWidget, 1, 0, 0, true)
+		
+		olLayout.lineRight = UiWidget(1, 0)
+		olLayout.lineRight.writeId = false
+		midLayout:AddChild(olLayout.lineRight, nil, 0, 0, true)
+		
+		olLayout.lineBottom = UiWidget(0, 1)
+		olLayout.lineBottom.writeId = false
+		olLayout:AddChild(olLayout.lineBottom, nil, 0, 0, true)
+		
+		local w = Widget2D()
+		w:AddChild(olLayout)
+		olLayout.parent = self
+		self.oc = self.children
+		self.olc = w.children
+	end
+	if (color) then
+		self.olLayout.lineTop.color:copy(color)
+		self.olLayout.lineLeft.color:copy(color)
+		self.olLayout.lineRight.color:copy(color)
+		self.olLayout.lineBottom.color:copy(color)
+	end
+	self.children = self.olc
+	olLayout:SetUpdate()
+end
+
 function UiWidget:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 	return self:FillRectVB(self.color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 end
@@ -1888,19 +1954,23 @@ function UiCombo:ctor(w, h)
 	w = w or UiCombo.width
 	h = h or UiCombo.height
 	self:SetSize(w, h)
+	
+	self:EnableActive(true)
+	self:bind_event(EVT.INACTIVE, self, UiCombo.OnInactive)
 
 	self.selector = Selector()
 	self:bind_event(EVT.LEFT_UP, self, UiCombo.OnLeftUp)
+	self.selector:bind_event(Selector.EVT_CHANGED, self, UiCombo.OnSelected)
 	
-	self.layout:AddChild(self.text, nil, 5, 0, false)
+	self.layout:AddChild(self.text, 1, 5, 5, false)
 	local iconDown = UiPolyIcon(g_iconTriangleD)
 	iconDown:SetDefaultColor(200, 200, 200, 255)
 	iconDown.writeId = false
-	self.layout:AddChild(iconDown, 1, nil, 5, false)
+	self.layout:AddChild(iconDown, nil, nil, 5, false)
 
 	self.box = UiScrollPanel()
-	self.box:EnableActive(true)
-	self.box:bind_event(EVT.INACTIVE, self, UiCombo.OnBoxInactive)
+	self.box.active = self
+	self.box:ShowOutline(true, Color(150, 150, 150, 255))
 	
 	self.list = VBoxLayout()
 	self.list:bind_event(EVT.SIZE, self, UiCombo.OnListSized)
@@ -1920,19 +1990,28 @@ function UiCombo:SetDefault(index)
 end
 
 function UiCombo:OnLeftUp()
-	if (#self.list.children > 0 and self.window) then
+	if (not self.showBox and #self.list.children > 0 and self.window) then
 		self.window:AddChild(self.box)
 		self.list:SetSize()
-		self.box:SetSize(math.min(self.list.rect.w, self.maxBoxWidth), math.min(self.list.rect.h, self.maxBoxHeight))
-		self.box:SetActive(true)
+		self.box:SetSize(math.min(self.list.rect.w, self.maxBoxWidth) + 2, math.min(self.list.rect.h, self.maxBoxHeight) + 2)
 		self.box:SetPos(self.location.x, self.location.y + self.rect.h)
+		self:SetActive(true)
+		self.showBox = true
+	else
+		self:OnInactive()
 	end
 end
 
-function UiCombo:OnBoxInactive()
-	if (self.window) then
+function UiCombo:OnInactive()
+	if (self.showBox and self.window) then
 		self.window:RemoveChild(self.box)
+		self.showBox = false
 	end
+end
+
+function UiCombo:OnSelected()
+	self:SetDefault(self.selector:GetSelection())
+	self:OnInactive()
 end
 
 function UiCombo:AddItem(text)
@@ -1946,7 +2025,7 @@ function UiCombo:AddItem(text)
 	item.cpuClip = false
 	item.color:set(0, 0, 0, 0)
 	
-	local n = #self.list
+	local n = #self.list.children
 	item.highlight = self.selector:Add(0, 0, n)
 	item:AddChild(item.highlight)
 	
@@ -1968,6 +2047,47 @@ function UiCombo:OnListSized(e, w, h)
 	for item in list.children:pairs() do
 		item.highlight:SetSize(list.rect.w, item.layout.rect.h)
 	end
+end
+
+-----UiOutline-----
+UiOutline = class(VBoxLayout)
+
+function UiOutline:ctor(widget)
+	self.lineTop = UiWidget(0, 1)
+	self.lineTop.id = widget.id
+	self.lineTop.writeId = widget.writeId
+	self:AddChild(self.lineTop, nil, 0, 0, true)
+	
+	local midLayout = HBoxLayout()
+	self:AddChild(midLayout, 1, 0, 0, true)
+	
+	self.lineLeft = UiWidget(1, 0)
+	self.lineLeft.id = widget.id
+	self.lineLeft.writeId = widget.writeId
+	midLayout:AddChild(self.lineLeft, nil, 0, 0, true)
+	
+	self.widget = widget
+	midLayout:AddChild(widget)
+	
+	self.lineRight = UiWidget(1, 0)
+	self.lineRight.id = widget.id
+	self.lineRight.writeId = widget.writeId
+	midLayout:AddChild(self.lineRight, nil, 0, 0, true)
+	
+	self.lineBottom = UiWidget(0, 1)
+	self.lineBottom.id = widget.id
+	self.lineBottom.writeId = widget.writeId
+	self:AddChild(self.lineBottom, nil, 0, 0, true)
+end
+
+function UiOutline:DoUpdate(...)
+	if (self.widget.writeId ~= self.lineTop.writeId) then
+		self.lineTop.writeId = widget.writeId
+		self.lineLeft.writeId = widget.writeId
+		self.lineRight.writeId = widget.writeId
+		self.lineBottom.writeId = widget.writeId
+	end
+	return Layout.DoUpdate(self, ...)
 end
 
 -----UiLine-----

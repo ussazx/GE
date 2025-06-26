@@ -125,11 +125,12 @@ function NewWindow_CreateProj()
 	
 	local combo = UiCombo()
 	combo:AddItem('zzzz')
-	combo:AddItem('zzzz')
+	combo:AddItem('12345')
 	combo:AddItem('zzzzzzzzzzzzzzzzzzzzzzzzzzzzz')
 	combo:AddItem('zzzz')
 	combo:AddItem('zzzz')
 	combo:SetDefault(5)
+	combo:ShowOutline(true, Color(150, 150, 150, 255))
 	ww:AddChild(combo, 100, 100)
 	
 	local t = UiTreeList()
