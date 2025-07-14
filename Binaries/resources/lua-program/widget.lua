@@ -708,6 +708,10 @@ function UiWidget:ctor(w, h)
 	self.rcMesh:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
 end
 
+function UiWidget.GetDCList(spId, mergeType, order)
+	return g_dcLists[spId]
+end
+
 function UiWidget:Refresh()
 	self.mesh.update = true
 	if (self.window) then
@@ -834,7 +838,7 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 	crCpuNew = crCpuNew or crCpu
 	crGpuNew = crGpuNew or crGpu
 
-	if (crGpuNew) then
+	if (not DrawcallList.cr or (crGpuNew and DrawcallList.cr:diff(crGpuNew))) then
 		DrawcallList.cr = crGpuNew
 	end
 	
@@ -851,11 +855,11 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 	end
 	
 	if (self.drawClipRect) then
-		self.rcMesh:Render(d)
+		self.rcMesh:Render(UiWidget.GetDCList, d)
 	end
 	self.mesh.update = changed
 	if (self.drawSelf) then
-		self.mesh:Render(d)
+		self.mesh:Render(UiWidget.GetDCList, d)
 	end
 	
 	return true, crCpuNew, crGpuNew
@@ -1681,11 +1685,11 @@ function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp
 	local n = self.poly.vtx_count
 	if (self.scale) then
 		if (self.sized) then
-			self.mat3d:SetD0(self.rect.w / self.poly.w, 0, 0)
-			self.mat3d:SetD1(0, self.rect.h / self.poly.h, 0)
+			self.mat3d:SetVecX(self.rect.w / self.poly.w, 0, 0, 0)
+			self.mat3d:SetVecY(0, self.rect.h / self.poly.h, 0, 0)
 		end
 		if (self.moved) then
-			self.mat3d:SetD3(self.location.x, self.location.y, 0) 			
+			self.mat3d:SetVecW(self.location.x, self.location.y, 0, 0) 			
 		end
 		CTransformFloat3(g_innerPolyVB, self.poly.vb_offset, n, self.mat3d, vbPos, wpPos)
 	else
@@ -2049,47 +2053,6 @@ function UiCombo:OnListSized(e, w, h)
 	end
 end
 
------UiOutline-----
-UiOutline = class(VBoxLayout)
-
-function UiOutline:ctor(widget)
-	self.lineTop = UiWidget(0, 1)
-	self.lineTop.id = widget.id
-	self.lineTop.writeId = widget.writeId
-	self:AddChild(self.lineTop, nil, 0, 0, true)
-	
-	local midLayout = HBoxLayout()
-	self:AddChild(midLayout, 1, 0, 0, true)
-	
-	self.lineLeft = UiWidget(1, 0)
-	self.lineLeft.id = widget.id
-	self.lineLeft.writeId = widget.writeId
-	midLayout:AddChild(self.lineLeft, nil, 0, 0, true)
-	
-	self.widget = widget
-	midLayout:AddChild(widget)
-	
-	self.lineRight = UiWidget(1, 0)
-	self.lineRight.id = widget.id
-	self.lineRight.writeId = widget.writeId
-	midLayout:AddChild(self.lineRight, nil, 0, 0, true)
-	
-	self.lineBottom = UiWidget(0, 1)
-	self.lineBottom.id = widget.id
-	self.lineBottom.writeId = widget.writeId
-	self:AddChild(self.lineBottom, nil, 0, 0, true)
-end
-
-function UiOutline:DoUpdate(...)
-	if (self.widget.writeId ~= self.lineTop.writeId) then
-		self.lineTop.writeId = widget.writeId
-		self.lineLeft.writeId = widget.writeId
-		self.lineRight.writeId = widget.writeId
-		self.lineBottom.writeId = widget.writeId
-	end
-	return Layout.DoUpdate(self, ...)
-end
-
 -----UiLine-----
 UiLine = class(UiWidget)
 
@@ -2112,4 +2075,98 @@ function UiLine:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ib
 	-- CAddFloat3(vbUVW, wpUVW, 8, self.font.pixels, 0, 0)
 	-- CAddUByte4(vbColor, wpColor, 8, self.color.r, self.color.g, self.color.b, self.color.a)
 	-- return 8, CAddLine2D(vbPos, wpPos, 4, true, 2, 1, vbPos, wpPos, ib, iwp, ibStart)
+end
+
+-----Object3D-----
+Object3D = class(Object)
+
+function Object3D:ctor()
+	self.mRoot = CMatrix3D()
+end
+
+-----Camera-----
+Camera = class(Object3D)
+
+function Camera:ctor()
+	self.mProj = CMatrix3D()
+end
+
+-----SceneWidget-----
+SceneWidget = class(Widget2D)
+
+function SceneWidget:ctor()
+	self.vpNew = Rect()
+	self.dcLists = {}
+end
+
+function SceneWidget:DoUpdate(crCpu, crGpu)
+	local crGpuNew = self.crNew
+	crGpuNew:set(self.location.x, self.location.y, self.rect.w, self.rect.h)
+	local cr = crGpu or crCpu
+	if (cr and not self.crNew:intersect(cr, self.crNew)) then
+		return false
+	end
+	if (not DrawcallList.cr or DrawcallList.cr:diff(crGpuNew)) then
+		DrawcallList.cr = crGpuNew
+	end
+	local vpNew = self.vpNew
+	vpNew:set(self.location.x, self.location.y, self.rect.w, self.rect.h)
+	if (not DrawcallList.vp or DrawcallList.vp:diff(vpNew)) then
+		DrawcallList.vp = vpNew
+	end
+
+	self:Render()
+	for spId, merged in pairs(self.dcLists) do
+		local dcList = g_dcLists[spId]
+		if (dcList) then
+			for order, list in pairs(merged) do
+				list:CommitCurrent()
+				dcList:AddSubList(list)
+				merged[order] = nil
+			end
+		end
+	end
+	
+	return true, crCpu, crGpuNew
+end
+
+function SceneWidget:GetDCList(spId, mergeType, order)
+	local o = self.dcLists[spId]
+	if (not o) then
+		o = {}
+		self.dcLists[spId] = o
+	end
+	local s = o[mergeType]
+	if (not s) then
+		s = {}
+		o[mergeType] = s
+	end
+	local list = s[order]
+	if (not list) then
+		list = g_fp:NewSubList()
+		s[order] = list
+	end
+	if (not list.reset) then
+		list:Reset(g_input)
+	end
+	return list
+end
+
+-----Scene3D-----
+Scene3D = class(SceneWidget)
+
+function Scene3D:ctor(camera)
+	self.camera = camera or Object3D()
+	self.mProj = CMatrix3D()
+end
+
+function Scene3D:SceneObjects()
+	return g_sceneObjects()
+end
+
+function Scene3D:Render()
+	local objects = self:SceneObjects()
+	for obj in objects:pairs(self.Filter) do
+		
+	end
 end

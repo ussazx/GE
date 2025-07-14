@@ -397,7 +397,7 @@ inline int LuaObjectDtor(lua_State *L)
 	return 0;
 }
 
-inline void LuaRegisterCppClass(LuaState& lua, const char* name, const char* baseName, 
+inline void LuaRegisterCppClass(LuaState& lua, const char* name, const char* baseName, size_t size,
 	lua_CFunction objectCtor, lua_CFunction objectDtor, const LuaCustomSet& setClassTable)
 {
 	if (baseName)
@@ -405,6 +405,7 @@ inline void LuaRegisterCppClass(LuaState& lua, const char* name, const char* bas
 	if (objectCtor)
 		lua.SetValue(name, LuaMeta(), "__call", objectCtor);
 	lua.SetValue(name, setClassTable);
+	lua.SetValue(name, "_size", size);
 	lua.SetValue(name, "_class", "__gc", objectDtor);
 	lua.GetValue(name, LuaSetTo(name, "_class", "__index"));
 }
@@ -412,5 +413,5 @@ inline void LuaRegisterCppClass(LuaState& lua, const char* name, const char* bas
 template<class T>
 inline void LuaRegisterCppClass(LuaState& lua)
 {
-	LuaRegisterCppClass(lua, T::LuaGetName(), T::LuaGetBaseName(), T::LuaGetObjectCtor(), LuaObjectDtor<T>, T::LuaSetClassTable);
+	LuaRegisterCppClass(lua, T::LuaGetName(), T::LuaGetBaseName(), sizeof(T), T::LuaGetObjectCtor(), LuaObjectDtor<T>, T::LuaSetClassTable);
 }

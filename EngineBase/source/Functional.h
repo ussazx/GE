@@ -263,6 +263,13 @@ inline void CAddUByte4(LuacObj<CBuffer> vb, int wp, int num, uint32_t r, uint32_
 }
 Lua_global_add_cfunc(CAddUByte4)
 
+inline void CAddMatrix3D(LuacObj<CBuffer> vb, int wp, LuacObj<CMatrix3D> m)
+{
+	BufferWriter<CMatrix3D> bw(*vb, 1, wp);
+	bw[0] = *m;
+}
+Lua_global_add_cfunc(CAddMatrix3D)
+
 //inline void CAddRectFloat2(LuacObj<CBuffer> vb, int wp, float x, float y, float w, float h)
 //{
 //	BufferWriter<float2> bw(*vb, 4, wp);
@@ -564,7 +571,7 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, size_t vnum, BufferWriter<
 			float3& p1 = vbw[vtx_seq[i0]];
 			float3& p2 = vbw[vtx_seq[i2]];
 			float3& p3 = vbw[vtx_seq[i3]];
-			if (p1 == p2 || p1 == p3)
+			if (p1.Same(p2) || p1.Same(p3))
 				continue;
 			auto t = CIntersect2D(p0.x, p0.y, p1.x, p1.y, false, p2.x, p2.y, p3.x, p3.y, true, false);
 			if (std::get<0>(t))

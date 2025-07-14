@@ -22,6 +22,7 @@
     <ClCompile Include="..\..\ThirdParty\vulkan\Source\vulkan_wrapper\vulkan_wrapper.cpp" />
     <ClCompile Include="..\source\EngineBase.cpp" />
     <ClCompile Include="..\source\EngineInterface.cpp" />
+    <ClCompile Include="..\source\Geometry.cpp" />
     <ClCompile Include="..\source\Graphic\GraphicVulkan.cpp" />
     <ClCompile Include="..\source\Graphic\ParamVulkan.cpp" />
     <ClCompile Include="..\source\Resource\Font.cpp" />

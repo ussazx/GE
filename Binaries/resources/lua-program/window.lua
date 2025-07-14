@@ -218,7 +218,7 @@ function Window:render()
 		self.update = true
 		while (self.update) do
 			self.update = false
-			self.fp:UpdateSurface(self.cmd:Reset(), self)
+			self.fp:UpdateSurface(self.cmd:Reset())
 		end
 		self.sized = false
 	end

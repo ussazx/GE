@@ -183,6 +183,14 @@ bool MyApp::OnInit()
 	Terminal::Lua().Run("for i = 1, 100000 do c:f() end");
 	DebugLog(L"%d", GetTickCount() - t);
 
+	t = GetTickCount();
+	Terminal::Lua().Run("local o function fz() if (not o) then o = {} end return o end for i = 1, 100000 do local x = o or fz() end");
+	DebugLog(L"%d", GetTickCount() - t);
+
+	t = GetTickCount();
+	Terminal::Lua().Run("local o for i = 1, 100000 do if (not o) then o = {} end local x = o end");
+	DebugLog(L"%d", GetTickCount() - t);
+
 	Entrance en(nullptr, "");
 	Terminal::Lua().SetValue("cEntrance", Lua_set_cobj(&en));
 	Terminal::Lua().GetValue("LoadEntrance", LuaCall());

@@ -147,25 +147,26 @@ function RenderCommand.Recycle(cmd)
 end
 
 ---ResBuffer---
-ResBuffer = class()
+ResBuffer = class()	
 
 function ResBuffer:ctor(cmd, ...)
 	self.func = {}
-	self.n = 0
-	for k, v in pairs({...}) do
-		self.func[k] = v
-		self.n = self.n + g_sizeFunc[v]
-	end
 	self.cmd = cmd
+	self.size = 0
 	self.pos = cmd.rbPos
-	cmd.rbPos = cmd.rbPos + self.n
+	for k, v in pairs({...}) do
+		self.func[k] = {func = v, pos = cmd.rbPos}
+		cmd.rbPos = cmd.rbPos + g_sizeFunc[v]
+		self.size = self.size + g_sizeFunc[v]
+	end
 	cmd[0].gb:Resize(cmd.rbPos)
 	cmd[1].gb:Resize(cmd.rbPos)
 end
 
 function ResBuffer:Set(idx, ...)
 	local cmd = self.cmd[self.cmd.cIdx]
-	self.func[idx](cmd.gb, self.pos, 1, ...)
+	local o = self.func[idx]
+	o.func(cmd.gb, o.pos, 1, ...)
 	cmd.gb.updated = true
 end
 
@@ -178,8 +179,8 @@ function ResourceSetNew:ctor(rl)
 end
 
 function ResourceSetNew:BindResBuffer(b, binding)
-	self[0]:BindBuffer(b.cmd[0].gb, b.pos, b.n, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
-	self[1]:BindBuffer(b.cmd[1].gb, b.pos, b.n, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
+	self[0]:BindBuffer(b.cmd[0].gb, b.pos, b.size, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
+	self[1]:BindBuffer(b.cmd[1].gb, b.pos, b.size, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
 end
 
 function ResourceSetNew:BindTexelView(v, binding)
@@ -217,7 +218,7 @@ function DrawcallList:Reset(input)
 	self.p.pl = nil
 	self.p.vtxInput = nil
 	self.p.mainSlot = nil
-	self.spId = nil
+	self.mtl = nil
 	self.resIdx = 0
 	for k, _ in pairs(self.res) do
 		self.res[k] = nil
@@ -225,6 +226,7 @@ function DrawcallList:Reset(input)
 	for k, _ in pairs(self.insVbSets) do
 		self.insVbSets[k] = nil
 	end
+	self.reset = true
 end
 
 function DrawcallList:NewDrawcall()
@@ -254,31 +256,41 @@ function DrawcallList:NewDrawcall()
 	return dc
 end
 
+function DrawcallList:SetupDrawcall(cmd, dc)
+	if (dc.vp) then
+		cmd:SetViewport(dc.vp.x, dc.vp.y, dc.vp.w, dc.vp.h, 0, 1)
+	end
+	if (dc.cr) then
+		cmd:SetClipRect(dc.cr.x, dc.cr.y, dc.cr.w, dc.cr.h)
+	end
+	for k, v in pairs(dc.resList) do
+		cmd:SetResourceSet(v[cmd.cIdx], k)
+	end
+	for k, v in pairs(dc.vbSets) do
+		cmd:SetVertexBuffers(v, k)
+	end
+	if (dc.mainSlot) then
+		cmd:SetVertexBuffers(dc.vtxInput, dc.mainSlot)
+	end
+	if (dc.direct) then
+		cmd:DrawIndexed(dc.pl, self.input.ib, 0, dc.idxStart, dc.idxCount, dc.instStart, dc.instCount)
+	else
+		cmd:DrawIndexedIndirect(dc.pl, self.input.ib, self.indBuf, dc.indStart, dc.indCount)
+	end
+end
+
 function DrawcallList:SetupDrawcalls(cmd)
 	self:CommitCurrent()
 	for i = 1, self.dcCount do
 		local dc = self.dcList[i]
-		if (dc.vp) then
-			cmd:SetViewport(dc.vp.x, dc.vp.y, dc.vp.w, dc.vp.h, 0, 1)
-		end
-		if (dc.cr) then
-			cmd:SetClipRect(dc.cr.x, dc.cr.y, dc.cr.w, dc.cr.h)
-		end
-		for k, v in pairs(dc.resList) do
-			cmd:SetResourceSet(v[cmd.cIdx], k)
-		end
-		for k, v in pairs(dc.vbSets) do
-			cmd:SetVertexBuffers(v, k)
-		end
-		if (dc.mainSlot) then
-			cmd:SetVertexBuffers(dc.vtxInput, dc.mainSlot)
-		end
-		if (dc.direct) then
-			cmd:DrawIndexed(dc.pl, self.input.ib, 0, dc.idxStart, dc.idxCount, dc.instStart, dc.instCount)
+		if (self.subList) then
+			self.subList:SetupDrawcalls(cmd)
+			self.subList = nil
 		else
-			cmd:DrawIndexedIndirect(dc.pl, self.input.ib, self.indBuf, dc.indStart, dc.indCount)
+			self:SetupDrawcall(cmd, dc)
 		end
 	end
+	self.reset = false
 	--Print('---draw call---', self.dcCount)
 end
 
@@ -350,7 +362,7 @@ function DrawcallList:CommitCurrent()
 		self.dc.instStart = self.instStart
 		self.dc.instCount = self.instCount
 		self.idxCount = 0
-	else 
+	elseif (not self.subList) then 
 	return end
 	self.dc.pl = self.c.pl
 	self.dcCount = self.dcCount + 1
@@ -378,13 +390,19 @@ function DrawcallList:Draw(idxStart, idxCount, instStart, instCount)
 	self.idxCount = self.idxCount + idxCount
 end
 
+function DrawcallList:AddSubList(dcList)
+	self:CommitCurrent()
+	dc.subList = dcList
+	self:CommitCurrent()
+end
+
 ---Mesh---
 Mesh = class()
 Mesh.UpdateCached = {}
 Mesh.VtxHandler = {}
 Mesh.VtxHandlerCached = {}
 
-local function RenderMesh(mesh, disables)
+local function RenderMesh(mesh, dcListGetter, disables)
 	Mesh.mesh = mesh
 	local mtl = mesh.mtl
 	mesh.vbDst = g_input.vtx[mtl.vtxLayout].vb
@@ -394,11 +412,11 @@ local function RenderMesh(mesh, disables)
 	local draw = true
 	local iwp = g_input.idxCount * SIZE_INDEX
 	for spId, func in pairs(mtl.func) do
-		if (not disables[spId] and g_dcLists[spId]) then
-			local dcList = g_dcLists[spId]
-			if (dcList.spId ~= spId) then
-				func(dcList)
-				dcList.spId = spId
+		local dcList = dcListGetter(spId, func.mergeType, func.order)
+		if (not disables[spId] and dcList) then
+			if (dcList.mtl ~= mtl) then
+				func.func(dcList)
+				dcList.mtl = mtl
 			end
 			if (draw) then
 				mesh.vtxHandler()
@@ -414,7 +432,7 @@ local function RenderMesh(mesh, disables)
 	mesh.n_idx = 0
 end
 
-local function RenderMeshCached(mesh, disables)
+local function RenderMeshCached(mesh, dcListGetter, disables)
 	Mesh.mesh = mesh
 	if (mesh.update) then
 		mesh.updateCached()
@@ -425,11 +443,11 @@ local function RenderMeshCached(mesh, disables)
 	local draw = false
 	local iwp = g_input.idxCount * SIZE_INDEX
 	for spId, func in pairs(mtl.func) do
-		if (not disables[spId] and g_dcLists[spId]) then
-			local dcList = g_dcLists[spId]
-			if (dcList.spId ~= spId) then
-				func(dcList)
-				dcList.spId = spId
+		local dcList = dcListGetter(spId, func.mergeType, func.order)
+		if (not disables[spId] and dcList) then
+			if (dcList.mtl ~= mtl) then
+				func.func(dcList)
+				dcList.mtl = mtl
 			end
 			local insArgs = mesh.insArgs[mtl.insSlot[spId]]
 			dcList:Draw(g_input.idxCount, mesh.n_idx, insArgs[1], insArgs[2])
@@ -541,9 +559,9 @@ function Mesh:SetMaterial(mtl, ...)
 	self.vtxHandler = f
 end
 
-function Mesh:Render(disables)
+function Mesh:Render(dcListGetter, disables)
 	self.vwp = g_input.vtx[self.mtl.vtxLayout].wp
-	self:render(disables or {})
+	self:render(dcListGetter, disables or {})
 end
 
 ---FramePipeline---
@@ -553,6 +571,21 @@ function FramePipeline:ctor()
 	self.cmdList = {}
 	self.dcLists = {}
 	self.surfaces = {}
+	self.subLists = {}
+	self.subListUsed = 0
+end
+
+function FramePipeline:NewSubList()
+	self.subListUsed = self.subListUsed + 1
+	local list = self.subLists[self.subListUsed]
+	if (not list) then
+		list = DrawcallList()
+		self.subLists[self.subListUsed] = list
+	end
+	if (not list.reset) then
+		list:Reset(g_input)
+	end
+	return list
 end
 
 function FramePipeline:AddFrameOutput(fb)
@@ -563,7 +596,8 @@ function FramePipeline:AddCopyImage(params)
 	table.insert(self.cmdList, {type = 1, params = params})
 end
 
-function FramePipeline:UpdateSurface(input, window)
+function FramePipeline:UpdateSurface(input)
+	self.subListUsed = 0
 	for surface, dcLists in pairs(self.foParams) do
 		DrawcallList.vp = surface.rect
 		DrawcallList.cr = surface.rect
@@ -573,7 +607,7 @@ function FramePipeline:UpdateSurface(input, window)
 		end
 		g_dcLists = dcLists
 		g_input = input
-		surface.window = window
+		g_fp = self
 		surface:Update(nil, surface.rect)
 	end
 end

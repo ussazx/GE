@@ -5,9 +5,9 @@ require 'geometry'
 
 g_recorder = Recorder()
 
-g_assets = {}
-
 g_content = {}
+
+g_sceneObjects = ObjectArray()
 
 g_innerPolyVB = CMBuffer(1024)
 g_innerPolyVB.offset = 0
@@ -174,14 +174,14 @@ end
 g_idVbSet = cGI:NewBufferSet({g_idVb}, 1)
 
 local f = CNewFileInput(false)
-f:Open('Resources/shaders/'..cGI:Type()..'/ui_vs.sc', true)
+f:Open('Resources/shaders/'..cGI:Type()..'/ui.vsc', true)
 ui_vs = cGI:NewShaderModule(f)
-f:Open('Resources/shaders/'..cGI:Type()..'/ui_ps.sc', true)
+f:Open('Resources/shaders/'..cGI:Type()..'/ui.psc', true)
 ui_ps = cGI:NewShaderModule(f)
 
-f:Open('Resources/shaders/'..cGI:Type()..'/id_ui_vs.sc', true)
+f:Open('Resources/shaders/'..cGI:Type()..'/ui_id.vsc', true)
 id_ui_vs = cGI:NewShaderModule(f)
-f:Open('Resources/shaders/'..cGI:Type()..'/id_ui_ps.sc', true)
+f:Open('Resources/shaders/'..cGI:Type()..'/ui_id.psc', true)
 id_ui_ps = cGI:NewShaderModule(f)
 
 f:Open('Resources/atlas2', true)
@@ -260,17 +260,17 @@ uiFont.res:BindTexelView(uiFont.view)
 
 g_mtlUi.func = {}
 
-g_mtlUi.func[g_rp0[1]] = function(dcList)
+g_mtlUi.func[g_rp0[1]] = {func = function(dcList)
 	dcList:AddResourceSet(ui_resourceSet)
 	dcList:AddResourceSet(uiFont.res)
 	dcList:SetPipeline(g_plUi, g_mtlUi.vtxLayout, 0)
-end
+end, mergeType = DC_DEFAULT}
 
-g_mtlUi.func[g_rp0[2]] = function(dcList)
+g_mtlUi.func[g_rp0[2]] = {func = function(dcList)
 	dcList:AddResourceSet(ui_resourceSet)  
 	dcList:SetPipeline(g_plId2D, g_mtlUi.vtxLayout, 0)
 	dcList:SetInsVB(g_idVbSet, 3)
-end
+end, mergeType = DC_DEFAULT}
 
 -- cParamResourceLayout:Reset()
 -- cParamResourceLayout:Add(RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, SHADER_STAGE_VERTEX_BIT)
