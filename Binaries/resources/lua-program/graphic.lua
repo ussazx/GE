@@ -74,6 +74,7 @@ function Command.NewRenderCmd()
 	cmd.input = {[0] = {vtx = {}, idxCount = 0, ib = cGI:NewBuffer(SIZE_INDEX), indUsed = 0, indCap = 0, indBuf = {}, GetIndBuf = GetIndBuf},
 				 [1] = {vtx = {}, idxCount = 0, ib = cGI:NewBuffer(SIZE_INDEX), indUsed = 0, indCap = 0, indBuf = {}, GetIndBuf = GetIndBuf}}
 	
+	
 	cmd[0] = cGI:NewCommand(false)
 	cmd[0].gb = cGI:NewBuffer(128)
 	cmd[0].cIdx = 0
@@ -83,6 +84,7 @@ function Command.NewRenderCmd()
 	cmd[1].cIdx = 1
 	
 	cmd.cmd = cmd[0]
+	cmd.gb = cmd.cmd.gb
 
 	for _, layout in pairs(g_vtxLayout) do
 		local wp = {idxAddOn = 0}
@@ -136,6 +138,7 @@ function RenderCommand:Execute()
 		cmd0.gb.updated = false
 	end
 	self.cmd = cmd1
+	self.gb = self.cmd.gb
 	self.rendered = true
 end
 
@@ -147,27 +150,26 @@ function RenderCommand.Recycle(cmd)
 end
 
 ---ResBuffer---
-ResBuffer = class()	
+local ResBufferMT = {__call = 
+function(b)
+	local gb = b.cmd.gb
+	gb.updated = true
+	return gb
+end}
 
-function ResBuffer:ctor(cmd, ...)
-	self.func = {}
-	self.cmd = cmd
-	self.size = 0
-	self.pos = cmd.rbPos
+function ResBuffer(cmd, ...)
+	local b = setmetatable({}, ResBufferMT)
+	b.cmd = cmd
+	b.size = 0
+	b.offset = cmd.rbPos
 	for k, v in pairs({...}) do
-		self.func[k] = {func = v, pos = cmd.rbPos}
-		cmd.rbPos = cmd.rbPos + g_sizeFunc[v]
-		self.size = self.size + g_sizeFunc[v]
+		b[k] = cmd.rbPos
+		cmd.rbPos = cmd.rbPos + v
+		b.size = b.size + v
 	end
 	cmd[0].gb:Resize(cmd.rbPos)
 	cmd[1].gb:Resize(cmd.rbPos)
-end
-
-function ResBuffer:Set(idx, ...)
-	local cmd = self.cmd[self.cmd.cIdx]
-	local o = self.func[idx]
-	o.func(cmd.gb, o.pos, 1, ...)
-	cmd.gb.updated = true
+	return b
 end
 
 ---ResourceSetNew---
@@ -179,8 +181,8 @@ function ResourceSetNew:ctor(rl)
 end
 
 function ResourceSetNew:BindResBuffer(b, binding)
-	self[0]:BindBuffer(b.cmd[0].gb, b.pos, b.size, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
-	self[1]:BindBuffer(b.cmd[1].gb, b.pos, b.size, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
+	self[0]:BindBuffer(b.cmd[0].gb, b.offset, b.size, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
+	self[1]:BindBuffer(b.cmd[1].gb, b.offset, b.size, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
 end
 
 function ResourceSetNew:BindTexelView(v, binding)
@@ -396,85 +398,115 @@ function DrawcallList:AddSubList(dcList)
 	self:CommitCurrent()
 end
 
+---Geometry---
+Geometry = class()
+Geometry.TRANS_NONE = 0
+Geometry.TRANS_DEFAULT = 1
+Geometry.TRANS_NORMAL = 2
+
+function Geometry.MakeWrite(o)
+	local write = 'return function('
+	for k, v in pairs(o.vb) do
+		write = write .. string.format('vbDst%q, wp%q', k, k)
+	end
+	write = write .. ', ib, iwp, ibStart) if (self.idxCount == 0) then return end '
+	write = write .. 'local vbSrc = self.vb vbCount = self.vbEnd - self.vbStart + 1'
+	for k, v in pairs(o.vb) do
+		if (v[2] == Geometry.TRANS_DEFAULT or v[2] == Geometry.TRANS_NORMAL) then
+			local isNormal = v[2] == Geometry.TRANS_NORMAL
+			write = write .. 
+			string.format('self.trans:AddFactors(self.vbStart, vbCount, vbSrc[%q], 0, vbDst%q, wp%q, %q) ', k, k, k, isNormal)
+		else
+			write = write .. 
+			string.format('CBufferCopy(vbSrc[%q], self.vbStart * SIZE_FLOAT3, vbCount * SIZE_FLOAT3, vbDst%q, wp%q) ', k, k, k)
+		end
+	end
+	write = write .. 'CCopyIndexBuffer(self.ib, self.idxOffset * SIZE_INDEX, self.idxCount, ibStart - self.vbStart, ib, iwp) '
+	write = write .. 'self.vbStart = nil self.vbEnd = 0 self.idxOffset = nil self.idxCount = 0 self.meshIdx = 0'
+	return load(write, '', 't')
+end
+
+function Geometry:ctor(o)
+	self.layout = o.layout
+	self.trans = CTransformer()
+	self.vb = o.vb
+	self.ib = o.ib
+	self.Write = o.Write
+	self.vbEnd = 0
+	self.idxCount = 0
+	self.meshIdx = 0
+end
+
+local geoInfo = {}
+geoInfo.layout = 1|2
+geoInfo.vb = {}
+geoInfo.vb[1] = {CMBuffer(1), Geometry.TRANS_DEFAULT}
+geoInfo.vb[2] = {CMBuffer(1), Geometry.TRANS_NORMAL}
+geoInfo.vb[3] = {CMBuffer(1), Geometry.TRANS_NONE}
+geoInfo.ib = CMBuffer(1)
+geoInfo.Write = Geometry.MakeWrite(geoInfo)
+local z = Geometry(geoInfo)
+
 ---Mesh---
 Mesh = class()
-Mesh.UpdateCached = {}
-Mesh.VtxHandler = {}
-Mesh.VtxHandlerCached = {}
 
-local function RenderMesh(mesh, dcListGetter, disables)
-	Mesh.mesh = mesh
-	local mtl = mesh.mtl
-	mesh.vbDst = g_input.vtx[mtl.vtxLayout].vb
-	mesh.ibDst = g_input.ib
-	mesh.iwp = g_input.idxCount * SIZE_INDEX
-	mesh.ibStart = mesh.vwp.idxAddOn
-	local draw = true
-	local iwp = g_input.idxCount * SIZE_INDEX
-	for spId, func in pairs(mtl.func) do
-		local dcList = dcListGetter(spId, func.mergeType, func.order)
-		if (not disables[spId] and dcList) then
-			if (dcList.mtl ~= mtl) then
-				func.func(dcList)
-				dcList.mtl = mtl
-			end
-			if (draw) then
-				mesh.vtxHandler()
-				draw = false
-			end
-			local insArgs = mesh.insArgs[mtl.insSlot[spId]]
-			dcList:Draw(g_input.idxCount, mesh.n_idx, insArgs[1], insArgs[2])
-		end
-	end
-	mesh.vwp.idxAddOn = mesh.vwp.idxAddOn + mesh.n_vtx
-	g_input.idxCount = g_input.idxCount + mesh.n_idx
-	mesh.n_vtx = 0
-	mesh.n_idx = 0
+function Mesh:ctor(geom, meshIdx, idxOffset, idxCount)
+	self.geom = geom
+	self.idx = meshIdx
+	self.vbStart, self.vbEnd = CGetIndicesSegment(geom.ib, 0, idxOffset, idxCount)
+	self.idxOffset = idxOffset
+	self.idxCount = idxCount
+	self.renderer = MeshRenderer(self, self.geom.layout, self.Write)
 end
 
-local function RenderMeshCached(mesh, dcListGetter, disables)
-	Mesh.mesh = mesh
-	if (mesh.update) then
-		mesh.updateCached()
-		mesh.update = false
+function Mesh:Write(...)
+	local geom = self.geom
+	if ((geom.vbDst and geom.vbDst ~= self.renderer.vbDst) or geom.meshIdx + 1 ~= self.idx) then
+		self.geom:Write(...)
+		geom.vbStart = self.vbStart
+		geom.idxOffset = geom.idxOffset
+	else
+		geom.vbStart = math.min(geom.vbStart or self.vbStart, self.vbStart)
+		geom.idxOffset = geom.idxOffset or self.idxOffset
 	end
-	local mtl = mesh.mtl
-	mesh.vbDst = g_input.vtx[mtl.vtxLayout].vb
-	local draw = false
-	local iwp = g_input.idxCount * SIZE_INDEX
-	for spId, func in pairs(mtl.func) do
-		local dcList = dcListGetter(spId, func.mergeType, func.order)
-		if (not disables[spId] and dcList) then
-			if (dcList.mtl ~= mtl) then
-				func.func(dcList)
-				dcList.mtl = mtl
-			end
-			local insArgs = mesh.insArgs[mtl.insSlot[spId]]
-			dcList:Draw(g_input.idxCount, mesh.n_idx, insArgs[1], insArgs[2])
-			draw = true
-		end
-	end
-	if (draw) then
-		mesh.vtxHandler()
-		CCopyIndexBuffer(mesh.ib, 0, mesh.n_idx, mesh.vwp.idxAddOn, g_input.ib, iwp)
-		mesh.vwp.idxAddOn = mesh.vwp.idxAddOn + mesh.n_vtx
-		g_input.idxCount = g_input.idxCount + mesh.n_idx
-	end
+	geom.vbEnd = math.max(geom.vbEnd, self.vbEnd)
+	geom.idxCount = geom.idxCount + self.idxCount
+	geom.meshIdx = self.idx
+	
+	return self.vbCount, self.idxCount
 end
 
-function Mesh:ctor(vtxFunc, funcData, doCache, layout)
-	self.vtxFunc = vtxFunc
-	self.funcData = funcData
-	self.doCache = doCache
+---Model---
+Model = class()
+Model.readers = {}
+function Model:ctor()
+	self.materials = {}
+	self.matrix = CMatrix()
+	local reader = Mesh.readers[mesh]
+	--if (not reader) then
+	
+end
+		
+
+---MeshRenderer---
+MeshRenderer = class()
+MeshRenderer.UpdateCached = {}
+MeshRenderer.VtxHandler = {}
+MeshRenderer.VtxHandlerCached = {}
+
+function MeshRenderer:ctor(mesh, layout, reader, doCache)
+	self.mesh = mesh
+	self.reader = reader
 	self.layout = layout
+	self.doCache = doCache
 	self.insArgs = {}
 	
 	if (doCache) then
 		self.copy = CBufferCopy
-		Mesh.VtxHandlerCached[layout] = Mesh.VtxHandlerCached[layout] or {}
+		MeshRenderer.VtxHandlerCached[layout] = MeshRenderer.VtxHandlerCached[layout] or {}
 		self.vb = {}
-		local c = 'local vb = mesh.vb mesh.n_vtx, mesh.n_idx = mesh.vtxFunc(mesh.funcData, '
-		local f = Mesh.UpdateCached[layout]
+		local c = 'local vb = o.vb o.n_vtx, o.n_idx = o.reader(o.mesh, '
+		local f = MeshRenderer.UpdateCached[layout]
 		local i = 1
 		while (i <= layout and i ~= 0) do
 			if (i & layout ~= 0) then
@@ -485,23 +517,85 @@ function Mesh:ctor(vtxFunc, funcData, doCache, layout)
 			end
 			i = i << 1
 		end
-		c = c .. 'mesh.ib, 0, 0)'
+		c = c .. 'o.ib, 0, 0)'
 		self.ib = CMBuffer(SIZE_INDEX)
-		self.render = RenderMeshCached
+		self.Render = self.RenderCached
 		if (f == nil) then
-			f = load(c, '', 't', Mesh)
-			Mesh.UpdateCached[layout] = f
+			f = load(c, '', 't', MeshRenderer)
+			MeshRenderer.UpdateCached[layout] = f
 		end
 		self.updateCached = f
 	else
-		Mesh.VtxHandler[layout] = Mesh.VtxHandler[layout] or {}
-		self.render = RenderMesh
+		MeshRenderer.VtxHandler[layout] = MeshRenderer.VtxHandler[layout] or {}
 	end
 	self.update = true
-	self.param = {}
 end
 
-function Mesh:SetMaterial(mtl, ...)
+function MeshRenderer:Render(scene, disables)
+	self.vwp = g_input.vtx[self.mtl.vtxLayout].wp
+	disables = disables or {}
+	MeshRenderer.o = self
+	local mtl = self.mtl
+	self.vbDst = g_input.vtx[mtl.vtxLayout].vb
+	self.ibDst = g_input.ib
+	self.iwp = g_input.idxCount * SIZE_INDEX
+	self.ibStart = self.vwp.idxAddOn
+	local draw = true
+	local iwp = g_input.idxCount * SIZE_INDEX
+	for spId, func in pairs(mtl.func) do
+		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
+		if (not disables[spId] and dcList) then
+			if (dcList.mtl ~= mtl) then
+				func.func(dcList)
+				dcList.mtl = mtl
+			end
+			if (draw) then
+				self.vtxHandler()
+				draw = false
+			end
+			local insArgs = self.insArgs[mtl.insSlot[spId]]
+			dcList:Draw(g_input.idxCount, self.n_idx, insArgs[1], insArgs[2])
+		end
+	end
+	self.vwp.idxAddOn = self.vwp.idxAddOn + self.n_vtx
+	g_input.idxCount = g_input.idxCount + self.n_idx
+	self.n_vtx = 0
+	self.n_idx = 0
+end
+
+function MeshRenderer:RenderCached(scene, disables)
+	self.vwp = g_input.vtx[self.mtl.vtxLayout].wp
+	disables = disables or {}
+	MeshRenderer.o = self
+	if (self.update) then
+		self.updateCached()
+		self.update = false
+	end
+	local mtl = self.mtl
+	self.vbDst = g_input.vtx[mtl.vtxLayout].vb
+	local draw = false
+	local iwp = g_input.idxCount * SIZE_INDEX
+	for spId, func in pairs(mtl.func) do
+		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
+		if (not disables[spId] and dcList) then
+			if (dcList.mtl ~= mtl) then
+				func.func(dcList)
+				dcList.mtl = mtl
+			end
+			local insArgs = self.insArgs[mtl.insSlot[spId]]
+			dcList:Draw(g_input.idxCount, self.n_idx, insArgs[1], insArgs[2])
+			draw = true
+		end
+	end
+	if (draw) then
+		self.vtxHandler()
+		CCopyIndexBuffer(self.ib, 0, self.n_idx, self.vwp.idxAddOn, g_input.ib, iwp)
+		self.vwp.idxAddOn = self.vwp.idxAddOn + self.n_vtx
+		g_input.idxCount = g_input.idxCount + self.n_idx
+	end
+end
+
+function MeshRenderer:SetMaterial(mtl, ...)
 	if (self.mtl == mtl) then
 		return
 	end
@@ -512,13 +606,13 @@ function Mesh:SetMaterial(mtl, ...)
 	local layout = self.layout
 	local f
 	if (self.doCache) then
-		f = Mesh.VtxHandlerCached[layout][mtl.vtxLayout]
+		f = MeshRenderer.VtxHandlerCached[layout][mtl.vtxLayout]
 	else
-		f = Mesh.VtxHandler[layout][mtl.vtxLayout]
+		f = MeshRenderer.VtxHandler[layout][mtl.vtxLayout]
 	end
 	if (f == nil) then
-		local c = [[local copy = mesh.copy local vb = mesh.vb local n_vtx = mesh.n_vtx 
-			local vbDst = mesh.vbDst local vwp = mesh.vwp local stride = mesh.stride ]]
+		local c = [[local copy = o.copy local vb = o.vb local n_vtx = o.n_vtx 
+			local vbDst = o.vbDst local vwp = o.vwp local stride = o.stride ]]
 		local c1 = ''
 		local i = 1
 		if (self.vb) then
@@ -533,12 +627,12 @@ function Mesh:SetMaterial(mtl, ...)
 				end
 				i = i << 1
 			end
-			f = load(c..c1, '', 't', Mesh)
-			Mesh.VtxHandlerCached[layout][mtl.vtxLayout] = f
+			f = load(c..c1, '', 't', MeshRenderer)
+			MeshRenderer.VtxHandlerCached[layout][mtl.vtxLayout] = f
 		else
-			c = [[local vbDst = mesh.vbDst local vwp = mesh.vwp local stride = mesh.stride
-				mesh.n_vtx, mesh.n_idx = mesh.vtxFunc(mesh.funcData, ]]
-			c1 = 'local n_vtx = mesh.n_vtx '
+			c = [[local vbDst = o.vbDst local vwp = o.vwp local stride = o.stride
+				o.n_vtx, o.n_idx = o.reader(o.mesh, ]]
+			c1 = 'local n_vtx = o.n_vtx '
 			while (i <= self.layout and i ~= 0) do
 				if (i & layout ~= 0) then
 					local slot = mtl.slot[i]
@@ -551,17 +645,12 @@ function Mesh:SetMaterial(mtl, ...)
 				end
 				i = i << 1
 			end
-			c = c .. 'mesh.ibDst, mesh.iwp, mesh.ibStart) '
-			f = load(c..c1, '', 't', Mesh)
-			Mesh.VtxHandler[layout][mtl.vtxLayout] = f
+			c = c .. 'o.ibDst, o.iwp, o.ibStart) '
+			f = load(c..c1, '', 't', MeshRenderer)
+			MeshRenderer.VtxHandler[layout][mtl.vtxLayout] = f
 		end
 	end
 	self.vtxHandler = f
-end
-
-function Mesh:Render(dcListGetter, disables)
-	self.vwp = g_input.vtx[self.mtl.vtxLayout].wp
-	self:render(dcListGetter, disables or {})
 end
 
 ---FramePipeline---

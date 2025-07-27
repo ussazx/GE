@@ -145,6 +145,12 @@ g_iconMagnifier = AddPoly2D(true, DrawLine(3, false, true, MakeCircle(0, 0, r, 1
 
 g_iconLine = AddPoly2D(true, DrawLine(5, false, false, {0, 0}, {100, 0}, {50, 100}, {366, 210}, {500, 710}))
 
+--local vb = CMBuffer(1)
+--local uvb = CMBuffer(1)
+--local ib = CMBuffer(1)
+--local n_vtx, n_idx = CAddCube(vb, 0, uvb, 0, ib, 0)
+--g_cubeMesh = Mesh()
+
 --local c = DrawLine(5, false, true, MakeCircle(0, 0, 100))
 --c.AA = true
 --g_iconLine = AddPoly2D(c)
@@ -178,11 +184,18 @@ f:Open('Resources/shaders/'..cGI:Type()..'/ui.vsc', true)
 ui_vs = cGI:NewShaderModule(f)
 f:Open('Resources/shaders/'..cGI:Type()..'/ui.psc', true)
 ui_ps = cGI:NewShaderModule(f)
-
 f:Open('Resources/shaders/'..cGI:Type()..'/ui_id.vsc', true)
-id_ui_vs = cGI:NewShaderModule(f)
-f:Open('Resources/shaders/'..cGI:Type()..'/ui_id.psc', true)
-id_ui_ps = cGI:NewShaderModule(f)
+ui_id_vs = cGI:NewShaderModule(f)
+
+f:Open('Resources/shaders/'..cGI:Type()..'/object3d.vsc', true)
+object3d_vs = cGI:NewShaderModule(f)
+f:Open('Resources/shaders/'..cGI:Type()..'/object3d.psc', true)
+object3d_ps = cGI:NewShaderModule(f)
+f:Open('Resources/shaders/'..cGI:Type()..'/object3d_id.vsc', true)
+object3d_id_vs = cGI:NewShaderModule(f)
+
+f:Open('Resources/shaders/'..cGI:Type()..'/id.psc', true)
+id_ps = cGI:NewShaderModule(f)
 
 f:Open('Resources/atlas2', true)
 uiFont = CLoadFontAtlas(f, 256)
@@ -202,8 +215,11 @@ end
 --pass
 cParamRenderPass:Reset(true, false)
 cParamRenderPass:AddViewDesc(cGI.FORMAT_PICK_ID, cGI.SAMPLE_COUNT_1_BIT, false, true, false, false)
+cParamRenderPass:AddViewDesc(cGI.FORMAT_D24_UNORM_S8_UINT, cGI.SAMPLE_COUNT_1_BIT, false, false, false, false)
 cParamRenderPass:AddSwapchainOutput(0, false, 0)
 cParamRenderPass:AddViewOutput(0, 1, false, 0)
+cParamRenderPass:SetDepthStencilOutput(1, 0)
+cParamRenderPass:SetDepthStencilOutput(1, 1)
 -- cParamRenderPass:AddViewDesc(cGI.FORMAT_PRESENT, cGI.SAMPLE_COUNT_4_BIT, false, false, false, false)
 -- cParamRenderPass:AddViewDesc(cGI.FORMAT_PICK_ID, cGI.SAMPLE_COUNT_1_BIT, false, true, false, false)
 -- cParamRenderPass:AddViewOutput(0, 0, false, 0)
@@ -214,21 +230,21 @@ g_rp0 = cGI:NewRenderPass(cParamRenderPass)
 g_rp0[1] = SubpassId(g_rp0, 1)
 g_rp0[2] = SubpassId(g_rp0, 2)
 
---resource layout
+--ui resource layout
 cParamResourceLayout:Reset()
 cParamResourceLayout:Add(cGI.RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, cGI.SHADER_STAGE_VERTEX_BIT)
-g_rl0 = cGI:NewResourceLayout(cParamResourceLayout)
+g_rlUi0 = cGI:NewResourceLayout(cParamResourceLayout)
 
 cParamResourceLayout:Reset()
 cParamResourceLayout:Add(cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER, 0, 1, cGI.SHADER_STAGE_FRAGMENT_BIT)
-g_rl1 = cGI:NewResourceLayout(cParamResourceLayout)
+g_rlUi1 = cGI:NewResourceLayout(cParamResourceLayout)
 
---pipeline
+--ui pipeline
 cParamPipeline:Reset()
-cParamPipeline:AddResourceLayout(g_rl0)
-cParamPipeline:AddResourceLayout(g_rl1)
+cParamPipeline:AddResourceLayout(g_rlUi0)
+cParamPipeline:AddResourceLayout(g_rlUi1)
 cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_BACK_BIT, true, false, false, false)
-cParamPipeline:SetDethStencilStates(true, true, true, cGI.COMPARE_OP_LESS_OR_EQUAL, false)
+cParamPipeline:SetDethStencilStates(true, false, true, cGI.COMPARE_OP_GREATER_OR_EQUAL, false)
 cParamPipeline:SetBlendState(0, true)
 cParamPipeline:SetBsColorBlendOp(0, cGI.BLEND_FACTOR_SRC_ALPHA, cGI.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, cGI.BLEND_OP_ADD)
 cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
@@ -237,14 +253,15 @@ cParamPipeline:AddVertexElement(2, 2, cGI.FORMAT_R8G8B8A8_UNORM, SIZE_UINT1)
 g_plUi = cGI:NewPipeline(g_rp0, 0, 1, ui_vs, 'main', ui_ps, 'main', cParamPipeline)
 
 cParamPipeline:Reset()
-cParamPipeline:AddResourceLayout(g_rl0)
+cParamPipeline:AddResourceLayout(g_rlUi0)
 cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_BACK_BIT, true, false, false, false)
-cParamPipeline:SetDethStencilStates(true, true, true, cGI.COMPARE_OP_LESS_OR_EQUAL, false)
+cParamPipeline:SetDethStencilStates(true, false, true, cGI.COMPARE_OP_GREATER_OR_EQUAL, false)
 cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
 cParamPipeline:AddVertexElement(3, 1, cGI.FORMAT_WRITE_ID, SIZE_WRITE_ID)
 cParamPipeline:SetVertexInputRate(3, true)
-g_plId2D = cGI:NewPipeline(g_rp0, 1, 1, id_ui_vs, 'main', id_ui_ps, 'main', cParamPipeline)
+g_plId2D = cGI:NewPipeline(g_rp0, 1, 1, ui_id_vs, 'main', id_ps, 'main', cParamPipeline)
 
+--ui materal
 g_mtlUi = {}
 g_mtlUi.vtxLayout = NewVtxLayout(SIZE_FLOAT3, SIZE_FLOAT3, SIZE_UINT1)
 g_mtlUi.slot = {}
@@ -255,7 +272,7 @@ g_mtlUi.insSlot = {}
 g_mtlUi.insSlot[g_rp0[1]] = 1
 g_mtlUi.insSlot[g_rp0[2]] = 2
 
-uiFont.res = ResourceSetNew(g_rl1)
+uiFont.res = ResourceSetNew(g_rlUi1)
 uiFont.res:BindTexelView(uiFont.view)
 
 g_mtlUi.func = {}
@@ -271,6 +288,56 @@ g_mtlUi.func[g_rp0[2]] = {func = function(dcList)
 	dcList:SetPipeline(g_plId2D, g_mtlUi.vtxLayout, 0)
 	dcList:SetInsVB(g_idVbSet, 3)
 end, mergeType = DC_DEFAULT}
+
+--3D resource layout
+cParamResourceLayout:Reset()
+cParamResourceLayout:Add(cGI.RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, cGI.SHADER_STAGE_VERTEX_BIT)
+g_rl3D0 = cGI:NewResourceLayout(cParamResourceLayout)
+
+--3d pipeline
+cParamPipeline:Reset()
+cParamPipeline:AddResourceLayout(g_rl3D0)
+cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_BACK_BIT, true, false, false, false)
+cParamPipeline:SetDethStencilStates(true, false, true, cGI.COMPARE_OP_GREATER_OR_EQUAL, false)
+cParamPipeline:SetBlendState(0, true)
+cParamPipeline:SetBsColorBlendOp(0, cGI.BLEND_FACTOR_SRC_ALPHA, cGI.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, cGI.BLEND_OP_ADD)
+cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
+cParamPipeline:AddVertexElement(1, 1, cGI.FORMAT_R32G32_SFLOAT, SIZE_FLOAT2)
+cParamPipeline:AddVertexElement(2, 2, cGI.FORMAT_R8G8B8A8_UNORM, SIZE_UINT1)
+g_pl3D = cGI:NewPipeline(g_rp0, 0, 1, object3d_vs, 'main', object3d_ps, 'main', cParamPipeline)
+
+cParamPipeline:Reset()
+cParamPipeline:AddResourceLayout(g_rl3D0)
+cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_BACK_BIT, true, false, false, false)
+cParamPipeline:SetDethStencilStates(true, false, true, cGI.COMPARE_OP_LESS_OR_EQUAL, false)
+cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
+cParamPipeline:AddVertexElement(3, 1, cGI.FORMAT_WRITE_ID, SIZE_WRITE_ID)
+cParamPipeline:SetVertexInputRate(3, true)
+g_plId3D = cGI:NewPipeline(g_rp0, 1, 1, object3d_id_vs, 'main', id_ps, 'main', cParamPipeline)
+
+--3d materal
+g_mtl3d = {}
+g_mtl3d.vtxLayout = NewVtxLayout(SIZE_FLOAT3, SIZE_FLOAT2, SIZE_UINT1)
+g_mtl3d.slot = {}
+g_mtl3d.slot[1] = 1
+g_mtl3d.slot[2] = 2
+g_mtl3d.slot[4] = 3
+g_mtl3d.insSlot = {}
+g_mtl3d.insSlot[g_rp0[1]] = 1
+g_mtl3d.insSlot[g_rp0[2]] = 2
+
+g_mtl3d.func = {}
+
+g_mtl3d.func[g_rp0[1]] = {func = function(dcList)
+	dcList:AddResourceSet(cameraRes)
+	dcList:SetPipeline(g_pl3d, g_mtl3d.vtxLayout, 0)
+end, mergeType = DC_MTL_MERGED}
+
+g_mtl3d.func[g_rp0[2]] = {func = function(dcList)
+	dcList:AddResourceSet(cameraRes)  
+	dcList:SetPipeline(g_plId3D, g_mtl3d.vtxLayout, 0)
+	dcList:SetInsVB(g_idVbSet, 3)
+end, mergeType = DC_MTL_MERGED}
 
 -- cParamResourceLayout:Reset()
 -- cParamResourceLayout:Add(RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, SHADER_STAGE_VERTEX_BIT)

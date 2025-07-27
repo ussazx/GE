@@ -21,7 +21,7 @@ end
 
 function Widget2D:dtor()
 	if (self.window) then
-		self.window:OnWidgetShow(self, show)
+		self.window:OnWidgetDtor(self)
 	end
 end
 
@@ -701,19 +701,19 @@ function UiWidget:ctor(w, h)
 	self.color = Color(255, 255, 255, 255)
 	self.renderDisables = {[g_rp0[2]] = true}
 	
-	self.mesh = Mesh(self.FillVB, self, self.cached, 1|2|4)
-	self.mesh:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
+	self.renderer = MeshRenderer(self, 1|2|4, self.FillVB, self.cached)
+	self.renderer:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
 	
-	self.rcMesh = Mesh(self.FillClipRectVB, self, false, 1|2|4)
-	self.rcMesh:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
+	self.rcRenderer = MeshRenderer(self, 1|2|4, self.FillClipRectVB, false)
+	self.rcRenderer:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
 end
 
-function UiWidget.GetDCList(spId, mergeType, order)
+function UiWidget:GetDrawcall(spId, mergeType, order)
 	return g_dcLists[spId]
 end
 
 function UiWidget:Refresh()
-	self.mesh.update = true
+	self.renderer.update = true
 	if (self.window) then
 		self.window.update = true
 	end
@@ -842,7 +842,8 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 		DrawcallList.cr = crGpuNew
 	end
 	
-	local changed = self.mesh.doCache and (self.mesh.update or self.moved or self.sized or
+	local renderer = self.renderer
+	local changed = renderer.doCache and (renderer.update or self.moved or self.sized or
 	(crCpuNew and self.cr:diff(crCpuNew)))
 	
 	if (self.cpuClip) then
@@ -855,11 +856,11 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 	end
 	
 	if (self.drawClipRect) then
-		self.rcMesh:Render(UiWidget.GetDCList, d)
+		self.rcRenderer:Render(self, d)
 	end
-	self.mesh.update = changed
+	renderer.update = changed
 	if (self.drawSelf) then
-		self.mesh:Render(UiWidget.GetDCList, d)
+		renderer:Render(self, d)
 	end
 	
 	return true, crCpuNew, crGpuNew
@@ -2077,15 +2078,15 @@ function UiLine:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ib
 	-- return 8, CAddLine2D(vbPos, wpPos, 4, true, 2, 1, vbPos, wpPos, ib, iwp, ibStart)
 end
 
------Object3D-----
-Object3D = class(Object)
+-----SceneObject-----
+SceneObject = class(Object)
 
-function Object3D:ctor()
+function SceneObject:ctor()
 	self.mRoot = CMatrix3D()
 end
 
 -----Camera-----
-Camera = class(Object3D)
+Camera = class(SceneObject)
 
 function Camera:ctor()
 	self.mProj = CMatrix3D()
@@ -2130,7 +2131,7 @@ function SceneWidget:DoUpdate(crCpu, crGpu)
 	return true, crCpu, crGpuNew
 end
 
-function SceneWidget:GetDCList(spId, mergeType, order)
+function SceneWidget:GetDrawcall(spId, mergeType, order)
 	local o = self.dcLists[spId]
 	if (not o) then
 		o = {}
@@ -2165,6 +2166,7 @@ function Scene3D:SceneObjects()
 end
 
 function Scene3D:Render()
+	cameraRes = self.camera
 	local objects = self:SceneObjects()
 	for obj in objects:pairs(self.Filter) do
 		

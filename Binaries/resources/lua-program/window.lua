@@ -20,8 +20,8 @@ function Window:ctor()
 	self.renderQueue = self.defaultRQ
 	self.cmd = Command.NewRenderCmd()
 	 
-	self.cbWnd = ResBuffer(self.cmd, CAddFloat3)
-	self.res_set = ResourceSetNew(g_rl0)
+	self.cbWnd = ResBuffer(self.cmd, SIZE_FLOAT3)
+	self.res_set = ResourceSetNew(g_rlUi0)
 	self.res_set:BindResBuffer(self.cbWnd, 0)
 	
 	--self.cmdList = CmdList()
@@ -90,6 +90,21 @@ function Window:OnWidgetShow(w, show)
 	self.update = true
 end
 
+function Window:OnWidgetDtor(w)
+	if (self.captured == w) then
+		self.captured = nil
+	end
+	if (self.entered_id == w.id) then
+		self.moved_in = nil
+	end
+	if (self.focus_id == w.id) then
+		self.focus_id = nil
+	end
+	if (self.active_id == w.id) then
+		self.active_id = nil
+	end
+end
+
 function Window:SetTime(t)
 	self.time = t
 end
@@ -121,11 +136,13 @@ function Window:init(t, hwnd, w, h)
 	--self.scTargetView = cGI:NewTargetView(cGI.IMAGE_TYPE_2D, cGI.FORMAT_SWAPCHAIN, cGI.SAMPLE_COUNT_4_BIT, w, h)
 	self.idTargetView = cGI:NewTargetView(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PICK_ID, cGI.SAMPLE_COUNT_1_BIT, w, h)
 	self.idTexture = cGI:NewTexture(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PICK_ID, w, h)
+	self.depthStencilView = cGI:NewDepthStencilView(cGI.SAMPLE_COUNT_1_BIT, w, h)
 	
 	cParamFrameBuffer:Reset()
 	cParamFrameBuffer:SetSwapchain(self.swapchain)
 	--cParamFrameBuffer:AddView(self.scTargetView, 0)
 	cParamFrameBuffer:AddView(self.idTargetView, 0)
+	cParamFrameBuffer:AddView(self.depthStencilView, 0)
 	self.frameBuffer = cGI:NewFrameBuffer(g_rp0, cParamFrameBuffer, w, h)
 	self.frameBuffer.rp = g_rp0
 	self.frameBuffer.rt = {}
@@ -133,6 +150,7 @@ function Window:init(t, hwnd, w, h)
 	
 	self.frameBuffer:ClearSwapchain(0.15, 0.15, 0.15, 0.2)
 	self.frameBuffer:ClearViewUint4(0, self.id, 0, 0, 0)
+	self.frameBuffer:ClearDepthStencil(1, 0, 0)
 	-- self.frameBuffer:ClearViewFloat4(0, 0.15, 0.15, 0.15, 0.2)
 	-- self.frameBuffer:ClearViewUint4(1, self.id, 0, 0, 0)
 	
@@ -144,6 +162,7 @@ function Window:init(t, hwnd, w, h)
 	self.sizegroup:add_fb(self.frameBuffer)
 	self.sizegroup:add_rtv(self.idTargetView, true)
 	self.sizegroup:add_rtv(self.idTexture, true)
+	self.sizegroup:add_rtv(self.depthStencilView, true)
 	
 	self.fp = FramePipeline()
 	self.copyParam = {srcView = self.idTargetView, srcLayer = 0, src_x = 0, src_y = 0,
@@ -171,10 +190,10 @@ function Window:on_idle(t, onTimer, show)
 		self.idleText:SetText(self.idle_cost..'')
 	end
 	
-	if (g_gcStopped) then
-		collectgarbage('restart')
-		g_gcStopped = false
-	end
+	--if (g_gcStopped) then
+		--collectgarbage('restart')
+		--g_gcStopped = false
+	--end
 	
 	self:Show(show)
 	self:render()
@@ -189,13 +208,17 @@ function Window:resize(w, h)
 		return
 	end
 	
-	cGI:DeviceWaitIdle()
-	if (not g_gcStopped) then
-		collectgarbage('stop')
-		g_gcStopped = true
-	end
+	--for i = 1, 10000 do
+		--local z = {}
+	--end
 	
-	self.cbWnd:Set(1, self.rect.w, self.rect.h, 1)
+	--if (not g_gcStopped) then
+		--collectgarbage('stop')
+		--g_gcStopped = true
+	--end
+	
+	cGI:DeviceWaitIdle()
+	CAddFloat3(self.cbWnd(), self.cbWnd[1], 1, self.rect.w, self.rect.h, 1)
 	self.sizegroup:resize(w, h)
 	
 	self.copyParam.w = w
