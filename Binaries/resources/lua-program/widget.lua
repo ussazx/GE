@@ -2097,6 +2097,7 @@ SceneWidget = class(Widget2D)
 
 function SceneWidget:ctor()
 	self.vpNew = Rect()
+	self.crNew = Rect()
 	self.dcLists = {}
 end
 
@@ -2151,6 +2152,9 @@ function SceneWidget:GetDrawcall(spId, mergeType, order)
 		list:Reset(g_input)
 	end
 	return list
+end
+
+function SceneWidget:Render()
 end
 
 -----Scene3D-----

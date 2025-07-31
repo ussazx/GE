@@ -404,37 +404,27 @@ Geometry.TRANS_NONE = 0
 Geometry.TRANS_DEFAULT = 1
 Geometry.TRANS_NORMAL = 2
 
-function Geometry.MakeWrite(o)
-	local write = 'return function('
+function Geometry:ctor(o)
+	self.layout = o.layout
+	self.vb = o.vb
+	self.ib = o.ib
+	local write = 'return function(self, vbStart, vbCount, idxOffset, idxCount '
 	for k, v in pairs(o.vb) do
-		write = write .. string.format('vbDst%q, wp%q', k, k)
+		write = write .. string.format(', vbDst%q, wp%q', k, k)
 	end
-	write = write .. ', ib, iwp, ibStart) if (self.idxCount == 0) then return end '
-	write = write .. 'local vbSrc = self.vb vbCount = self.vbEnd - self.vbStart + 1'
+	write = write .. ', ib, iwp, ibStart) local vbSrc = self.vb '
 	for k, v in pairs(o.vb) do
 		if (v[2] == Geometry.TRANS_DEFAULT or v[2] == Geometry.TRANS_NORMAL) then
 			local isNormal = v[2] == Geometry.TRANS_NORMAL
 			write = write .. 
-			string.format('self.trans:AddFactors(self.vbStart, vbCount, vbSrc[%q], 0, vbDst%q, wp%q, %q) ', k, k, k, isNormal)
+			string.format('self.trans:AddFactors(vbStart, vbCount, vbSrc[%q], 0, vbDst%q, wp%q, %q) ', k, k, k, isNormal)
 		else
 			write = write .. 
-			string.format('CBufferCopy(vbSrc[%q], self.vbStart * SIZE_FLOAT3, vbCount * SIZE_FLOAT3, vbDst%q, wp%q) ', k, k, k)
+			string.format('CBufferCopy(vbSrc[%q], vbStart * SIZE_FLOAT3, vbCount * SIZE_FLOAT3, vbDst%q, wp%q) ', k, k, k)
 		end
 	end
-	write = write .. 'CCopyIndexBuffer(self.ib, self.idxOffset * SIZE_INDEX, self.idxCount, ibStart - self.vbStart, ib, iwp) '
-	write = write .. 'self.vbStart = nil self.vbEnd = 0 self.idxOffset = nil self.idxCount = 0 self.meshIdx = 0'
-	return load(write, '', 't')
-end
-
-function Geometry:ctor(o)
-	self.layout = o.layout
-	self.trans = CTransformer()
-	self.vb = o.vb
-	self.ib = o.ib
-	self.Write = o.Write
-	self.vbEnd = 0
-	self.idxCount = 0
-	self.meshIdx = 0
+	write = write .. 'CCopyIndexBuffer(self.ib, idxOffset, idxCount, ibStart - vbStart, ib, iwp) end '
+	self.Write = load(write, '', 't')
 end
 
 local geoInfo = {}
@@ -444,49 +434,90 @@ geoInfo.vb[1] = {CMBuffer(1), Geometry.TRANS_DEFAULT}
 geoInfo.vb[2] = {CMBuffer(1), Geometry.TRANS_NORMAL}
 geoInfo.vb[3] = {CMBuffer(1), Geometry.TRANS_NONE}
 geoInfo.ib = CMBuffer(1)
-geoInfo.Write = Geometry.MakeWrite(geoInfo)
+geoInfo.meshes = {}
+geoInfo.meshes[1] = {0, 24, defMtl}
 local z = Geometry(geoInfo)
+
+
+--function Geometry:Write(vbSrc0, vbSrc1, idxStart, count, skinning, skeleton, vbDst, vwb)
 
 ---Mesh---
 Mesh = class()
 
-function Mesh:ctor(geom, meshIdx, idxOffset, idxCount)
+function Mesh:ctor(geom, idxOffset, idxCount)
 	self.geom = geom
-	self.idx = meshIdx
 	self.vbStart, self.vbEnd = CGetIndicesSegment(geom.ib, 0, idxOffset, idxCount)
 	self.idxOffset = idxOffset
 	self.idxCount = idxCount
 	self.renderer = MeshRenderer(self, self.geom.layout, self.Write)
+	self.vbCount = self.vbEnd - self.vbCount + 1
 end
 
 function Mesh:Write(...)
-	local geom = self.geom
-	if ((geom.vbDst and geom.vbDst ~= self.renderer.vbDst) or geom.meshIdx + 1 ~= self.idx) then
-		self.geom:Write(...)
-		geom.vbStart = self.vbStart
-		geom.idxOffset = geom.idxOffset
-	else
-		geom.vbStart = math.min(geom.vbStart or self.vbStart, self.vbStart)
-		geom.idxOffset = geom.idxOffset or self.idxOffset
+	local vbCount = self.vbEndNew - self.vbStartNew + 1
+	if (vbCount > 1) then
+		self.geom:Write(self.vbEndNew, self.vbCount, self.idxOffset, self.idxCountNew, ...)
 	end
-	geom.vbEnd = math.max(geom.vbEnd, self.vbEnd)
-	geom.idxCount = geom.idxCount + self.idxCount
-	geom.meshIdx = self.idx
-	
-	return self.vbCount, self.idxCount
+	return vbCount, self.idxCountNew
 end
 
 ---Model---
 Model = class()
-Model.readers = {}
-function Model:ctor()
-	self.materials = {}
-	self.matrix = CMatrix()
-	local reader = Mesh.readers[mesh]
-	--if (not reader) then
-	
+Model.Renderer = {}
+function Model:ctor(geom)
+	self.matrix = CMatrix3D()
+	self.meshes = {}
+	for _, v in pairs(geom) do
+		table.insert(self.meshes, Mesh(geom, v[1], v[2]))
+		Mesh.renderer:SetMaterial(v[3])
+	end
+	self.RenderMeshes = Model.Renderer[geom]
+	if (not self.Renderer) then
+		local renderer = 'return function(self, scene) local m = self.meshes '
+		for k, v in pairs(self.meshes) do
+			renderer = renderer .. string.format('m[%q].renderer:Render(scene) ', k)
+		end
+		renderer = load(renderer .. 'end', '', 't')
+		Model.Renderer[geom] = renderer
+		self.RenderMeshes = renderer
+	end
+	self:Reschedule()
 end
-		
+
+function Model:SetMaterial(idx, ...)
+	local m = self.meshes[idx]
+	if (m) then
+		m.renderer:SetMaterial(...)
+		self:Reschedule()
+	end
+end
+
+function Model:Render(scene)
+	self:RenderMeshes(scene)
+	self.geom:MatrixTransform(self.matrix)
+end
+
+function Model:Reschedule()
+	local k, m = next(self.meshes)
+	while (m) do
+		m.vbStartNew = m.vbStart
+		m.vbEndNew = m.vbEnd
+		m.idxCountNew = m.idxCount
+		k, n = next(self.meshes, k)
+		if (not k) then
+			return
+		end
+		if (m.renderer.mtl.layout == n.renderer.mtl.layout) then
+			m.vbStartNew = math.min(m.vbStartNew, n.vbStart)
+			m.vbEndNew = math.max(m.vbEndNew, n.vbEnd)
+			m.idxCountNew = n.idxCount
+			n.vbStartNew = 0
+			n.vbEndNew = 0
+		else
+			m = n
+		end
+	end
+end
 
 ---MeshRenderer---
 MeshRenderer = class()
@@ -602,6 +633,9 @@ function MeshRenderer:SetMaterial(mtl, ...)
 	self.mtl = mtl
 	self.stride = mtl.vtxLayout
 	self.insArgs = {...}
+	for _, v in pairs(mtl.insSlot) do
+		self.insArgs[v] = self.insArgs[v] or {0, 1}
+	end
 	
 	local layout = self.layout
 	local f
