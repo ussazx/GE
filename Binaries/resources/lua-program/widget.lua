@@ -799,13 +799,13 @@ end
 
 function UiWidget:FillRectVB(color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 	if (self.cpuClip) then
-		CAddRectFloat3(vbPos, wpPos, self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D)
+		CAddRectFloat3(self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D, vbPos, wpPos)
 	else
-		CAddRectFloat3(vbPos, wpPos, self.location.x, self.location.y, self.rect.w, self.rect.h, Z_2D)
+		CAddRectFloat3(self.location.x, self.location.y, self.rect.w, self.rect.h, Z_2D, vbPos, wpPos)
 	end
-	CAddFloat3(vbUVW, wpUVW, 4, self.font.pixels, 0, 0)
-	CAddUByte4(vbColor, wpColor, 4, color.r, color.g, color.b, color.a)
-	return 4, CAddConvexPolyIndex(ib, iwp, 1, ibStart, 4)
+	CAddFloat3(self.font.pixels, 0, 0, vbUVW, wpUVW, 4)
+	CAddUByte4(color.r, color.g, color.b, color.a, vbColor, wpColor, 4)
+	return 4, CAddConvexPolyIndex(ibStart, 4, ib, iwp, 1)
 end
 
 function UiWidget:FillClipRectVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
@@ -841,6 +841,7 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 	if (not DrawcallList.cr or (crGpuNew and DrawcallList.cr:diff(crGpuNew))) then
 		DrawcallList.cr = crGpuNew
 	end
+	DrawcallList.vp = self.window.rect
 	
 	local renderer = self.renderer
 	local changed = renderer.doCache and (renderer.update or self.moved or self.sized or
@@ -991,15 +992,16 @@ end
 function UiText:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 	local n
 	if (self.cpuClip) then
-		n = CAddTextClip(vbPos, wpPos, vbUVW, wpUVW, self.font,
-		self.location.x - self.cr.x, self.location.y - self.cr.y + self.font.fontSize + self.font.descender,
-			self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D, self.text)
+		n = CAddTextClip(self.location.x - self.cr.x, self.location.y - self.cr.y + self.font.fontSize + self.font.descender,
+			self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D, self.text, self.font,
+			vbPos, wpPos, vbUVW, wpUVW)
 	else
-		n = CAddText(vbPos, wpPos, vbUVW, wpUVW, self.font, self.location.x, self.location.y + self.rect.h + self.font.descender, Z_2D, self.text)
+		n = CAddText(self.location.x, self.location.y + self.rect.h + self.font.descender, Z_2D, self.text, self.font,
+			vbPos, wpPos, vbUVW, wpUVW)
 	end
 	
-	CAddUByte4(vbColor, wpColor, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
-	return 4 * n, CAddConvexPolyIndex(ib, iwp, n, ibStart, 4)
+	CAddUByte4(self.color.r, self.color.g, self.color.b, self.color.a, vbColor, wpColor, 4 * n)
+	return 4 * n, CAddConvexPolyIndex(ibStart, 4, ib, iwp, n)
 end
 
 -----TextInput-----
@@ -1408,19 +1410,19 @@ function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iw
 		elseif (self.selected_x >= rect.w) then
 			w = rect.w - self.caret.rect.x
 		end
-		CAddRectFloat3(vbPos, wpPos, math.max(self.location.x + x, rect.x), rect.y, w, rect.h, Z_2D)
-		CAddFloat3(vbUVW, wpUVW, 4, self.font.pixels, 0, 0)
-		CAddUByte4(vbColor, wpColor, 4, self.selectedColor.r, self.selectedColor.g, self.selectedColor.b, self.selectedColor.a)
+		CAddRectFloat3(math.max(self.location.x + x, rect.x), rect.y, w, rect.h, Z_2D, vbPos, wpPos)
+		CAddFloat3(self.font.pixels, 0, 0, vbUVW, wpUVW, 4)
+		CAddUByte4(self.selectedColor.r, self.selectedColor.g, self.selectedColor.b, self.selectedColor.a, vbColor, wpColor, 4)
 		n0 = 1
 		wpPos = APPEND
 		wpUVW = APPEND
 		wpColor = APPEND
 	end
-	local n = CAddTextClip(vbPos, wpPos, vbUVW, wpUVW, self.font, self.textOffset, self.rect.h + self.font.descender, 
-	rect.x, rect.y, rect.w, rect.h, Z_2D, self.text)
-	CAddUByte4(vbColor, wpColor, 4 * n, self.color.r, self.color.g, self.color.b, self.color.a)
+	local n = CAddTextClip(self.textOffset, self.rect.h + self.font.descender, 
+	rect.x, rect.y, rect.w, rect.h, Z_2D, self.text, self.font, vbPos, wpPos, vbUVW, wpUVW)
+	CAddUByte4(self.color.r, self.color.g, self.color.b, self.color.a, vbColor, wpColor, 4 * n)
 	n = n + n0
-	return 4 * n, CAddConvexPolyIndex(ib, iwp, n, ibStart, 4)
+	return 4 * n, CAddConvexPolyIndex(ibStart, 4, ib, iwp, n)
 end
 
 UiSlideBar = class(UiWidget)
@@ -1636,10 +1638,10 @@ function UiPolyIcon:ctor(iconPoly, stretch, w, h)
 	for k, v in pairs(self.poly.colors) do
 		SetColors = SetColors .. 'o = oldColors[' .. k .. '] '
 		SetColors = SetColors .. 'c = newColors[' .. k .. '] or o '
-		SetColors = SetColors .. 'CAddUByte4(vbColor, wpColor + o.wp, o.nvc, c.r, c.g, c.b, c.a) '
+		SetColors = SetColors .. 'CAddUByte4(c.r, c.g, c.b, c.a, vbColor, wpColor + o.wp, o.nvc) '
 		for k, _ in pairs(v.aa) do
 			SetColors = SetColors .. 'aa = o.aa[' .. k .. '] '
-			SetColors = SetColors .. 'CAddUByte4(vbColor, wpColor + o.wp + aa[1], aa[2], c.r, c.g, c.b, 0) '
+			SetColors = SetColors .. 'CAddUByte4(c.r, c.g, c.b, 0, vbColor, wpColor + o.wp + aa[1], aa[2]) '
 		end
 	end
 	self.SetColors = load(SetColors, '', 't', UiPolyIcon)
@@ -1686,17 +1688,17 @@ function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp
 	local n = self.poly.vtx_count
 	if (self.scale) then
 		if (self.sized) then
-			self.mat3d:SetVecX(self.rect.w / self.poly.w, 0, 0, 0)
-			self.mat3d:SetVecY(0, self.rect.h / self.poly.h, 0, 0)
+			self.mat3d:SetRow1(self.rect.w / self.poly.w, 0, 0, 0)
+			self.mat3d:SetRow2(0, self.rect.h / self.poly.h, 0, 0)
 		end
 		if (self.moved) then
-			self.mat3d:SetVecW(self.location.x, self.location.y, 0, 0) 			
+			self.mat3d:SetRow4(self.location.x, self.location.y, 0, 0) 			
 		end
 		CTransformFloat3(g_innerPolyVB, self.poly.vb_offset, n, self.mat3d, vbPos, wpPos)
 	else
 		CMoveFloat3(g_innerPolyVB, self.poly.vb_offset, n, self.location.x, self.location.y, 0, vbPos, wpPos)
 	end
-	CAddFloat3(vbUVW, wpUVW, n, self.font.pixels, 0, 0)
+	CAddFloat3(self.font.pixels, 0, 0, vbUVW, wpUVW, n)
 	
 	UiPolyIcon.oldColors = self.poly.colors
 	UiPolyIcon.newColors = self.colors
@@ -2058,17 +2060,17 @@ end
 UiLine = class(UiWidget)
 
 function UiLine:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
-	CAddFloat3(vbPos, wpPos, 1, self.location.x, self.location.y, 0)
-	CAddFloat3(vbPos, APPEND, 1, self.location.x + 100, self.location.y + 100, 0)
-	CAddFloat3(vbPos, APPEND, 1, self.location.x + 200, self.location.y - 50, 0)
+	CAddFloat3(self.location.x, self.location.y, 0, vbPos, wpPos, 1)
+	CAddFloat3(self.location.x + 100, self.location.y + 100, 0, vbPos, APPEND, 1)
+	CAddFloat3(self.location.x + 200, self.location.y - 50, 0, vbPos, APPEND, 1)
 	
 	local n = CAddLine2D(vbPos, wpPos, 3, false, 10, false, false, vbPos, wpPos, ib, iwp, ibStart)
 	
 	n = n + CAddLine2D(vbPos, wpPos, 6, true, 10, true, false, vbPos, wpPos, ib, APPEND, ibStart)
 	
-	CAddFloat3(vbUVW, wpUVW, 12, self.font.pixels, 0, 0)
-	CAddUByte4(vbColor, wpColor, 6, self.color.r, self.color.g, self.color.b, self.color.a)
-	CAddUByte4(vbColor, APPEND, 6, self.color.r, self.color.g, self.color.b, 0)
+	CAddFloat3(self.font.pixels, 0, 0, vbUVW, wpUVW, 12)
+	CAddUByte4(self.color.r, self.color.g, self.color.b, self.color.a, vbColor, wpColor, 6)
+	CAddUByte4(self.color.r, self.color.g, self.color.b, 0, vbColor, APPEND, 6)
 	
 	return 12, n
 	
@@ -2089,7 +2091,6 @@ end
 Camera = class(SceneObject)
 
 function Camera:ctor()
-	self.mProj = CMatrix3D()
 end
 
 -----SceneWidget-----
@@ -2116,15 +2117,18 @@ function SceneWidget:DoUpdate(crCpu, crGpu)
 	if (not DrawcallList.vp or DrawcallList.vp:diff(vpNew)) then
 		DrawcallList.vp = vpNew
 	end
-
+	
 	self:Render()
+	
 	for spId, merged in pairs(self.dcLists) do
 		local dcList = g_dcLists[spId]
 		if (dcList) then
-			for order, list in pairs(merged) do
-				list:CommitCurrent()
-				dcList:AddSubList(list)
-				merged[order] = nil
+			for _, orderred in pairs(merged) do
+				for order, list in pairs(orderred) do
+					list:CommitCurrent()
+					dcList:AddSubList(list)
+					orderred[order] = nil
+				end
 			end
 		end
 	end
@@ -2146,10 +2150,9 @@ function SceneWidget:GetDrawcall(spId, mergeType, order)
 	local list = s[order]
 	if (not list) then
 		list = g_fp:NewSubList()
+		g_dcLists[spId]:CommitCurrent()
+		list:Reset(g_input, g_dcLists[spId])
 		s[order] = list
-	end
-	if (not list.reset) then
-		list:Reset(g_input)
 	end
 	return list
 end
@@ -2160,19 +2163,30 @@ end
 -----Scene3D-----
 Scene3D = class(SceneWidget)
 
-function Scene3D:ctor(camera)
-	self.camera = camera or Object3D()
+function Scene3D:ctor(cmd)
+	self.camera = camera or SceneObject()
+	self.camera.mRoot:Move(0, 0, -5)
 	self.mProj = CMatrix3D()
+	self.mProj:Perspect(45, self.rect.w, self.rect.h, 1000, 1)
+	
+	self.rb = ResBuffer(cmd, CMatrix3D._size)
+	self.rwp = self.rb[1]
+	self.res_set = ResourceSetNew(g_rl3D0)
+	self.res_set:BindResBuffer(self.rb, 0)
 end
 
 function Scene3D:SceneObjects()
-	return g_sceneObjects()
+	return g_sceneObjects
 end
 
 function Scene3D:Render()
-	cameraRes = self.camera
+	--if (self.camera.moved) then
+		--CAddMatrix3D(self.rb(), 0, self.camera)
+	--end
+	CMatrixToViewMultiply(self.camera.mRoot, self.mProj, self.rb(), self.rwp)
+	g_cameraRes = self.res_set
 	local objects = self:SceneObjects()
 	for obj in objects:pairs(self.Filter) do
-		
+		obj:Render(self)
 	end
 end

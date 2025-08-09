@@ -20,9 +20,9 @@ function Window:ctor()
 	self.renderQueue = self.defaultRQ
 	self.cmd = Command.NewRenderCmd()
 	 
-	self.cbWnd = ResBuffer(self.cmd, SIZE_FLOAT3)
+	self.rbWnd = ResBuffer(self.cmd, SIZE_FLOAT3)
 	self.res_set = ResourceSetNew(g_rlUi0)
-	self.res_set:BindResBuffer(self.cbWnd, 0)
+	self.res_set:BindResBuffer(self.rbWnd, 0)
 	
 	--self.cmdList = CmdList()
 	
@@ -218,7 +218,7 @@ function Window:resize(w, h)
 	--end
 	
 	cGI:DeviceWaitIdle()
-	CAddFloat3(self.cbWnd(), self.cbWnd[1], 1, self.rect.w, self.rect.h, 1)
+	CAddFloat3(self.rect.w, self.rect.h, 1, self.rbWnd(), self.rbWnd[1], 1)
 	self.sizegroup:resize(w, h)
 	
 	self.copyParam.w = w

@@ -990,13 +990,15 @@ bool VKGraphic::CreateDevice()
 	const char* deviceExt[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 	VkPhysicalDeviceFeatures pdf{};
-	pdf.sampleRateShading = VK_TRUE;
-	pdf.fillModeNonSolid = VK_TRUE;
-	pdf.wideLines = VK_TRUE;
-	pdf.depthClamp = VK_TRUE;
-	pdf.depthBiasClamp = VK_TRUE;
-	pdf.independentBlend = VK_TRUE;
-	pdf.multiDrawIndirect = VK_TRUE;
+	vkGetPhysicalDeviceFeatures(gpu, &pdf);
+	//pdf.sampleRateShading = VK_TRUE;
+	//pdf.fillModeNonSolid = VK_TRUE;
+	//pdf.wideLines = VK_TRUE;
+	//pdf.depthClamp = VK_TRUE;
+	//pdf.depthBiasClamp = VK_TRUE;
+	//pdf.independentBlend = VK_TRUE;
+	//pdf.multiDrawIndirect = VK_TRUE;
+	//pdf.depthBounds = VK_TRUE;
 
 	VkDeviceCreateInfo dci{};
 	dci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1221,6 +1223,7 @@ void Graphic::RegisterVulkanDefines(LuaState& lua)
 	SET_DEFINE("FORMAT_R8G8B8A8_UNORM", VK_FORMAT_R8G8B8A8_UNORM);
 	SET_DEFINE("FORMAT_R8G8B8A8_UINT", VK_FORMAT_R8G8B8A8_UINT);
 	SET_DEFINE("FORMAT_B8G8R8A8_UNORM", VK_FORMAT_B8G8R8A8_UNORM);
+	SET_DEFINE("FORMAT_D24_UNORM_S8_UINT", VK_FORMAT_D24_UNORM_S8_UINT);
 
 	SET_DEFINE("RESOURCE_TYPE_SAMPLER", VK_DESCRIPTOR_TYPE_SAMPLER);
 	SET_DEFINE("RESOURCE_TYPE_COMBINED_IMAGE_SAMPLER", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);

@@ -18,7 +18,7 @@ local function AddPolyVertex2D(o, t, i, x, y, nv, nvc)
 	local v = t[i]
 	nv = nv + 1
 	nvc = nvc + 1
-	CAddFloat3(g_innerPolyVB, APPEND, 1, v[1], v[2], Z_2D)
+	CAddFloat3(v[1], v[2], Z_2D, g_innerPolyVB, APPEND, 1)
 	local replaces = {}
 	if (v.combined and i ~= v.combined[1]) then
 		table.insert(replaces, {i - 1, v.combined[1] - 1})
@@ -43,8 +43,8 @@ end
 local function WritePolyIndex2D(o, nv, replaces)
 	if (nv > 0) then
 		local ib_offset = o.ib_offset + SIZE_UINT1 * o.idx_count
-		local ni = CAddPolyIndex(1, g_innerPolyVB, 
-			o.vb_offset + SIZE_FLOAT3 * o.vtx_count, nv, g_innerPolyIB, ib_offset, o.vtx_count)
+		local ni = CAddPolyIndex(g_innerPolyVB, 
+			o.vb_offset + SIZE_FLOAT3 * o.vtx_count, nv, g_innerPolyIB, ib_offset, o.vtx_count, 1)
 			
 		for _, v in pairs(replaces) do
 			CReplaceIndex(g_innerPolyIB, ib_offset, ni, v[1] + o.vtx_count, v[2] + o.vtx_count)
@@ -175,7 +175,7 @@ g_iconLine = AddPoly2D(true, DrawLine(5, false, false, {0, 0}, {100, 0}, {50, 10
 
 g_idVb = cGI:NewBuffer(SIZE_WRITE_ID * ID_NUM_MAX)
 for i = 0, ID_NUM_MAX do
-	AddVertexID(g_idVb, APPEND, 1, i)
+	AddVertexID(i, g_idVb, APPEND, 1)
 end
 g_idVbSet = cGI:NewBufferSet({g_idVb}, 1)
 
@@ -263,11 +263,8 @@ g_plId2D = cGI:NewPipeline(g_rp0, 1, 1, ui_id_vs, 'main', id_ps, 'main', cParamP
 
 --ui materal
 g_mtlUi = {}
-g_mtlUi.vtxLayout = NewVtxLayout(SIZE_FLOAT3, SIZE_FLOAT3, SIZE_UINT1)
+g_mtlUi.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT3, SIZE_UINT1)
 g_mtlUi.slot = {}
-g_mtlUi.slot[1] = 1
-g_mtlUi.slot[2] = 2
-g_mtlUi.slot[4] = 3
 g_mtlUi.insSlot = {}
 g_mtlUi.insSlot[g_rp0[1]] = 1
 g_mtlUi.insSlot[g_rp0[2]] = 2
@@ -280,12 +277,12 @@ g_mtlUi.func = {}
 g_mtlUi.func[g_rp0[1]] = {func = function(dcList)
 	dcList:AddResourceSet(ui_resourceSet)
 	dcList:AddResourceSet(uiFont.res)
-	dcList:SetPipeline(g_plUi, g_mtlUi.vtxLayout, 0)
+	dcList:SetPipeline(g_plUi, g_mtlUi.vbLayout, 0)
 end, mergeType = DC_DEFAULT}
 
 g_mtlUi.func[g_rp0[2]] = {func = function(dcList)
 	dcList:AddResourceSet(ui_resourceSet)  
-	dcList:SetPipeline(g_plId2D, g_mtlUi.vtxLayout, 0)
+	dcList:SetPipeline(g_plId2D, g_mtlUi.vbLayout, 0)
 	dcList:SetInsVB(g_idVbSet, 3)
 end, mergeType = DC_DEFAULT}
 
@@ -317,11 +314,7 @@ g_plId3D = cGI:NewPipeline(g_rp0, 1, 1, object3d_id_vs, 'main', id_ps, 'main', c
 
 --3d materal
 g_mtl3d = {}
-g_mtl3d.vtxLayout = NewVtxLayout(SIZE_FLOAT3, SIZE_FLOAT2, SIZE_UINT1)
-g_mtl3d.slot = {}
-g_mtl3d.slot[1] = 1
-g_mtl3d.slot[2] = 2
-g_mtl3d.slot[4] = 3
+g_mtl3d.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT2, SIZE_UINT1)
 g_mtl3d.insSlot = {}
 g_mtl3d.insSlot[g_rp0[1]] = 1
 g_mtl3d.insSlot[g_rp0[2]] = 2
@@ -329,15 +322,41 @@ g_mtl3d.insSlot[g_rp0[2]] = 2
 g_mtl3d.func = {}
 
 g_mtl3d.func[g_rp0[1]] = {func = function(dcList)
-	dcList:AddResourceSet(cameraRes)
-	dcList:SetPipeline(g_pl3d, g_mtl3d.vtxLayout, 0)
-end, mergeType = DC_MTL_MERGED}
+	dcList:AddResourceSet(g_cameraRes)
+	dcList:SetPipeline(g_pl3D, g_mtl3d.vbLayout, 0)
+end, mergeType = DC_MTL_MERGED, order = g_mtl3d}
 
-g_mtl3d.func[g_rp0[2]] = {func = function(dcList)
-	dcList:AddResourceSet(cameraRes)  
-	dcList:SetPipeline(g_plId3D, g_mtl3d.vtxLayout, 0)
-	dcList:SetInsVB(g_idVbSet, 3)
-end, mergeType = DC_MTL_MERGED}
+-- g_mtl3d.func[g_rp0[2]] = {func = function(dcList)
+	-- dcList:AddResourceSet(g_cameraRes)  
+	-- dcList:SetPipeline(g_plId3D, g_mtl3d.vbLayout, 0)
+	-- dcList:SetInsVB(g_idVbSet, 3)
+-- end, mergeType = DC_MTL_MERGED, order = g_mtl3d}
+
+---Cube---
+local vb = CMBuffer(1)
+local ub = CMBuffer(1)
+local cb = CMBuffer(1)
+local ib = CMBuffer(1)
+CAddCube(vb, 0, ub, 0, ib, 0)
+CAddUByte4(255, 0, 0, 255, cb, APPEND, 4)
+CAddUByte4(0, 255, 0, 255, cb, APPEND, 4)
+CAddUByte4(0, 0, 255, 255, cb, APPEND, 4)
+CAddUByte4(255, 255, 0, 255, cb, APPEND, 4)
+CAddUByte4(255, 0, 255, 255, cb, APPEND, 4)
+CAddUByte4(0, 255, 255, 255, cb, APPEND, 4)
+
+local geoInfo = {}
+geoInfo.layout = 1|2|4
+geoInfo.vb = {}
+geoInfo.vb[1] = {vb, Geometry.TRANS_DEFAULT}
+geoInfo.vb[2] = {ub, Geometry.TRANS_NONE}
+geoInfo.vb[4] = {cb, Geometry.TRANS_NONE}
+geoInfo.ib = ib
+geoInfo.meshes = {}
+geoInfo.meshes[1] = {0, 36, g_mtl3d}
+local cube = Geometry(geoInfo)
+
+g_cube = Model(cube)
 
 -- cParamResourceLayout:Reset()
 -- cParamResourceLayout:Add(RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, SHADER_STAGE_VERTEX_BIT)

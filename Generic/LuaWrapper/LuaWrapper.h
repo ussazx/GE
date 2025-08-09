@@ -167,6 +167,7 @@ inline T* LuaGetCppObj(lua_State* lua, int i)
 	int n = lua_gettop(lua);
 	Assert(abs(i) <= lua_gettop(lua));
 	
+	Assert(lua_type(lua, i) == LUA_TTABLE);
 	lua_pushinteger(lua, 0);
 	lua_gettable(lua, i);
 	Assert(lua_type(lua, -1) == LUA_TLIGHTUSERDATA);

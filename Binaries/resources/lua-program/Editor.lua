@@ -119,24 +119,22 @@ function NewWindow_CreateProj()
 	b:bind_event(EVT.LEFT_UP, nil, OnCreateProj)
 	layout:AddChild(b, nil, 10, 10, false, 10)
 	
-	local ww = UiWidget()
-	ww.color:set(40, 40, 40, 255)
+	-- local ww = UiWidget()
+	-- ww.color:set(40, 40, 40, 255)
+	-- layout:AddChild(ww, 1, 10, 10, true, 10, 10)
+	
+	-- local combo = UiCombo()
+	-- combo:AddItem('zzzz')
+	-- combo:AddItem('12345')
+	-- combo:AddItem('zzzzzzzzzzzzzzzzzzzzzzzzzzzzz')
+	-- combo:AddItem('zzzz')
+	-- combo:AddItem('zzzz')
+	-- combo:SetDefault(5)
+	-- combo:ShowOutline(true, Color(150, 150, 150, 255))
+	-- ww:AddChild(combo, 100, 100)
+	
+	local ww = Scene3D(w.cmd)
 	layout:AddChild(ww, 1, 10, 10, true, 10, 10)
-	
-	local combo = UiCombo()
-	combo:AddItem('zzzz')
-	combo:AddItem('12345')
-	combo:AddItem('zzzzzzzzzzzzzzzzzzzzzzzzzzzzz')
-	combo:AddItem('zzzz')
-	combo:AddItem('zzzz')
-	combo:SetDefault(5)
-	combo:ShowOutline(true, Color(150, 150, 150, 255))
-	ww:AddChild(combo, 100, 100)
-	
-	local t = UiTreeList()
-	local n = t:AddNode(nil, g_iconFolder, 'main')
-	n = t:AddNode(n, g_iconFolder, 'sub')
-	t:AddNode(n, g_iconFolder, 'sub111111111111111')
 	
 	local cp = ContentPanel()
 	layout:AddChild(cp, 1, 0, 10, true, 10, 10)
@@ -244,7 +242,7 @@ local function PaneWindow()
 end
 
 function LoadEntrance()
-	cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
+	--cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
 	cEntrance:AddPageWindow('new_proj', 'New Project', NewWindow_CreateProj())
 end
 

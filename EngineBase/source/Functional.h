@@ -215,7 +215,7 @@ static inline void AddValue(CBuffer& b, int wp, int n, T1... t)
 		bw[i] = { (0, t)... };
 }
 
-inline void CAddFloat1(LuacObj<CBuffer> vb, int wp, int num, float x)
+inline void CAddFloat1(float x, LuacObj<CBuffer> vb, int wp, int num)
 {
 	AddValue<float>(*vb, wp, num, x);
 }
@@ -227,48 +227,41 @@ Lua_global_add_cfunc(CAddFloat1)
 //}
 //Lua_global_add_cfunc(CAddFloat2)
 
-inline void CAddFloat3(LuacObj<CBuffer> vb, int wp, int num, float x, float y, float z)
+inline void CAddFloat3(float x, float y, float z, LuacObj<CBuffer> vb, int wp, int num)
 {
 	AddValue<float3>(*vb, wp, num, x, y, z);
 }
 Lua_global_add_cfunc(CAddFloat3)
 
-inline void CAddFloat4(LuacObj<CBuffer> vb, int wp, int num, float x, float y, float z, float w)
+inline void CAddFloat4(float x, float y, float z, float w, LuacObj<CBuffer> vb, int wp, int num)
 {
 	AddValue<float4>(*vb, wp, num, x, y, z, w);
 }
 Lua_global_add_cfunc(CAddFloat4)
 
-inline void CAddInt1(LuacObj<CBuffer> vb, int wp, int num, int x)
+inline void CAddInt1(int x, LuacObj<CBuffer> vb, int wp, int num)
 {
 	AddValue<int>(*vb, wp, num, x);
 }
 Lua_global_add_cfunc(CAddInt1)
 
-inline void CAddUInt1(LuacObj<CBuffer> vb, int wp, int num, uint1 x)
+inline void CAddUInt1(uint1 x, LuacObj<CBuffer> vb, int wp, int num)
 {
 	AddValue<uint1>(*vb, wp, num, x);
 }
 Lua_global_add_cfunc(CAddUInt1)
 
-inline void CAddUShort1(LuacObj<CBuffer> vb, int wp, int num, uint32_t x)
+inline void CAddUShort1(uint32_t x, LuacObj<CBuffer> vb, int wp, int num)
 {
 	AddValue<uint16_t>(*vb, wp, num, (uint16_t)x);
 }
 Lua_global_add_cfunc(CAddUShort1)
 
-inline void CAddUByte4(LuacObj<CBuffer> vb, int wp, int num, uint32_t r, uint32_t g, uint32_t b, uint32_t a)
+inline void CAddUByte4(uint32_t r, uint32_t g, uint32_t b, uint32_t a, LuacObj<CBuffer> vb, int wp, int num)
 {
 	AddValue<uint32_t>(*vb, wp, num, r | (g << 8) | (b << 16) | (a << 24));
 }
 Lua_global_add_cfunc(CAddUByte4)
-
-inline void CAddMatrix3D(LuacObj<CBuffer> vb, int wp, LuacObj<CMatrix3D> m)
-{
-	BufferWriter<CMatrix3D> bw(*vb, 1, wp);
-	bw[0] = *m;
-}
-Lua_global_add_cfunc(CAddMatrix3D)
 
 //inline void CAddRectFloat2(LuacObj<CBuffer> vb, int wp, float x, float y, float w, float h)
 //{
@@ -280,7 +273,7 @@ Lua_global_add_cfunc(CAddMatrix3D)
 //}
 //Lua_global_add_cfunc(CAddRectFloat2)
 
-inline void CAddRectFloat3(LuacObj<CBuffer> vb, int wp, float x, float y, float w, float h, float z)
+inline void CAddRectFloat3(float x, float y, float w, float h, float z, LuacObj<CBuffer> vb, int wp)
 {
 	BufferWriter<float3> bw(*vb, 4, wp);
 	bw[0] = { x, y, z };
@@ -467,7 +460,7 @@ inline size_t AddConvexPolyIndex(BufferWriter<uint1>& ibw, std::vector<uint1>& v
 	return n;
 }
 
-inline size_t CAddConvexPolyIndex(LuacObj<CBuffer> ib, int wp, int count, int idx_offset, uint32_t num_vtx)
+inline size_t CAddConvexPolyIndex(int idx_offset, uint32_t num_vtx, LuacObj<CBuffer> ib, int wp, int count)
 {
 	if (num_vtx < 3)
 		return 0;
@@ -611,7 +604,7 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, size_t vnum, BufferWriter<
 	return count;
 }
 
-inline size_t CAddPolyIndex(size_t count, LuacObj<CBuffer> vb, int vpos, uint32_t vnum, LuacObj<CBuffer> ib, int iwp, int idx_offset)
+inline size_t CAddPolyIndex(LuacObj<CBuffer> vb, int vpos, uint32_t vnum, LuacObj<CBuffer> ib, int iwp, int idx_offset, size_t count)
 {
 	if (vnum < 3)
 		return 0;
@@ -755,6 +748,40 @@ inline std::tuple<float, float, float> CTransformFloat3(LuacObj<CBuffer> src, in
 	return { l, w, h };
 }
 Lua_global_add_cfunc(CTransformFloat3)
+
+inline void CAddMatrix(LuacObj<CMatrix3D> m, LuacObj<CBuffer> vb, int wp)
+{
+	BufferWriter<CMatrix3D> bw(*vb, 1, wp);
+	bw[0] = *m;
+}
+Lua_global_add_cfunc(CAddMatrix)
+
+inline void CMatrixToView(LuacObj<CMatrix3D> m, LuacObj<CBuffer> vb, int wp)
+{
+	BufferWriter<CMatrix3D> bw(*vb, 1, wp);
+	CMatrix3D& v = bw[0];
+	v.SetByTransposed(m);
+	v.col[3] = { 0, 0, 0, 1 };
+	float3 p{};
+	p = m->GetRow4();
+	p *= v;
+	v.SetRow4(-p.x, -p.y, -p.z, 1);
+}
+Lua_global_add_cfunc(CMatrixToView)
+
+inline void CMatrixToViewMultiply(LuacObj<CMatrix3D> m, LuacObj<CMatrix3D> n, LuacObj<CBuffer> vb, int wp)
+{
+	BufferWriter<CMatrix3D> bw(*vb, 1, wp);
+	CMatrix3D& v = bw[0];
+	v.SetByTransposed(m);
+	v.col[3] = { 0, 0, 0, 1 };
+	float3 p{};
+	p = m->GetRow4();
+	p *= v;
+	v.SetRow4(-p.x, -p.y, -p.z, 1);
+	v *= *n;
+}
+Lua_global_add_cfunc(CMatrixToViewMultiply)
 
 class CList
 {
