@@ -715,7 +715,7 @@ void VKCommand::SetViewport(float x, float y, float w, float h, float minDepth, 
 	vkCmdSetViewport(m_cmd, 0, 1, &vp);
 }
 
-void VKCommand::SetClipRect(int x, int y, uint32_t width, uint32_t height)
+void VKCommand::SetScissor(int x, int y, uint32_t width, uint32_t height)
 {
 	VkRect2D rect{ {x, y}, {width, height} };
 	vkCmdSetScissor(m_cmd, 0, 1, &rect);

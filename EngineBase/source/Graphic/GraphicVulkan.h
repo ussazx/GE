@@ -307,7 +307,7 @@ public:
 
 	void SetViewport(float x, float y, float w, float h, float minDepth, float maxDepth) override;
 
-	void SetClipRect(int x, int y, uint32_t width, uint32_t height) override;
+	void SetScissor(int x, int y, uint32_t width, uint32_t height) override;
 
 	void SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx) override;
 

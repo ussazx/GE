@@ -176,7 +176,7 @@ public:
 
 	virtual void SetViewport(float x, float y, float w, float h, float minDepth, float maxDepth) = 0;
 
-	virtual void SetClipRect(int x, int y, uint32_t width, uint32_t height) = 0;
+	virtual void SetScissor(int x, int y, uint32_t width, uint32_t height) = 0;
 
 	virtual void SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx) = 0;
 
@@ -200,7 +200,7 @@ public:
 		Lua_mf(ExecuteCommandList),
 		Lua_mf(Execute),
 		Lua_mf(SetViewport),
-		Lua_mf(SetClipRect),
+		Lua_mf(SetScissor),
 		Lua_mf(SetResourceSet),
 		Lua_mf(DrawIndexed),
 		Lua_mf(SetVertexBuffers),

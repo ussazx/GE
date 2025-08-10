@@ -838,10 +838,15 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 	crCpuNew = crCpuNew or crCpu
 	crGpuNew = crGpuNew or crGpu
 
-	if (not DrawcallList.cr or (crGpuNew and DrawcallList.cr:diff(crGpuNew))) then
-		DrawcallList.cr = crGpuNew
+	if (crGpuNew) then
+		for _, dcList in pairs(g_dcLists) do
+			dcList:SetScissor(crGpuNew.x, crGpuNew.y, crGpuNew.w, crGpuNew.h)
+		end
 	end
-	DrawcallList.vp = self.window.rect
+	local vp = g_surface.rect
+	for _, dcList in pairs(g_dcLists) do
+		dcList:SetViewport(vp.x, vp.y, vp.w, vp.h)
+	end
 	
 	local renderer = self.renderer
 	local changed = renderer.doCache and (renderer.update or self.moved or self.sized or
@@ -2109,13 +2114,13 @@ function SceneWidget:DoUpdate(crCpu, crGpu)
 	if (cr and not self.crNew:intersect(cr, self.crNew)) then
 		return false
 	end
-	if (not DrawcallList.cr or DrawcallList.cr:diff(crGpuNew)) then
-		DrawcallList.cr = crGpuNew
+	for _, dcList in pairs(g_dcLists) do
+		dcList:SetScissor(crGpuNew.x, crGpuNew.y, crGpuNew.w, crGpuNew.h)
 	end
 	local vpNew = self.vpNew
 	vpNew:set(self.location.x, self.location.y, self.rect.w, self.rect.h)
-	if (not DrawcallList.vp or DrawcallList.vp:diff(vpNew)) then
-		DrawcallList.vp = vpNew
+	for _, dcList in pairs(g_dcLists) do
+		dcList:SetViewport(vpNew.x, vpNew.y, vpNew.w, vpNew.h)
 	end
 	
 	self:Render()
@@ -2125,7 +2130,6 @@ function SceneWidget:DoUpdate(crCpu, crGpu)
 		if (dcList) then
 			for _, orderred in pairs(merged) do
 				for order, list in pairs(orderred) do
-					list:CommitCurrent()
 					dcList:AddSubList(list)
 					orderred[order] = nil
 				end
@@ -2150,8 +2154,7 @@ function SceneWidget:GetDrawcall(spId, mergeType, order)
 	local list = s[order]
 	if (not list) then
 		list = g_fp:NewSubList()
-		g_dcLists[spId]:CommitCurrent()
-		list:Reset(g_input, g_dcLists[spId])
+		list:Reset(g_input)
 		s[order] = list
 	end
 	return list
@@ -2187,6 +2190,6 @@ function Scene3D:Render()
 	g_cameraRes = self.res_set
 	local objects = self:SceneObjects()
 	for obj in objects:pairs(self.Filter) do
-		obj:Render(self)
+		--obj:Render(self)
 	end
 end

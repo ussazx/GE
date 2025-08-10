@@ -204,189 +204,221 @@ function ResourceSetNew:BindTexelView(v, binding)
 end
 
 ---DrawcallList---
+local function SetViewport(op, cmd)
+	cmd:SetViewport(op.x, op.y, op.w, op.h, 0, 1)
+end
+
+local function SetScissor(op, cmd)
+	cmd:SetScissor(op.x, op.y, op.w, op.h)
+end
+
+local function SetVertexBuffers(op, cmd)
+	cmd:SetVertexBuffers(op.vtxInput, op.slot)
+end
+
+local function SetResourceSet(op, cmd)
+	cmd:SetResourceSet(op.res[cmd.cIdx], op.idx)
+end
+
+local function SetupSubList(op, cmd)
+	op.list:SetupDrawcalls(cmd)
+end
+
+local function DrawIndexed(op, cmd)
+	cmd:DrawIndexed(op.pl, op.ib, 0, op.idxStart,op.idxCount, op.instStart, op.instCount)
+end
+
+local function DrawIndexedIndirect(op, cmd)
+	cmd:DrawIndexedIndirect(op.pl, op.ib, op.indBuf, op.indStart, op.indCount)
+end
+
 DrawcallList = class()
 
 function DrawcallList:ctor()
-	self.d_c = {}
-	self.d_p = {}
-	self.d_res = {}
-	self.d_insVbSets = {}
-	self.dcList = {}
-	self.dcCap = 0
-	self.dcCount = 0
-	self.idxCount = 0
+	self.res = {}
+	self.insVbSets = {}
+	self.opList = {}
 end
 
 function DrawcallList:Reset(input, dcList)
 	self.indBuf = input:GetIndBuf()
 	self.input = input
+	self.committed = true
 	self.idxStart = 0
 	self.idxCount = 0
 	self.indStart = 0 
 	self.indCount = 0
-	self.dcIdx = 0
-	self.dcCount = 0
-	self.dc = self:NewDrawcall()
-	if (dcList) then
-		self.c = dcList.c
-		self.p = dcList.p
-		self.res = dcList.res
-		self.insVbSets = dcList.insVbSets
-	else
-		self.c = self.d_c
-		self.p = self.d_p
-		self.res = self.d_res
-		self.insVbSets = self.d_insVbSets
-		
-		self.p.vp = nil
-		self.p.cr = nil
-		self.p.pl = nil
-		self.p.vtxInput = nil
-		self.p.mainSlot = nil
-		self.p.mtl = nil
-		self.p.resIdx = 0
-		for k, _ in pairs(self.res) do
-			self.res[k] = nil
-		end
-		for k, _ in pairs(self.insVbSets) do
-			self.insVbSets[k] = nil
-		end
+	self.opIdx = 0
+	self.vp = nil
+	self.sc = nil 
+	self.pl = nil
+	self.vbMain = nil
+	self.resIdx = 0
+	for k, _ in pairs(self.res) do
+		self.res[k] = nil
+	end
+	for k, _ in pairs(self.insVbSets) do
+		self.insVbSets[k] = nil
 	end
 end
 
-function DrawcallList:NewDrawcall()
-	self.dcIdx = self.dcIdx + 1
-	local dc
-	if (self.dcIdx <= self.dcCap) then
-		dc = self.dcList[self.dcIdx]
-		dc.vp = nil
-		dc.cr = nil
-		dc.mainSlot = nil
-		for k, _ in pairs(dc.resList) do
-			dc.resList[k] = nil
-		end
-		for k, _ in pairs(dc.vbSets) do
-			dc.vbSets[k] = nil
-		end
-	else
-		dc = {resList = {}, vbSets = {}, vtxOffsets = {}}
-		self.dcCap = self.dcCap + 1
-		self.dcList[self.dcCap] = dc
+function DrawcallList:NewOP()
+	self.opIdx = self.opIdx + 1
+	local op = self.opList[self.opIdx]
+	if (not op) then
+		op = {}
+		self.opList[self.opIdx] = op
 	end
-	dc.direct = false
-	dc.pl = nil
-	dc.subList = nil
-	dc.resCount = 0
-	dc.indStart = self.indStart
-	dc.indCount = 0
-	return dc
+	return op
 end
 
-function DrawcallList:SetupDrawcall(cmd, dc)
-	if (dc.vp) then
-		cmd:SetViewport(dc.vp.x, dc.vp.y, dc.vp.w, dc.vp.h, 0, 1)
-	end
-	if (dc.cr) then
-		cmd:SetClipRect(dc.cr.x, dc.cr.y, dc.cr.w, dc.cr.h)
-	end
-	for k, v in pairs(dc.resList) do
-		cmd:SetResourceSet(v[cmd.cIdx], k)
-	end
-	for k, v in pairs(dc.vbSets) do
-		cmd:SetVertexBuffers(v, k)
-	end
-	if (dc.mainSlot) then
-		cmd:SetVertexBuffers(dc.vtxInput, dc.mainSlot)
-	end
-	if (dc.direct) then
-		cmd:DrawIndexed(dc.pl, self.input.ib, 0, dc.idxStart, dc.idxCount, dc.instStart, dc.instCount)
+function DrawcallList:SetViewport(x, y, w, h)
+	local op
+	if (self.committed) then
+		op = self.vp or self:NewOP()
 	else
-		cmd:DrawIndexedIndirect(dc.pl, self.input.ib, self.indBuf, dc.indStart, dc.indCount)
-	end
-end
-
-function DrawcallList:SetupDrawcalls(cmd)
-	self:CommitCurrent()
-	for i = 1, self.dcCount do
-		local dc = self.dcList[i]
-		if (dc.subList) then
-			dc.subList:SetupDrawcalls(cmd)
+		op = self.vp
+		if (op.x ~= x or op.y ~= y or op.w ~= w or op.h ~= h) then
+			self:CommitDrawcall()
+			op = self:NewOP()
 		else
-			self:SetupDrawcall(cmd, dc)
-		end
+		return end
 	end
-	--Print('---draw call---', self.dcCount)
+	op.func = SetViewport
+	op.x = x
+	op.y = y
+	op.w = w
+	op.h = h
+	self.vp = op
+end
+
+function DrawcallList:SetScissor(x, y, w, h)
+	local op
+	if (self.committed) then
+		op = self.sc or self:NewOP()
+	else
+		op = self.sc
+		if(op.x ~= x or op.y ~= y or op.w ~= w or op.h ~= h) then
+			self:CommitDrawcall()
+			op = self:NewOP()
+		else
+		return end
+	end
+	op.func = SetScissor
+	op.x = x
+	op.y = y
+	op.w = w
+	op.h = h
+	self.sc = op
 end
 
 function DrawcallList:SetPipeline(pl, vbLayout, slot)
+	if (not self.committed and pl ~= self.pl) then
+		self:CommitDrawcall()
+	end
 	self.pl = pl
-	self.c.vtxInput = self.input.vtx[vbLayout].vbSet
-	self.c.mainSlot = slot
+	
+	local vtxInput = self.input.vtx[vbLayout].vbSet
+	local op
+	if (self.committed) then
+		op = self.vbMain or self:NewOP()
+	else
+		op = self.vbMain
+		if (op.vtxInput ~= vtxInput or op.slot ~= slot) then
+			self:CommitDrawcall()
+			op = self:NewOP()
+		else
+		return end
+	end
+	op.func = SetVertexBuffers
+	op.vtxInput = vtxInput
+	op.slot = slot
+	self.vbMain = op
 end
 
 function DrawcallList:SetInsVB(vbSet, slot)
-	if (self.insVbSets[slot] ~= vbSet) then
-		self:CommitCurrent()
-		self.insVbSets[slot] = vbSet
-		self.dc.vbSets[slot] = vbSet
+	local insVbSets = self.insVbSets
+	local op
+	if (self.committed) then
+		op = insVbSets[slot] or self:NewOP()
+	else
+		op = insVbSets[slot]
+		if (op.vtxInput ~= vbSet) then
+			self:CommitDrawcall()
+			op = self:NewOP()
+		else
+		return end
 	end
+	op.func = SetVertexBuffers
+	op.vtxInput = vbSet
+	op.slot = slot
+	insVbSets[slot] = op
 end
 
 function DrawcallList:AddResourceSet(res)
-	local resIdx = self.p.resIdx
-	if (self.res[resIdx] ~= res) then
-		self:CommitCurrent()
-		self.res[resIdx] = res
-		self.dc.resList[resIdx] = res
+	local resIdx = self.resIdx
+	self.resIdx = self.resIdx + 1
+	local resSet = self.res
+	local op
+	if (self.committed) then
+		op = resSet[resIdx] or self:NewOP()
+	else
+		op = resSet[resIdx]
+		if (op.res ~= res) then
+			self:CommitDrawcall()
+			op = self:NewOP()
+		else
+		return end
 	end
-	self.p.resIdx = self.p.resIdx + 1
+	op.func = SetResourceSet
+	op.res = res
+	op.idx = resIdx
+	resSet[resIdx] = op
 end
 
-function DrawcallList:CommitStates()
-	if (self.c.vtxInput ~= self.p.vtxInput or self.c.mainSlot ~= self.p.mainSlot) then
-		self:CommitCurrent()
-		self.p.vtxInput = self.c.vtxInput
-		self.p.mainSlot = self.c.mainSlot
-		self.dc.vtxInput = self.c.vtxInput
-		self.dc.mainSlot = self.c.mainSlot
-	end
-	
-	if (DrawcallList.vp ~= self.p.vp) then
-		self:CommitCurrent()
-		self.p.vp = DrawcallList.vp
-		self.dc.vp = DrawcallList.vp
-	end
-	
-	if (DrawcallList.cr ~= self.p.cr) then
-		self:CommitCurrent()
-		self.p.cr = DrawcallList.cr
-		self.dc.cr = DrawcallList.cr
-	end
-	
-	self.p.resIdx = 0
+function DrawcallList:AddSubList(dcList)
+	self:CommitDrawcall()
+	local op = NewOP()
+	op.func = SetupSubList
+	op.list = dcList
 end
 
-function DrawcallList:CommitCurrent()
-	local dc = self.dc
-	if (not dc) then 
-	return end
+function DrawcallList:SetupDrawcalls(cmd)
+	self:CommitDrawcall()
+	for i = 1, self.opIdx do
+		local op = self.opList[i]
+		op:func(cmd)
+	end
+end
+
+function DrawcallList:CommitDrawcall()
+	local op
 	if (self.indCount > 0) then
 		self:CommitIndBuffer()
-		dc.indCount = self.indCount
+		op = self:NewOP()
+		op.func = DrawIndexedIndirect
+		op.indStart = self.indStart
+		op.indCount = self.indCount
+		op.indBuf = self.indBuf
+		op.func = DrawIndexedIndirect
+		
 		self.indStart = self.indStart + self.indCount
 		self.indCount = 0
 	elseif (self.idxCount > 0) then
-		dc.direct = true
-		dc.idxStart = self.idxStart
-		dc.idxCount = self.idxCount
-		dc.instStart = self.instStart
-		dc.instCount = self.instCount
+		op = self:NewOP()
+		op.func = DrawIndexed
+		op.idxStart = self.idxStart
+		op.idxCount = self.idxCount
+		op.instStart = self.instStart
+		op.instCount = self.instCount
+		op.func = DrawIndexed
+		
 		self.idxCount = 0
-	elseif (not dc.subList) then
+	else
 	return end
-	dc.pl = self.pl
-	self.dcCount = self.dcCount + 1
-	self.dc = self:NewDrawcall()
+	op.pl = self.pl
+	op.ib = self.input.ib
+	self.committed = true
 end
 
 function DrawcallList:CommitIndBuffer()
@@ -398,7 +430,6 @@ function DrawcallList:CommitIndBuffer()
 end
 
 function DrawcallList:Draw(idxStart, idxCount, instStart, instCount)
-	self:CommitStates()
 	if (self.idxStart + self.idxCount ~= idxStart or self.instStart ~= instStart or self.instCount ~= instCount) then
 		self:CommitIndBuffer()
 	end
@@ -408,11 +439,10 @@ function DrawcallList:Draw(idxStart, idxCount, instStart, instCount)
 	self.instStart = instStart
 	self.instCount = instCount
 	self.idxCount = self.idxCount + idxCount
-end
-
-function DrawcallList:AddSubList(dcList)
-	self.dc.subList = dcList
-	self:CommitCurrent()
+	
+	self.resIdx = 0
+	
+	self.committed = false
 end
 
 ---Geometry---
@@ -583,10 +613,7 @@ function MeshRenderer:Render(scene, disables)
 	for spId, func in pairs(mtl.func) do
 		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
 		if (not disables[spId] and dcList) then
-			if (dcList.p.mtl ~= mtl) then
-				func.func(dcList)
-				dcList.p.mtl = mtl
-			end
+			func.func(dcList)
 			if (draw) then
 				self.vtxHandler()
 				draw = false
@@ -616,10 +643,7 @@ function MeshRenderer:RenderCached(scene, disables)
 	for spId, func in pairs(mtl.func) do
 		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
 		if (not disables[spId] and dcList) then
-			if (dcList.p.mtl ~= mtl) then
-				func.func(dcList)
-				dcList.p.mtl = mtl
-			end
+			func.func(dcList)
 			local insArgs = self.insArgs[mtl.insSlot[spId]]
 			dcList:Draw(g_input.idxCount, self.n_idx, insArgs[1], insArgs[2])
 			draw = true
@@ -742,13 +766,11 @@ end
 
 function FramePipeline:UpdateSurface(input)
 	self.subListUsed = 0
-	for surface, dcLists in pairs(self.foParams) do
-		DrawcallList.vp = surface.rect
-		DrawcallList.cr = surface.rect
-		
+	for surface, dcLists in pairs(self.foParams) do		
 		for _, dcList in pairs(dcLists) do
 			dcList:Reset(input)
 		end
+		g_surface = surface
 		g_dcLists = dcLists
 		g_input = input
 		g_fp = self

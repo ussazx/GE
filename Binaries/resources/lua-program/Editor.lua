@@ -242,7 +242,7 @@ local function PaneWindow()
 end
 
 function LoadEntrance()
-	--cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
+	cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
 	cEntrance:AddPageWindow('new_proj', 'New Project', NewWindow_CreateProj())
 end
 
