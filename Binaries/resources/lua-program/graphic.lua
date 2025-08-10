@@ -235,8 +235,9 @@ end
 DrawcallList = class()
 
 function DrawcallList:ctor()
-	self.res = {}
-	self.insVbSets = {}
+	self.d_rs = {}
+	self.d_res = {}
+	self.d_insVbSets = {}
 	self.opList = {}
 end
 
@@ -249,16 +250,25 @@ function DrawcallList:Reset(input, dcList)
 	self.indStart = 0 
 	self.indCount = 0
 	self.opIdx = 0
-	self.vp = nil
-	self.sc = nil 
-	self.pl = nil
-	self.vbMain = nil
 	self.resIdx = 0
-	for k, _ in pairs(self.res) do
-		self.res[k] = nil
-	end
-	for k, _ in pairs(self.insVbSets) do
-		self.insVbSets[k] = nil
+	if (dcList) then
+		self.rs = dcList.rs
+		self.res = dcList.res
+		self.insVbSets = dcList.insVbSets
+	else
+		self.rs = self.d_rs
+		self.rs.vp = nil
+		self.rs.sc = nil 
+		self.rs.pl = nil
+		self.rs.vbMain = nil
+		self.res = self.d_res
+		for k, _ in pairs(self.res) do
+			self.res[k] = nil
+		end
+		self.insVbSets = self.d_insVbSets
+		for k, _ in pairs(self.insVbSets) do
+			self.insVbSets[k] = nil
+		end
 	end
 end
 
@@ -275,9 +285,9 @@ end
 function DrawcallList:SetViewport(x, y, w, h)
 	local op
 	if (self.committed) then
-		op = self.vp or self:NewOP()
+		op = self.rs.vp or self:NewOP()
 	else
-		op = self.vp
+		op = self.rs.vp
 		if (op.x ~= x or op.y ~= y or op.w ~= w or op.h ~= h) then
 			self:CommitDrawcall()
 			op = self:NewOP()
@@ -289,15 +299,15 @@ function DrawcallList:SetViewport(x, y, w, h)
 	op.y = y
 	op.w = w
 	op.h = h
-	self.vp = op
+	self.rs.vp = op
 end
 
 function DrawcallList:SetScissor(x, y, w, h)
 	local op
 	if (self.committed) then
-		op = self.sc or self:NewOP()
+		op = self.rs.sc or self:NewOP()
 	else
-		op = self.sc
+		op = self.rs.sc
 		if(op.x ~= x or op.y ~= y or op.w ~= w or op.h ~= h) then
 			self:CommitDrawcall()
 			op = self:NewOP()
@@ -309,21 +319,21 @@ function DrawcallList:SetScissor(x, y, w, h)
 	op.y = y
 	op.w = w
 	op.h = h
-	self.sc = op
+	self.rs.sc = op
 end
 
 function DrawcallList:SetPipeline(pl, vbLayout, slot)
-	if (not self.committed and pl ~= self.pl) then
+	if (not self.committed and pl ~= self.rs.pl) then
 		self:CommitDrawcall()
 	end
-	self.pl = pl
+	self.rs.pl = pl
 	
 	local vtxInput = self.input.vtx[vbLayout].vbSet
 	local op
 	if (self.committed) then
-		op = self.vbMain or self:NewOP()
+		op = self.rs.vbMain or self:NewOP()
 	else
-		op = self.vbMain
+		op = self.rs.vbMain
 		if (op.vtxInput ~= vtxInput or op.slot ~= slot) then
 			self:CommitDrawcall()
 			op = self:NewOP()
@@ -333,7 +343,7 @@ function DrawcallList:SetPipeline(pl, vbLayout, slot)
 	op.func = SetVertexBuffers
 	op.vtxInput = vtxInput
 	op.slot = slot
-	self.vbMain = op
+	self.rs.vbMain = op
 end
 
 function DrawcallList:SetInsVB(vbSet, slot)
@@ -378,7 +388,11 @@ end
 
 function DrawcallList:AddSubList(dcList)
 	self:CommitDrawcall()
-	local op = NewOP()
+	dcList:CommitDrawcall()
+	self.rs = dcList.rs
+	self.res = dcList.res
+	self.insVbSets = dcList.insVbSets
+	local op = self:NewOP()
 	op.func = SetupSubList
 	op.list = dcList
 end
@@ -416,7 +430,7 @@ function DrawcallList:CommitDrawcall()
 		self.idxCount = 0
 	else
 	return end
-	op.pl = self.pl
+	op.pl = self.rs.pl
 	op.ib = self.input.ib
 	self.committed = true
 end

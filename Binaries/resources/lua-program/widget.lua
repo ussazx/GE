@@ -2114,14 +2114,8 @@ function SceneWidget:DoUpdate(crCpu, crGpu)
 	if (cr and not self.crNew:intersect(cr, self.crNew)) then
 		return false
 	end
-	for _, dcList in pairs(g_dcLists) do
-		dcList:SetScissor(crGpuNew.x, crGpuNew.y, crGpuNew.w, crGpuNew.h)
-	end
 	local vpNew = self.vpNew
 	vpNew:set(self.location.x, self.location.y, self.rect.w, self.rect.h)
-	for _, dcList in pairs(g_dcLists) do
-		dcList:SetViewport(vpNew.x, vpNew.y, vpNew.w, vpNew.h)
-	end
 	
 	self:Render()
 	
@@ -2155,6 +2149,10 @@ function SceneWidget:GetDrawcall(spId, mergeType, order)
 	if (not list) then
 		list = g_fp:NewSubList()
 		list:Reset(g_input)
+		local crNew = self.crNew
+		local vpNew = self.vpNew
+		list:SetScissor(crNew.x, crNew.y, crNew.w, crNew.h)
+		list:SetViewport(vpNew.x, vpNew.y, vpNew.w, vpNew.h)
 		s[order] = list
 	end
 	return list
@@ -2190,6 +2188,6 @@ function Scene3D:Render()
 	g_cameraRes = self.res_set
 	local objects = self:SceneObjects()
 	for obj in objects:pairs(self.Filter) do
-		--obj:Render(self)
+		obj:Render(self)
 	end
 end
