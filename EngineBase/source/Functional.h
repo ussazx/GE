@@ -170,18 +170,19 @@ template<typename T>
 class BufferWriter
 {
 public:
-	BufferWriter(CBuffer& cb, size_t reserve, int wp = -1) : m_cb(cb) 
+	BufferWriter(CBuffer& cb, size_t reserve, int wp = -1, bool changeWritePos = true) : m_cb(cb) 
 	{
 		m_writePos = m_cb.m_writePos;
 		if (wp >= 0)
 			m_writePos = wp;
 		if (m_writePos + sizeof(T) * reserve > m_cb.GetSize())
 			m_cb.Resize(m_writePos + sizeof(T) * reserve);
+		m_changeWritePos = changeWritePos;
 	}
 	~BufferWriter()
 	{
 		SkipUsed();
-		if (m_writePos > m_cb.m_writePos)
+		if (m_changeWritePos)
 			m_cb.m_writePos = m_writePos;
 	}
 	T& operator [] (size_t n)
@@ -204,6 +205,7 @@ public:
 private:
 	size_t m_writePos = 0;
 	size_t m_max = 0;
+	bool m_changeWritePos{};
 	CBuffer& m_cb;
 };
 
@@ -467,10 +469,10 @@ inline size_t CAddConvexPolyIndex(int idx_offset, uint32_t num_vtx, LuacObj<CBuf
 	BufferWriter<uint1> bw(*ib, (num_vtx - 2) * 3 * count, wp);
 	size_t n = AddConvexPolyIndex(bw, idx_offset, num_vtx);
 	
-	idx_offset += num_vtx;
-	for (size_t i = 1; i < count; i++, idx_offset += num_vtx)
+	size_t o = num_vtx;
+	for (size_t i = 1; i < count; i++, o += num_vtx)
 		for (size_t j = 0; j < n; j++)
-			bw[n * i + j] = bw[j] + idx_offset;
+			bw[n * i + j] = bw[j] + o;
 
 	return n * count;
 }
@@ -615,10 +617,10 @@ inline size_t CAddPolyIndex(LuacObj<CBuffer> vb, int vpos, uint32_t vnum, LuacOb
 	size_t n = AddPolyIndex(vbw, vnum, ibw, idx_offset);
 	vbw[vnum - 1];
 
-	idx_offset += vnum;
-	for (size_t i = 1; i < count; i++, idx_offset += vnum)
+	size_t o = vnum;
+	for (size_t i = 1; i < count; i++, o += vnum)
 		for (size_t j = 0; j < n; j++)
-			ibw[n * i + j] = ibw[j] + idx_offset;
+			ibw[n * i + j] = ibw[j] + o;
 
 	return n * count;
 }
@@ -734,7 +736,7 @@ Lua_global_add_cfunc(CScaleFloat3)
 
 inline std::tuple<float, float, float> CTransformFloat3(LuacObj<CBuffer> src, int src_pos, size_t count, LuacObj<CMatrix3D> m, LuacObj<CBuffer> dst, int dst_wp)
 {
-	BufferWriter<float3> bw_src(*src, count, src_pos);
+	BufferWriter<float3> bw_src(*src, count, src_pos, false);
 	BufferWriter<float3> bw_dst(*dst, count, dst_wp);
 
 	float l = 0, w = 0, h = 0;
@@ -761,9 +763,8 @@ inline void CMatrixToView(LuacObj<CMatrix3D> m, LuacObj<CBuffer> vb, int wp)
 	BufferWriter<CMatrix3D> bw(*vb, 1, wp);
 	CMatrix3D& v = bw[0];
 	v.SetByTransposed(m);
+	float3 p = v.col[3];
 	v.col[3] = { 0, 0, 0, 1 };
-	float3 p{};
-	p = m->GetRow4();
 	p *= v;
 	v.SetRow4(-p.x, -p.y, -p.z, 1);
 }
@@ -774,12 +775,18 @@ inline void CMatrixToViewMultiply(LuacObj<CMatrix3D> m, LuacObj<CMatrix3D> n, Lu
 	BufferWriter<CMatrix3D> bw(*vb, 1, wp);
 	CMatrix3D& v = bw[0];
 	v.SetByTransposed(m);
+	float3 p = v.col[3];
 	v.col[3] = { 0, 0, 0, 1 };
-	float3 p{};
-	p = m->GetRow4();
 	p *= v;
 	v.SetRow4(-p.x, -p.y, -p.z, 1);
 	v *= *n;
+	float3 z0 = { -1, 0, 0 };
+	z0 *= v;
+	float3 z1 = { 0, 1, 0 };
+	z1 *= v;
+	float3 z2 = { 1, 0, 0 };
+	z2 *= v;
+	float3 zz = z0;
 }
 Lua_global_add_cfunc(CMatrixToViewMultiply)
 

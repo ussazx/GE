@@ -82,7 +82,7 @@ struct float4
 	float x = 0;
 	float y = 0;
 	float z = 0;
-	float w = 1;
+	float w = 0;
 };
 
 struct CMatrix3D
@@ -479,14 +479,16 @@ inline void CMatrix3D::Transform(LuacObj<CMatrix3D> N, size_t d)
 	d %= 5;
 	CMatrix3D& M = *this;
 	CMatrix3D& n = *N;
+	float4 v;
 	for (size_t i = 0; i < d; i++)
+	{
+		v = {};
 		for (size_t j = 0; j < d; j++)
-		{
-			float v = 0;
 			for (size_t k = 0; k < d; k++)
-				v += M[i][k] * n[k][j];
-			M[i][j] = v;
-		}
+				v[j] += M[i][k] * n[k][j];
+		for (size_t j = 0; j < d; j++)
+			M[i][j] = v[j];
+	}
 }
 inline void CMatrix3D::SetByTransposed(LuacObj<CMatrix3D> N, size_t d)
 {
@@ -495,7 +497,7 @@ inline void CMatrix3D::SetByTransposed(LuacObj<CMatrix3D> N, size_t d)
 	CMatrix3D& n = *N;
 	for (size_t i = 0; i < d; i++)
 		for (size_t j = 0; j < d; j++)
-			n[i][j] = M[j][i];
+			M[i][j] = n[j][i];
 }
 inline void CMatrix3D::Perspect(float fovD, float width, float height, float nearZ, float farZ)
 {

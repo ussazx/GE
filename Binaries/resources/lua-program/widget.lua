@@ -1402,7 +1402,7 @@ end
 
 function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 	local rect = self.cr or self.rect
-	local n0 = 0
+	local n = 0
 	if (self.selectedIdx >= 0 and self.selectedIdx ~= self.insertIdx) then
 		local w = self.selected_x - self.caret.rect.x
 		local x = self.caret.rect.x
@@ -1418,15 +1418,14 @@ function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iw
 		CAddRectFloat3(math.max(self.location.x + x, rect.x), rect.y, w, rect.h, Z_2D, vbPos, wpPos)
 		CAddFloat3(self.font.pixels, 0, 0, vbUVW, wpUVW, 4)
 		CAddUByte4(self.selectedColor.r, self.selectedColor.g, self.selectedColor.b, self.selectedColor.a, vbColor, wpColor, 4)
-		n0 = 1
+		n = 1
 		wpPos = APPEND
 		wpUVW = APPEND
 		wpColor = APPEND
 	end
-	local n = CAddTextClip(self.textOffset, self.rect.h + self.font.descender, 
+	n = n + CAddTextClip(self.textOffset, self.rect.h + self.font.descender, 
 	rect.x, rect.y, rect.w, rect.h, Z_2D, self.text, self.font, vbPos, wpPos, vbUVW, wpUVW)
 	CAddUByte4(self.color.r, self.color.g, self.color.b, self.color.a, vbColor, wpColor, 4 * n)
-	n = n + n0
 	return 4 * n, CAddConvexPolyIndex(ibStart, 4, ib, iwp, n)
 end
 
@@ -2124,6 +2123,7 @@ function SceneWidget:DoUpdate(crCpu, crGpu)
 		if (dcList) then
 			for _, orderred in pairs(merged) do
 				for order, list in pairs(orderred) do
+					list:CommitDrawcall()
 					dcList:AddSubList(list)
 					orderred[order] = nil
 				end
@@ -2168,7 +2168,6 @@ function Scene3D:ctor(cmd)
 	self.camera = camera or SceneObject()
 	self.camera.mRoot:Move(0, 0, -5)
 	self.mProj = CMatrix3D()
-	self.mProj:Perspect(45, self.rect.w, self.rect.h, 1000, 1)
 	
 	self.rb = ResBuffer(cmd, CMatrix3D._size)
 	self.rwp = self.rb[1]
@@ -2181,9 +2180,9 @@ function Scene3D:SceneObjects()
 end
 
 function Scene3D:Render()
-	--if (self.camera.moved) then
-		--CAddMatrix3D(self.rb(), 0, self.camera)
-	--end
+	if (self.sized) then
+		self.mProj:Perspect(45, self.rect.w, self.rect.h, 1000, 1)
+	end
 	CMatrixToViewMultiply(self.camera.mRoot, self.mProj, self.rb(), self.rwp)
 	g_cameraRes = self.res_set
 	local objects = self:SceneObjects()

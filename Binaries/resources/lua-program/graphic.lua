@@ -244,31 +244,25 @@ end
 function DrawcallList:Reset(input, dcList)
 	self.indBuf = input:GetIndBuf()
 	self.input = input
-	self.committed = true
 	self.idxStart = 0
 	self.idxCount = 0
 	self.indStart = 0 
 	self.indCount = 0
 	self.opIdx = 0
 	self.resIdx = 0
-	if (dcList) then
-		self.rs = dcList.rs
-		self.res = dcList.res
-		self.insVbSets = dcList.insVbSets
-	else
-		self.rs = self.d_rs
-		self.rs.vp = nil
-		self.rs.sc = nil 
-		self.rs.pl = nil
-		self.rs.vbMain = nil
-		self.res = self.d_res
-		for k, _ in pairs(self.res) do
-			self.res[k] = nil
-		end
-		self.insVbSets = self.d_insVbSets
-		for k, _ in pairs(self.insVbSets) do
-			self.insVbSets[k] = nil
-		end
+
+	self.rs = self.d_rs
+	self.rs.vp = nil
+	self.rs.sc = nil 
+	self.rs.pl = nil
+	self.rs.vbMain = nil
+	self.res = self.d_res
+	for k, _ in pairs(self.res) do
+		self.res[k] = nil
+	end
+	self.insVbSets = self.d_insVbSets
+	for k, _ in pairs(self.insVbSets) do
+		self.insVbSets[k] = nil
 	end
 end
 
@@ -283,112 +277,84 @@ function DrawcallList:NewOP()
 end
 
 function DrawcallList:SetViewport(x, y, w, h)
-	local op
-	if (self.committed) then
-		op = self.rs.vp or self:NewOP()
-	else
-		op = self.rs.vp
-		if (op.x ~= x or op.y ~= y or op.w ~= w or op.h ~= h) then
-			self:CommitDrawcall()
-			op = self:NewOP()
-		else
-		return end
+	local rs = self.rs
+	local op = rs.vp
+	if (not op or op.x ~= x or op.y ~= y or op.w ~= w or op.h ~= h) then
+		self:CommitDrawcall()
+		op = self:NewOP()
+		op.func = SetViewport
+		op.x = x
+		op.y = y
+		op.w = w
+		op.h = h
+		rs.vp = op
 	end
-	op.func = SetViewport
-	op.x = x
-	op.y = y
-	op.w = w
-	op.h = h
-	self.rs.vp = op
 end
 
 function DrawcallList:SetScissor(x, y, w, h)
-	local op
-	if (self.committed) then
-		op = self.rs.sc or self:NewOP()
-	else
-		op = self.rs.sc
-		if(op.x ~= x or op.y ~= y or op.w ~= w or op.h ~= h) then
-			self:CommitDrawcall()
-			op = self:NewOP()
-		else
-		return end
+	local rs = self.rs
+	local op = rs.sc
+	if (not op or op.x ~= x or op.y ~= y or op.w ~= w or op.h ~= h) then
+		self:CommitDrawcall()
+		op = self:NewOP()
+		op.func = SetScissor
+		op.x = x
+		op.y = y
+		op.w = w
+		op.h = h
+		rs.sc = op
 	end
-	op.func = SetScissor
-	op.x = x
-	op.y = y
-	op.w = w
-	op.h = h
-	self.rs.sc = op
 end
 
 function DrawcallList:SetPipeline(pl, vbLayout, slot)
-	if (not self.committed and pl ~= self.rs.pl) then
+	local rs = self.rs
+	if (pl ~= self.rs.pl) then
 		self:CommitDrawcall()
 	end
-	self.rs.pl = pl
+	rs.pl = pl
 	
 	local vtxInput = self.input.vtx[vbLayout].vbSet
-	local op
-	if (self.committed) then
-		op = self.rs.vbMain or self:NewOP()
-	else
-		op = self.rs.vbMain
-		if (op.vtxInput ~= vtxInput or op.slot ~= slot) then
-			self:CommitDrawcall()
-			op = self:NewOP()
-		else
-		return end
+	local op = rs.vbMain
+	if (not op or op.vtxInput ~= vtxInput or op.slot ~= slot) then
+		self:CommitDrawcall()
+		op = self:NewOP()
+		op.func = SetVertexBuffers
+		op.vtxInput = vtxInput
+		op.slot = slot
+		rs.vbMain = op
 	end
-	op.func = SetVertexBuffers
-	op.vtxInput = vtxInput
-	op.slot = slot
-	self.rs.vbMain = op
 end
 
 function DrawcallList:SetInsVB(vbSet, slot)
 	local insVbSets = self.insVbSets
-	local op
-	if (self.committed) then
-		op = insVbSets[slot] or self:NewOP()
-	else
-		op = insVbSets[slot]
-		if (op.vtxInput ~= vbSet) then
-			self:CommitDrawcall()
-			op = self:NewOP()
-		else
-		return end
+	local op = insVbSets[slot]
+	if (not op or op.vtxInput ~= vbSet) then
+		self:CommitDrawcall()
+		op = self:NewOP()
+		op.func = SetVertexBuffers
+		op.vtxInput = vbSet
+		op.slot = slot
+		insVbSets[slot] = op
 	end
-	op.func = SetVertexBuffers
-	op.vtxInput = vbSet
-	op.slot = slot
-	insVbSets[slot] = op
 end
 
 function DrawcallList:AddResourceSet(res)
 	local resIdx = self.resIdx
 	self.resIdx = self.resIdx + 1
 	local resSet = self.res
-	local op
-	if (self.committed) then
-		op = resSet[resIdx] or self:NewOP()
-	else
-		op = resSet[resIdx]
-		if (op.res ~= res) then
-			self:CommitDrawcall()
-			op = self:NewOP()
-		else
-		return end
+	local op = resSet[resIdx]
+	if (not op or op.res ~= res) then
+		self:CommitDrawcall()
+		op = self:NewOP()
+		op.func = SetResourceSet
+		op.res = res
+		op.idx = resIdx
+		resSet[resIdx] = op
 	end
-	op.func = SetResourceSet
-	op.res = res
-	op.idx = resIdx
-	resSet[resIdx] = op
 end
 
 function DrawcallList:AddSubList(dcList)
 	self:CommitDrawcall()
-	dcList:CommitDrawcall()
 	self.rs = dcList.rs
 	self.res = dcList.res
 	self.insVbSets = dcList.insVbSets
@@ -432,7 +398,6 @@ function DrawcallList:CommitDrawcall()
 	return end
 	op.pl = self.rs.pl
 	op.ib = self.input.ib
-	self.committed = true
 end
 
 function DrawcallList:CommitIndBuffer()
@@ -455,8 +420,6 @@ function DrawcallList:Draw(idxStart, idxCount, instStart, instCount)
 	self.idxCount = self.idxCount + idxCount
 	
 	self.resIdx = 0
-	
-	self.committed = false
 end
 
 ---Geometry---

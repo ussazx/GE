@@ -13,7 +13,11 @@ function GridLayoutTest(w)
 	local layout = VBoxLayout()
 	w:AddChild(layout)
 	
-	layout:AddChild(UiTextInput(0, uiFont.fontSize), nil, 20, 10, true, 20, 20)
+	local t = UiTextInput(0, uiFont.fontSize)
+	t.z = 1
+	layout:AddChild(t, nil, 20, 10, true, 20, 20)
+	
+	if (1) then return end
 	
 	-- local sb = UiSlideBar(nil, false, 0, 0, 0, 20)
 	-- sb:SetScale(5, 1)
@@ -185,7 +189,6 @@ function ContentPanel:ctor()
 	h:SetSize()
 	
 	local bkg = UiWidget(0, h.rect.h + 8)
-	bkg.gpuClip = true
 	bkg.color:copy(self.searcher.crColor)
 	bkg:AddChild(h)
 	
@@ -195,7 +198,12 @@ function ContentPanel:ctor()
 	self.grid = GridLayout()
 	v:AddChild(UiScrollPanel(self.grid), 1, 8, 0, true)
 	
-	self:AddChild(v, 3, 0, 0, true)
+	local w = UiWidget()
+	w.gpuClip = true
+	w.drawSelf = false
+	w:AddChild(v)
+	
+	self:AddChild(w, 3, 0, 0, true)
 end
 
 function ContentPanel:ScanDirectory(d)
