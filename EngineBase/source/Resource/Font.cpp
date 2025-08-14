@@ -173,7 +173,7 @@ std::tuple<int, int> CAddTextClip(float offset_x, float offset_y, float rect_x, 
 	if (s.length() == 0)
 		return { 0, offset_x };
 
-	BufferWriter<float3> pos(*vb_pos, s.length(), wp_pos);
+	BufferWriter<float3> pos(*vb_pos, s.length(), wp_pos);                                                            
 	BufferWriter<float3> uvw(*vb_uv, s.length(), wp_uv);
 
 	int n = 0, x = 0;

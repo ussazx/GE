@@ -174,6 +174,14 @@ public:
 
 	virtual void RenderEnd() = 0;
 
+	virtual void ClearSwapchain(int x, int y, uint32_t w, uint32_t h, float r, float g, float b, float a) = 0;
+
+	virtual void ClearViewFloat4(size_t idx, int x, int y, uint32_t w, uint32_t h, float r, float g, float b, float a) = 0;
+
+	virtual void ClearViewUint4(size_t idx, int x, int y, uint32_t w, uint32_t h, uint32_t r, uint32_t g, uint32_t b, uint32_t a) = 0;
+
+	virtual void ClearDepthStencil(size_t idx, int x, int y, uint32_t w, uint32_t h, float d, uint32_t s) = 0;
+
 	virtual void SetViewport(float x, float y, float w, float h, float minDepth, float maxDepth) = 0;
 
 	virtual void SetScissor(int x, int y, uint32_t width, uint32_t height) = 0;
@@ -199,6 +207,10 @@ public:
 		Lua_mf(ExecuteCommand),
 		Lua_mf(ExecuteCommandList),
 		Lua_mf(Execute),
+		Lua_mf(ClearSwapchain),
+		Lua_mf(ClearViewFloat4),
+		Lua_mf(ClearViewUint4),
+		Lua_mf(ClearDepthStencil),
 		Lua_mf(SetViewport),
 		Lua_mf(SetScissor),
 		Lua_mf(SetResourceSet),

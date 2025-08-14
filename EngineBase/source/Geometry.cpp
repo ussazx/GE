@@ -57,7 +57,7 @@ Lua_global_add_cfunc(CAddCube);
 std::tuple<size_t, size_t> CGetIndicesSegment(LuacObj<CBuffer> ib, int wp, size_t offset, size_t count)
 {
 	BufferWriter<uint1> bw(*ib, offset + count, wp);
-	size_t min = bw[0], max = bw[0];
+	size_t min = bw[offset], max = bw[offset];
 	for (size_t i = offset; i < offset + count; i++)
 		if (bw[i] < min)
 			min = bw[i];

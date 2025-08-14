@@ -305,6 +305,14 @@ public:
 
 	void RenderEnd() override;
 
+	void ClearSwapchain(int x, int y, uint32_t w, uint32_t h, float r, float g, float b, float a) override;
+
+	void ClearViewFloat4(size_t idx, int x, int y, uint32_t w, uint32_t h, float r, float g, float b, float a) override;
+
+	void ClearViewUint4(size_t idx, int x, int y, uint32_t w, uint32_t h, uint32_t r, uint32_t g, uint32_t b, uint32_t a) override;
+
+	void ClearDepthStencil(size_t idx, int x, int y, uint32_t w, uint32_t h, float d, uint32_t s) override;
+
 	void SetViewport(float x, float y, float w, float h, float minDepth, float maxDepth) override;
 
 	void SetScissor(int x, int y, uint32_t width, uint32_t height) override;
@@ -312,6 +320,7 @@ public:
 	void SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx) override;
 
 	void SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding) override;
+
 
 	void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t firstInst, uint32_t instCount) override;
 

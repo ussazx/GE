@@ -101,6 +101,9 @@ struct CMatrix3D
 	void SetRotation(float x, float y, float z, float angle);
 	void SetPosition(float x, float y, float z);
 	void Rotate(float x, float y, float z, float angle, bool rotatePos);
+	void RotateLocalX(float angle, bool rotatePos);
+	void RotateLocalY(float angle, bool rotatePos);
+	void RotateLocalZ(float angle, bool rotatePos);
 	void Move(float x, float y, float z);
 	void Transform(LuacObj<CMatrix3D> M, size_t d = 4);
 	void Perspect(float fov, float width, float height, float nearZ, float farZ);
@@ -140,7 +143,8 @@ struct CMatrix3D
 
 	Lua_wrap_cpp_class(CMatrix3D, Lua_ctor(), Lua_mf(Identity), Lua_mf(SetRow1), Lua_mf(SetRow2), Lua_mf(SetRow3), Lua_mf(SetRow4),
 		Lua_mf(GetRow1), Lua_mf(GetRow2), Lua_mf(GetRow3), Lua_mf(GetRow4), 
-		Lua_mf(SetRotation), Lua_mf(SetPosition), Lua_mf(Rotate), Lua_mf(Move), 
+		Lua_mf(SetRotation), Lua_mf(SetPosition), Lua_mf(Move), 
+		Lua_mf(Rotate), Lua_mf(RotateLocalX), Lua_mf(RotateLocalY), Lua_mf(RotateLocalZ),
 		Lua_mf(Transform), Lua_mf(SetByTransposed), Lua_mf(SetByMultiplied), Lua_mf(Perspect))
 };
 Lua_global_add_cpp_class(CMatrix3D)
@@ -389,10 +393,7 @@ inline void CMatrix3D::SetRotation(float x, float y, float z, float angle)
 	CMatrix3D& M = *this;
 	if (angle == 0)
 		return;
-	M.SetRow1(1, 0, 0, M[0][3]);
-	M.SetRow2(1, 0, 0, M[1][3]);
-	M.SetRow3(1, 0, 0, M[2][3]);
-	M.SetRow4(1, 0, 0, M[3][3]);
+	angle *= M_PI / 180.0f;
 	if (x == 0)
 	{
 		if (y == 0)
@@ -467,6 +468,30 @@ inline void CMatrix3D::Rotate(float x, float y, float z, float angle, bool rotat
 {
 	CMatrix3D M;
 	M.SetRotation(x, y, z, angle);
+	Transform(const_cast<CMatrix3D*>(&M), rotatePos ? 4 : 3);
+}
+inline void CMatrix3D::RotateLocalX(float angle, bool rotatePos)
+{
+	CMatrix3D M;
+	float3 v{};
+	v = GetRow1();
+	M.SetRotation(v.x, v.y, v.z, angle);
+	Transform(const_cast<CMatrix3D*>(&M), rotatePos ? 4 : 3);
+}
+inline void CMatrix3D::RotateLocalY(float angle, bool rotatePos)
+{
+	CMatrix3D M;
+	float3 v{};
+	v = GetRow2();
+	M.SetRotation(v.x, v.y, v.z, angle);
+	Transform(const_cast<CMatrix3D*>(&M), rotatePos ? 4 : 3);
+}
+inline void CMatrix3D::RotateLocalZ(float angle, bool rotatePos)
+{
+	CMatrix3D M;
+	float3 v{};
+	v = GetRow3();
+	M.SetRotation(v.x, v.y, v.z, angle);
 	Transform(const_cast<CMatrix3D*>(&M), rotatePos ? 4 : 3);
 }
 inline void CMatrix3D::Move(float x, float y, float z)

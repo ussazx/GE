@@ -709,6 +709,69 @@ void VKCommand::RenderEnd()
 	vkCmdEndRenderPass(m_cmd);
 }
 
+void VKCommand::ClearSwapchain(int x, int y, uint32_t w, uint32_t h, float r, float g, float b, float a)
+{
+	if (m_fb->m_swapchain)
+	{
+		VkClearAttachment ca{};
+		ca.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		ca.clearValue.color.float32[0] = r;
+		ca.clearValue.color.float32[1] = g;
+		ca.clearValue.color.float32[2] = b;
+		ca.clearValue.color.float32[3] = a;
+		VkClearRect cr{};
+		cr.layerCount = 1;
+		cr.rect.offset = { x, y };
+		cr.rect.extent = { w, h };
+		vkCmdClearAttachments(m_cmd, 1, &ca, 1, &cr);
+	}
+}
+
+void VKCommand::ClearViewFloat4(size_t idx, int x, int y, uint32_t w, uint32_t h, float r, float g, float b, float a)
+{
+	VkClearAttachment ca{};
+	ca.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	ca.colorAttachment = idx;
+	ca.clearValue.color.float32[0] = r;
+	ca.clearValue.color.float32[1] = g;
+	ca.clearValue.color.float32[2] = b;
+	ca.clearValue.color.float32[3] = a;
+	VkClearRect cr{};
+	cr.layerCount = 1;
+	cr.rect.offset = { x, y };
+	cr.rect.extent = { w, h };
+	vkCmdClearAttachments(m_cmd, 1, &ca, 1, &cr);
+}
+
+void VKCommand::ClearViewUint4(size_t idx, int x, int y, uint32_t w, uint32_t h, uint32_t r, uint32_t g, uint32_t b, uint32_t a)
+{
+	VkClearAttachment ca{};
+	ca.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	ca.colorAttachment = idx;
+	ca.clearValue.color.uint32[0] = r;
+	ca.clearValue.color.uint32[1] = g;
+	ca.clearValue.color.uint32[2] = b;
+	ca.clearValue.color.uint32[3] = a;
+	VkClearRect cr{};
+	cr.layerCount = 1;
+	cr.rect.offset = { x, y };
+	cr.rect.extent = { w, h };
+	vkCmdClearAttachments(m_cmd, 1, &ca, 1, &cr);
+}
+
+void VKCommand::ClearDepthStencil(size_t idx, int x, int y, uint32_t w, uint32_t h, float d, uint32_t s)
+{
+	VkClearAttachment ca{};
+	ca.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	ca.colorAttachment = idx;
+	ca.clearValue.depthStencil = { d, s };
+	VkClearRect cr{};
+	cr.layerCount = 1;
+	cr.rect.offset = { x, y };
+	cr.rect.extent = { w, h };
+	vkCmdClearAttachments(m_cmd, 1, &ca, 1, &cr);
+}
+
 void VKCommand::SetViewport(float x, float y, float w, float h, float minDepth, float maxDepth)
 {
 	VkViewport vp{x, y, w, h, minDepth, maxDepth};

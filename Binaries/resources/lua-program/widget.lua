@@ -701,10 +701,10 @@ function UiWidget:ctor(w, h)
 	self.color = Color(255, 255, 255, 255)
 	self.renderDisables = {[g_rp0[2]] = true}
 	
-	self.renderer = MeshRenderer(self, 1|2|4, self.FillVB, self.cached)
+	self.renderer = Renderer(self, 1|2|4, self.FillVB, self.cached)
 	self.renderer:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
 	
-	self.rcRenderer = MeshRenderer(self, 1|2|4, self.FillClipRectVB, false)
+	self.rcRenderer = Renderer(self, 1|2|4, self.FillClipRectVB, false)
 	self.rcRenderer:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
 end
 
@@ -2099,12 +2099,16 @@ end
 
 -----SceneWidget-----
 SceneWidget = class(Widget2D)
+SceneWidget.drawSelf = true
+SceneWidget.writeId = true
 
 function SceneWidget:ctor()
 	self.vpNew = Rect()
 	self.crNew = Rect()
 	self.dcLists = {}
-end
+	self.clearFunc = {}
+	self.clearFunc[g_rp0[2]] = SceneWidget.ClearViewRP0_2
+end	
 
 function SceneWidget:DoUpdate(crCpu, crGpu)
 	local crGpuNew = self.crNew
@@ -2115,6 +2119,13 @@ function SceneWidget:DoUpdate(crCpu, crGpu)
 	end
 	local vpNew = self.vpNew
 	vpNew:set(self.location.x, self.location.y, self.rect.w, self.rect.h)
+	
+	for spId, dcList in pairs(g_dcLists) do
+		local clearFunc = self.clearFunc[spId]
+		if (clearFunc) then
+			clearFunc(self, spId, dcList)
+		end
+	end		
 	
 	self:Render()
 	
@@ -2130,8 +2141,14 @@ function SceneWidget:DoUpdate(crCpu, crGpu)
 			end
 		end
 	end
-	
 	return true, crCpu, crGpuNew
+end
+
+function SceneWidget:ClearViewRP0_2(spId, dcList)
+	if (self.writeId and g_writeId[spId]) then
+		local vpNew = self.vpNew
+		dcList:ClearViewUint4(g_writeId[spId], vpNew.x, vpNew.y, vpNew.w, vpNew.h, self.id, 0, 0, 0)
+	end
 end
 
 function SceneWidget:GetDrawcall(spId, mergeType, order)

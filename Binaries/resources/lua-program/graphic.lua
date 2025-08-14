@@ -232,6 +232,22 @@ local function DrawIndexedIndirect(op, cmd)
 	cmd:DrawIndexedIndirect(op.pl, op.ib, op.indBuf, op.indStart, op.indCount)
 end
 
+local function ClearSwapchain(op, cmd)
+	cmd:ClearSwapchain(op.x, op.y, op.w, op.h, op.r, op.g, op.b, op.a)
+end
+
+local function ClearViewFloat4(op, cmd)
+	cmd:ClearViewFloat4(op.idx, op.x, op.y, op.w, op.h, op.r, op.g, op.b, op.a)
+end
+
+local function ClearViewUint4(op, cmd)
+	cmd:ClearViewUint4(op.idx, op.x, op.y, op.w, op.h, op.r, op.g, op.b, op.a)
+end
+
+local function ClearDepthStencil(op, cmd)
+	cmd:ClearDepthStencil(op.idx, op.x, op.y, op.w, op.h, op.d, op.s)
+end
+
 DrawcallList = class()
 
 function DrawcallList:ctor()
@@ -241,7 +257,7 @@ function DrawcallList:ctor()
 	self.opList = {}
 end
 
-function DrawcallList:Reset(input, dcList)
+function DrawcallList:Reset(input)
 	self.indBuf = input:GetIndBuf()
 	self.input = input
 	self.idxStart = 0
@@ -274,6 +290,63 @@ function DrawcallList:NewOP()
 		self.opList[self.opIdx] = op
 	end
 	return op
+end
+
+function DrawcallList:ClearSwapchain(x, y, w, h, r, g, b, a)
+	self:CommitDrawcall()
+	op = self:NewOP()
+	op.func = ClearSwapchain
+	op.x = x
+	op.y = y
+	op.w = w
+	op.h = h
+	op.r = r
+	op.g = g
+	op.b = b
+	op.a = a
+end
+
+function DrawcallList:ClearViewFloat4(idx, x, y, w, h, r, g, b, a)
+	self:CommitDrawcall()
+	op = self:NewOP()
+	op.func = ClearViewFloat4
+	op.idx = idx
+	op.x = x
+	op.y = y
+	op.w = w
+	op.h = h
+	op.r = r
+	op.g = g
+	op.b = b
+	op.a = a
+end
+
+function DrawcallList:ClearViewUint4(idx, x, y, w, h, r, g, b, a)
+	self:CommitDrawcall()
+	op = self:NewOP()
+	op.func = ClearViewUint4
+	op.idx = idx
+	op.x = x
+	op.y = y
+	op.w = w
+	op.h = h
+	op.r = r
+	op.g = g
+	op.b = b
+	op.a = a
+end
+
+function DrawcallList:ClearDepthStencil(idx, x, y, w, h, d, s)
+	self:CommitDrawcall()
+	op = self:NewOP()
+	op.func = ClearDepthStencil
+	op.idx = idx
+	op.x = x
+	op.y = y
+	op.w = w
+	op.h = h
+	op.d = d
+	op.s = s
 end
 
 function DrawcallList:SetViewport(x, y, w, h)
@@ -380,7 +453,6 @@ function DrawcallList:CommitDrawcall()
 		op.indStart = self.indStart
 		op.indCount = self.indCount
 		op.indBuf = self.indBuf
-		op.func = DrawIndexedIndirect
 		
 		self.indStart = self.indStart + self.indCount
 		self.indCount = 0
@@ -461,15 +533,16 @@ function Mesh:ctor(geom, idxOffset, idxCount)
 	self.vbStart, self.vbEnd = CGetIndicesSegment(geom.ib, 0, idxOffset, idxCount)
 	self.idxOffset = idxOffset
 	self.idxCount = idxCount
-	self.renderer = MeshRenderer(self, self.geom.layout, self.Write)
+	self.renderer = Renderer(self, self.geom.layout, self.Write)
 end
 
 function Mesh:Write(...)
-	local vbCount = self.vbEndNew - self.vbStartNew + 1
-	if (vbCount > 1) then
+	local vbCount = self.vbEndNew - self.vbStartNew
+	if (vbCount > 0) then
+		vbCount = vbCount + 1
 		self.geom:Write(self.vbStartNew, vbCount, self.idxOffset, self.idxCountNew, ...)
 	end
-	return vbCount, self.idxCountNew
+	return vbCount, self.idxCount
 end
 
 ---Model---
@@ -487,11 +560,11 @@ function Model:ctor(geom)
 	end
 	self.RenderMeshes = Model.Renderer[geom]
 	if (not self.RenderMeshes) then
-		local renderer = 'return function(self, scene) local m = self.meshes '
+		local renderer = 'return function(self, scene) local m = self.meshes'
 		for k, v in pairs(self.meshes) do
-			renderer = renderer .. string.format('m[%q].renderer:Render(scene) ', k)
+			renderer = string.format('%s m[%q].renderer:Render(scene)', renderer, k)
 		end
-		renderer = load(renderer .. 'end', 'renderer', 't')()
+		renderer = load(renderer .. ' end', 'renderer', 't')()
 		Model.Renderer[geom] = renderer
 		self.RenderMeshes = renderer
 	end
@@ -513,33 +586,37 @@ end
 
 function Model:Reschedule()
 	local k, m = next(self.meshes)
+	m.vbStartNew = m.vbStart
+	m.vbEndNew = m.vbEnd
+	m.idxCountNew = m.idxCount
 	while (m) do
-		m.vbStartNew = m.vbStart
-		m.vbEndNew = m.vbEnd
-		m.idxCountNew = m.idxCount
 		k, n = next(self.meshes, k)
 		if (not k) then
-			return
+			break
 		end
 		if (m.renderer.mtl.vbLayout == n.renderer.mtl.vbLayout) then
 			m.vbStartNew = math.min(m.vbStartNew, n.vbStart)
 			m.vbEndNew = math.max(m.vbEndNew, n.vbEnd)
-			m.idxCountNew = n.idxCount
+			m.idxCountNew = m.idxCountNew + n.idxCount
 			n.vbStartNew = 0
 			n.vbEndNew = 0
+			n.idxCountNew = 0
 		else
 			m = n
+			m.vbStartNew = m.vbStart
+			m.vbEndNew = m.vbEnd
+			m.idxCountNew = m.idxCount
 		end
 	end
 end
 
----MeshRenderer---
-MeshRenderer = class()
-MeshRenderer.UpdateCached = {}
-MeshRenderer.VtxHandler = {}
-MeshRenderer.VtxHandlerCached = {}
+---Renderer---
+Renderer = class()
+Renderer.UpdateCached = {}
+Renderer.VtxHandler = {}
+Renderer.VtxHandlerCached = {}
 
-function MeshRenderer:ctor(mesh, fields, reader, doCache)
+function Renderer:ctor(mesh, fields, reader, doCache)
 	self.mesh = mesh
 	self.reader = reader
 	self.fields = fields
@@ -548,10 +625,10 @@ function MeshRenderer:ctor(mesh, fields, reader, doCache)
 	
 	if (doCache) then
 		self.copy = CBufferCopy
-		MeshRenderer.VtxHandlerCached[fields] = MeshRenderer.VtxHandlerCached[fields] or {}
+		Renderer.VtxHandlerCached[fields] = Renderer.VtxHandlerCached[fields] or {}
 		self.vb = {}
 		local c = 'local vb = o.vb o.n_vtx, o.n_idx = o.reader(o.mesh, '
-		local f = MeshRenderer.UpdateCached[fields]
+		local f = Renderer.UpdateCached[fields]
 		local i = 1
 		while (i <= fields and i ~= 0) do
 			if (i & fields ~= 0) then
@@ -566,20 +643,20 @@ function MeshRenderer:ctor(mesh, fields, reader, doCache)
 		self.ib = CMBuffer(SIZE_INDEX)
 		self.Render = self.RenderCached
 		if (f == nil) then
-			f = load(c, '', 't', MeshRenderer)
-			MeshRenderer.UpdateCached[fields] = f
+			f = load(c, '', 't', Renderer)
+			Renderer.UpdateCached[fields] = f
 		end
 		self.updateCached = f
 	else
-		MeshRenderer.VtxHandler[fields] = MeshRenderer.VtxHandler[fields] or {}
+		Renderer.VtxHandler[fields] = Renderer.VtxHandler[fields] or {}
 	end
 	self.update = true
 end
 
-function MeshRenderer:Render(scene, disables)
+function Renderer:Render(scene, disables)
 	self.vwp = g_input.vtx[self.mtl.vbLayout].wp
 	disables = disables or {}
-	MeshRenderer.o = self
+	Renderer.o = self
 	local mtl = self.mtl
 	self.vbDst = g_input.vtx[mtl.vbLayout].vb
 	self.ibDst = g_input.ib
@@ -605,10 +682,10 @@ function MeshRenderer:Render(scene, disables)
 	self.n_idx = 0
 end
 
-function MeshRenderer:RenderCached(scene, disables)
+function Renderer:RenderCached(scene, disables)
 	self.vwp = g_input.vtx[self.mtl.vbLayout].wp
 	disables = disables or {}
-	MeshRenderer.o = self
+	Renderer.o = self
 	if (self.update) then
 		self.updateCached()
 		self.update = false
@@ -634,7 +711,7 @@ function MeshRenderer:RenderCached(scene, disables)
 	end
 end
 
-function MeshRenderer:SetMaterial(mtl, ...)
+function Renderer:SetMaterial(mtl, ...)
 	if (self.mtl == mtl) then
 		return
 	end
@@ -650,9 +727,9 @@ function MeshRenderer:SetMaterial(mtl, ...)
 	local dstFields = mtl.vbLayout.fields
 	local f
 	if (self.doCache) then
-		f = MeshRenderer.VtxHandlerCached[srcFields][dstFields]
+		f = Renderer.VtxHandlerCached[srcFields][dstFields]
 	else
-		f = MeshRenderer.VtxHandler[srcFields][dstFields]
+		f = Renderer.VtxHandler[srcFields][dstFields]
 	end
 	if (f == nil) then
 		local c = [[local copy = o.copy local vb = o.vb local n_vtx = o.n_vtx 
@@ -679,8 +756,8 @@ function MeshRenderer:SetMaterial(mtl, ...)
 				end
 				i = i << 1
 			end
-			f = load(c..c1, '', 't', MeshRenderer)
-			MeshRenderer.VtxHandlerCached[srcFields][dstFields] = f
+			f = load(c..c1, '', 't', Renderer)
+			Renderer.VtxHandlerCached[srcFields][dstFields] = f
 		else
 			c = [[local vbDst = o.vbDst local vwp = o.vwp local strides = o.strides
 				o.n_vtx, o.n_idx = o.reader(o.mesh, ]]
@@ -705,8 +782,8 @@ function MeshRenderer:SetMaterial(mtl, ...)
 				i = i << 1
 			end
 			c = c .. 'o.ibDst, o.iwp, o.ibStart) '
-			f = load(c..c1, '', 't', MeshRenderer)
-			MeshRenderer.VtxHandler[srcFields][dstFields] = f
+			f = load(c..c1, '', 't', Renderer)
+			Renderer.VtxHandler[srcFields][dstFields] = f
 		end
 	end
 	self.vtxHandler = f

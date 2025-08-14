@@ -111,6 +111,40 @@ function LoadAssets(path)
 	
 end
 
+local function RotateView(m, yaw, pitch)
+	m:Rotate(0, 1, 0, yaw, true)
+	m:RotateLocalX(pitch, true)
+end
+
+local function OnSceneMouse(w, e, x, y)
+	if (e == EVT.LEFT_DOWN) then
+		g_actWindow:CaptureMouse(w)
+		w.mx = x
+		w.my = y
+		w.md = true
+	elseif (e == EVT.LEFT_UP) then
+		if (g_actWindow.captured == w) then
+			g_actWindow:ReleaseCaptured()
+			w.md = false
+		end
+	elseif (e == EVT.MOTION) then
+		if (w.md) then
+			RotateView(w.camera.mRoot, x - w.mx, y - w.my)
+			w.mx = x
+			w.my = y
+		end
+	end
+	w.window.update = true
+end
+
+local function NewSceneViewport(window)
+	local w = Scene3D(window.cmd)
+	w:bind_event(EVT.LEFT_DOWN, w, OnSceneMouse)
+	w:bind_event(EVT.LEFT_UP, w, OnSceneMouse)
+	w:bind_event(EVT.MOTION, w, OnSceneMouse)
+	return w
+end
+
 function NewWindow_CreateProj()
 	local w = Window()
 	w.name = 'create'
@@ -137,7 +171,7 @@ function NewWindow_CreateProj()
 	-- combo:ShowOutline(true, Color(150, 150, 150, 255))
 	-- ww:AddChild(combo, 100, 100)
 	
-	local ww = Scene3D(w.cmd)
+	local ww = NewSceneViewport(w)
 	layout:AddChild(ww, 1, 10, 10, true, 10, 10)
 	
 	local cp = ContentPanel()
@@ -250,7 +284,7 @@ local function PaneWindow()
 end
 
 function LoadEntrance()
-	cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
+	--cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
 	cEntrance:AddPageWindow('new_proj', 'New Project', NewWindow_CreateProj())
 end
 

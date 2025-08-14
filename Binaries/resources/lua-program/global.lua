@@ -230,6 +230,9 @@ g_rp0 = cGI:NewRenderPass(cParamRenderPass)
 g_rp0[1] = SubpassId(g_rp0, 1)
 g_rp0[2] = SubpassId(g_rp0, 2)
 
+g_writeId = {}
+g_writeId[g_rp0[2]] = 0
+
 --ui resource layout
 cParamResourceLayout:Reset()
 cParamResourceLayout:Add(cGI.RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, cGI.SHADER_STAGE_VERTEX_BIT)
