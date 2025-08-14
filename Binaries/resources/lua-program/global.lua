@@ -356,7 +356,7 @@ geoInfo.vb[2] = {ub, Geometry.TRANS_NONE}
 geoInfo.vb[4] = {cb, Geometry.TRANS_NONE}
 geoInfo.ib = ib
 geoInfo.meshes = {}
-geoInfo.meshes[1] = {0, 36, g_mtl3d}
+geoInfo.meshes[1] = {0, 6, g_mtl3d}
 local cube = Geometry(geoInfo)
 
 g_cube = Model(cube)

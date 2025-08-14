@@ -512,8 +512,7 @@ function Geometry:ctor(o)
 	end
 	write = write .. ', ib, iwp, ibStart) local vbSrc = self.vb '
 	for k, v in pairs(o.vb) do
-		--if (v[2] == Geometry.TRANS_DEFAULT or v[2] == Geometry.TRANS_NORMAL) then
-		if (nil) then
+		if (v[2] == Geometry.TRANS_DEFAULT or v[2] == Geometry.TRANS_NORMAL) then
 			local isNormal = v[2] == Geometry.TRANS_NORMAL
 			write = write .. string.format('self.trans:AddFactors(vbSrc[%q][1], 0, vbStart, vbCount, vbDst%q, wp%q, %q) ', k, k, k, isNormal)
 		else
