@@ -281,3 +281,49 @@ public:
 private:
 	wxWindow* m_self{};
 };
+
+class CMenu : public wxMenu
+{
+public:
+	CMenu()
+	{
+		Bind(wxEVT_MENU, &CMenu::OnItem, this);
+	}
+	void Append(int id, LString text)
+	{
+		wxMenu::Append(id, text.c_str());
+	}
+	wxMenu* AppendSub(LString text)
+	{
+		wxMenu* sub = new wxMenu();
+		AppendSubMenu(sub, text.c_str());
+		return sub;
+	}
+	static wxMenu* SubAppendSub(wxMenu* sub, LString text)
+	{
+		wxMenu* subSub = new wxMenu();
+		sub->AppendSubMenu(subSub, text.c_str());
+		return subSub;
+	}
+	static void SubAppend(wxMenu* sub, int id, LString text)
+	{
+		sub->Append(id, text.c_str());
+	}
+	std::tuple<bool, int> Popup(LuacObj<vmWindow> window)
+	{
+		item = false;
+		window->PopupMenu(this);
+		return { item, id };
+	}
+	void OnItem(wxCommandEvent& e)
+	{
+		item = true;
+		id = e.GetId();
+	}
+	Lua_wrap_cpp_class(CMenu, Lua_ctor(), Lua_mf(Append), Lua_mf(AppendSub), Lua_mf(SubAppend), Lua_mf(SubAppendSub), Lua_mf(Popup));
+
+	wxMenu sub;
+	bool item{};
+	int id{};
+};
+Lua_global_add_cpp_class(CMenu)

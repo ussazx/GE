@@ -148,7 +148,7 @@ void FloatableNotebook::AddPage(PageInfo& pi)
 	OnPageAdded(pi.info.window);
 }
 
-wxWindow* FloatableNotebook::AddFloatPage(wxWindow* page,
+wxWindow* FloatableNotebook::AddFloatPage(FloatableNotebook* top, wxWindow* page,
 	const wxString& caption,
 	const wxPoint& pos,
 	const wxSize& size,
@@ -156,8 +156,12 @@ wxWindow* FloatableNotebook::AddFloatPage(wxWindow* page,
 	const wxBitmap& bitmap)
 {
 	FloatPageFrame* pFrame = new FloatPageFrame(m_root->dummyFrame, wxID_ANY, m_root->rootNB, caption, pos, size);
-	Bind(wxEVT_SHOW, &FloatPageFrame::OnShow, pFrame);
-	pFrame->m_topId = GetId();
+	if (top)
+	{
+		top->Bind(wxEVT_SHOW, &FloatPageFrame::OnShow, pFrame);
+		pFrame->m_topId = top->GetId();
+		pFrame->m_nbTop = top;
+	}
 	pFrame->m_pageId = page->GetId();
 
 	FloatableNotebook* nb = new FloatableNotebook(pFrame, m_root, m_mgrCB->Clone());
@@ -171,11 +175,15 @@ wxWindow* FloatableNotebook::AddFloatPage(wxWindow* page,
 	return pFrame;
 }
 
-wxWindow* FloatableNotebook::AddFloatPage(PageInfo& pi, const wxPoint& pos, const wxSize& size)
+wxWindow* FloatableNotebook::AddFloatPage(FloatableNotebook* top, PageInfo& pi, const wxPoint& pos, const wxSize& size)
 {
 	FloatPageFrame* pFrame = new FloatPageFrame(m_root->dummyFrame, wxID_ANY, m_root->rootNB, pi.info.caption, pos, size);
-	Bind(wxEVT_SHOW, &FloatPageFrame::OnShow, pFrame);
-	pFrame->m_topId = GetId();
+	if (top)
+	{
+		top->Bind(wxEVT_SHOW, &FloatPageFrame::OnShow, pFrame);
+		pFrame->m_topId = top->GetId();
+		pFrame->m_nbTop = top;
+	}
 	pFrame->m_pageId = pi.info.window->GetId();
 
 	FloatableNotebook* nb = new FloatableNotebook(pFrame, m_root, m_mgrCB->Clone());
@@ -203,7 +211,7 @@ bool FloatableNotebook::ShowPage(wxWindow* page)
 		tab->Refresh();
 	}
 	else
-		AddFloatPage(it->second, wxPoint(wxSCREEN_CENTER_WH(500, 300)), wxSize(500, 300));
+		AddFloatPage(m_frame ? m_frame->m_nbTop : this, it->second, wxPoint(wxSCREEN_CENTER_WH(500, 300)), wxSize(500, 300));
 
 	if (it->second.nb->m_frame)
 	{
@@ -588,7 +596,7 @@ void FloatableNotebook::OnTabDragMotion(wxAuiNotebookEvent& evt)
 	{
 		PageInfo& pi = m_root->pageInfos[page];
 		pi.info = src_tabs->GetPage(evt.GetSelection());
-		AddFloatPage(pi, wxPoint(screen_pt.x - 20, screen_pt.y - 10), page->GetSize());
+		AddFloatPage(m_frame ? m_frame->m_nbTop : this, pi, wxPoint(screen_pt.x - 20, screen_pt.y - 10), page->GetSize());
 		
 		bool isShown = page->IsShown();
 		
@@ -596,6 +604,10 @@ void FloatableNotebook::OnTabDragMotion(wxAuiNotebookEvent& evt)
 
 		RemovePage(m_tabs.GetIdxFromWindow(page));
 		UpdateHintWindowSize();
+
+		if (GetPageCount() < 2)
+			SetWindowStyleFlag(GetWindowStyleFlag() & 
+				~wxAUI_NB_CLOSE_ON_ACTIVE_TAB);
 
 		//Show();
 		
@@ -946,6 +958,7 @@ FloatPageFrame::FloatPageFrame(wxWindow *parent, wxWindowID id, wxWindow* focusW
 	m_isClosed = true;
 	m_mgr.SetManagedWindow(this);
 	m_focus = focusWhenHide;
+	m_nbTop = {};
 	m_topId = -1;
 }
 

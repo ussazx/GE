@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+class FloatPageFrame;
 class FloatableNotebook : public wxAuiNotebook2
 {
 public:
@@ -31,7 +32,7 @@ public:
 		bool select = false,
 		const wxBitmap& bitmap = wxNullBitmap);
 
-	wxWindow* AddFloatPage(wxWindow* page,
+	wxWindow* AddFloatPage(FloatableNotebook* top, wxWindow* page,
 		const wxString& caption,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize,
@@ -74,7 +75,7 @@ protected:
 	void Init();
 
 	void AddPage(PageInfo& pi);
-	wxWindow* AddFloatPage(PageInfo& pi,
+	wxWindow* AddFloatPage(FloatableNotebook* top, PageInfo& pi,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize);
 
@@ -108,7 +109,7 @@ protected:
 	wxAuiTabCtrl* m_deletingTab;
 	FloatableNotebook* m_lastHintNB;
 	Root* m_root;
-	wxWindow* m_frame;
+	FloatPageFrame* m_frame;
 	wxWindowBase* m_topLevelWnd;
 	wxWindowID m_topLevelId;
 	bool m_bShowFullHint;
@@ -134,6 +135,7 @@ public:
 
 	wxAuiManager m_mgr;
 	bool m_isClosed;
+	FloatableNotebook* m_nbTop;
 	wxWindowID m_topId;
 	wxWindowID m_pageId;
 

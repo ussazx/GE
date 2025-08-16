@@ -208,6 +208,14 @@ function FrameBufferPanel:ctor()
 	self:AddChild(combo, nil, 100, 0, false, 100)
 end
 
+local function NewScene()
+	
+end
+
+local function NewUI()
+	
+end
+
 ---ContentPanel---
 ContentPanel = class(HSizerLayout)
 
@@ -222,15 +230,17 @@ function ContentPanel:ctor()
 	h:AddChild(self.searcher, 1, 0, 0, false)
 	h:SetSize()
 	
-	local bkg = UiWidget(0, h.rect.h + 8)
+	local bkg = UiWidget(0, h.rect.h + 2)
 	bkg.color:copy(self.searcher.crColor)
 	bkg:AddChild(h)
 	
 	local v = VBoxLayout()
-	v:AddChild(bkg, nil, 0, 0, true)
+	v:AddChild(bkg, nil, 5, 0, true)
 	
 	self.grid = GridLayout()
-	v:AddChild(UiScrollPanel(self.grid), 1, 8, 0, true)
+	local panel = UiScrollPanel(self.grid)
+	panel:bind_event(EVT.RIGHT_UP, self, ContentPanel.OnMouse)
+	v:AddChild(panel, 1, 8, 0, true)
 	
 	local w = UiWidget()
 	w.gpuClip = true
@@ -238,6 +248,22 @@ function ContentPanel:ctor()
 	w:AddChild(v)
 	
 	self:AddChild(w, 3, 0, 0, true)
+	
+	self.menu = CMenu()
+	self.menu:Append(1, _('新建场景'))
+	self.menu:Append(2, _('新建UI'))
+	--CMenu.SubAppend(self.menu:AppendSub('sub'), 2, '222')
+end
+
+function ContentPanel:OnMouse(e)
+	if (e == EVT.RIGHT_UP) then
+		local b, id = self.menu:Popup(g_actWindow)
+		if (not b) then return end
+		if (id == 1) then
+			NewScene()
+		end
+	else
+	end
 end
 
 function ContentPanel:ScanDirectory(d)
@@ -284,7 +310,7 @@ local function PaneWindow()
 end
 
 function LoadEntrance()
-	--cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
+	cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
 	cEntrance:AddPageWindow('new_proj', 'New Project', NewWindow_CreateProj())
 end
 

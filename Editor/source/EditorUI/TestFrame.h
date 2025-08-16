@@ -371,7 +371,7 @@ public:
 			wxDefaultPosition, wxDefaultSize);
 		m_pPage1->SetName(_("page1"));
 		//AddPage(p1, "page1");
-		m_pNoteBook->AddFloatPage(m_pPage1, "page1", wxDefaultPosition, wxSize(500, 300));
+		m_pNoteBook->AddFloatPage(m_pNoteBook, m_pPage1, "page1", wxDefaultPosition, wxSize(500, 300));
 
 		m_pPage1->SetForegroundColour(wxColor(0, 0, 0));
 
