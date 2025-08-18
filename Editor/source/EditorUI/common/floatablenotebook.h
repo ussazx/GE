@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+class FnbEvent;
 class FloatPageFrame;
 class FloatableNotebook : public wxAuiNotebook2
 {
@@ -32,7 +33,7 @@ public:
 		bool select = false,
 		const wxBitmap& bitmap = wxNullBitmap);
 
-	wxWindow* AddFloatPage(FloatableNotebook* top, wxWindow* page,
+	wxWindow* AddFloatPage(wxWindow* page,
 		const wxString& caption,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize,
@@ -47,18 +48,19 @@ public:
 	wxString SavePerspective();
 	bool LoadPerspective(const wxString& s);
 
+	wxWindow* m_topLevelWnd;
 protected:
 	struct PageInfo
 	{
 		wxAuiNotebookPage info;
 		FloatableNotebook* nb;
+		FloatableNotebook* nbTop;
 	};
 	struct Root
 	{
-		Root(FloatableNotebook* rootNB, wxWindow* dummyFrame) :
-			rootNB(rootNB), dummyFrame(dummyFrame) {}
+		Root(FloatableNotebook* rootNB) :
+			rootNB(rootNB) {}
 		FloatableNotebook* rootNB;
-		wxWindow* dummyFrame;
 		std::unordered_map<wxWindow*, PageInfo> pageInfos;
 		std::unordered_set<FloatableNotebook*> NBs;
 		std::unordered_map<wxString, wxWindow*> pageLookup;
@@ -75,7 +77,7 @@ protected:
 	void Init();
 
 	void AddPage(PageInfo& pi);
-	wxWindow* AddFloatPage(FloatableNotebook* top, PageInfo& pi,
+	wxWindow* AddFloatPage(PageInfo& pi,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize);
 
@@ -99,10 +101,9 @@ protected:
 	bool Load(const wxString& s);
 	void RemoveAllPages();
 
-	void BindTopLevelWnd(wxWindowBase* parent);
-	static void BindTopLevelNotebook(wxWindowBase* page, FloatableNotebook* topNB, wxWindowID topId);
+	void BindTopLevelWnd(wxWindow* parent);
 
-	void OnPageAdded(wxWindowBase* page);
+	void OnPageAdded(wxWindow* page);
 	void OnPageRemoved();
 	
 	wxAuiTabCtrl* m_locatingTab;
@@ -110,8 +111,6 @@ protected:
 	FloatableNotebook* m_lastHintNB;
 	Root* m_root;
 	FloatPageFrame* m_frame;
-	wxWindowBase* m_topLevelWnd;
-	wxWindowID m_topLevelId;
 	bool m_bShowFullHint;
 
 	Cloneable<wxAuiManager>* m_mgrCB;
@@ -131,19 +130,31 @@ public:
 
 	bool Show(bool show = true) override;
 
+	void OnNBTopReparent(FnbEvent& e);
 	void OnShow(wxShowEvent& e);
+	void OnParentDestory(wxWindowDestroyEvent& e);
 
 	wxAuiManager m_mgr;
 	bool m_isClosed;
 	FloatableNotebook* m_nbTop;
-	wxWindowID m_topId;
-	wxWindowID m_pageId;
 
 protected:
 	void OnClose(wxCloseEvent& e);
 	wxWindow* m_focus;
 	
 	wxDECLARE_EVENT_TABLE();
+};
+
+wxDECLARE_EVENT(EVT_FLOATABLE_NOTEBOOK, FnbEvent);
+class FnbEvent : public wxEvent
+{
+public:
+	FnbEvent(FloatableNotebook* fnb, int winid)
+		: wxEvent(winid, EVT_FLOATABLE_NOTEBOOK), nb(fnb) {}
+	virtual ~FnbEvent() {}
+	wxEvent *Clone() const wxOVERRIDE { return new FnbEvent(*this); }
+
+	FloatableNotebook* nb;
 };
 
 

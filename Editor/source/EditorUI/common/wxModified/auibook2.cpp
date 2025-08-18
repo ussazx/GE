@@ -2238,8 +2238,8 @@ int wxAuiNotebook2::DoModifySelection(size_t n, bool events)
 
             // Set the focus to the page if we're not currently focused on the tab.
             // This is Firefox-like behaviour.
-            if (wnd->IsShownOnScreen() && FindFocus() != ctrl)
-                wnd->SetFocus();
+            //if (wnd->IsShownOnScreen() && FindFocus() != ctrl)
+            //    wnd->SetFocus();
 
             // program allows the page change
             if(events)

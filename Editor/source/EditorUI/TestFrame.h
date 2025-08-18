@@ -348,32 +348,37 @@ public:
 		//m_pPage0->SetName(_("page0"));
 		//m_pNoteBook->AddPage(m_pPage0, "page0");
 
-		FloatableNotebook* nb = new FloatableNotebook(m_pNoteBook, new UiManager);
-		m_pPage0 = nb;
-		nb->AddPage(new wxSizeReportCtrl(m_pNoteBook, wxID_ANY,
-			wxDefaultPosition, wxDefaultSize), "p0");
-		nb->AddPage(new wxSizeReportCtrl(m_pNoteBook, wxID_ANY,
-			wxDefaultPosition, wxDefaultSize), "p1");
-		nb->AddPage(new wxSizeReportCtrl(m_pNoteBook, wxID_ANY,
-			wxDefaultPosition, wxDefaultSize), "p2");
+		m_pSubNoteBook = new FloatableNotebook(m_pNoteBook, new UiManager);
+		m_pPage0 = m_pSubNoteBook;
+		auto p0 = new wxSizeReportCtrl(m_pNoteBook, wxID_ANY,
+			wxDefaultPosition, wxDefaultSize);
+		p0->SetName("p0");
+		m_pSubNoteBook->AddPage(p0, "p0");
+		auto p1 = new wxSizeReportCtrl(m_pNoteBook, wxID_ANY,
+			wxDefaultPosition, wxDefaultSize);
+		p1->SetName("p1");
+		m_pSubNoteBook->AddPage(p1, "p1");
+		auto p2 = new wxSizeReportCtrl(m_pNoteBook, wxID_ANY,
+			wxDefaultPosition, wxDefaultSize);
+		p1->SetName("p2");
+		m_pSubNoteBook->AddPage(p2, "p2");
 		//wxAuiManager* am = new wxAuiManager;
 		//am->SetManagedWindow(nb);
 		//am->AddPane(nb, wxAuiPaneInfo().Caption("Notebook").CenterPane());
 		//am->Update();
-		unsigned int extraFlags = nb->GetSpecMgr<UiManager>()->GetExtraFlags();
+		unsigned int extraFlags = m_pSubNoteBook->GetSpecMgr<UiManager>()->GetExtraFlags();
 		extraFlags ^= UiManager::EntirelyLayoutResize;
-		nb->GetSpecMgr<UiManager>()->SetExtraFlags(extraFlags);
+		m_pSubNoteBook->GetSpecMgr<UiManager>()->SetExtraFlags(extraFlags);
+		m_pPage0->SetName(_("page0"));
+		m_pNoteBook->AddPage(m_pPage0, "page0");
 
-		nb->SetName(_("page0"));
-		m_pNoteBook->AddPage(nb, "page0");
-
-		m_pPage1 = new wxSizeReportCtrl(this, wxID_ANY,
-			wxDefaultPosition, wxDefaultSize);
-		m_pPage1->SetName(_("page1"));
+		//m_pPage1 = new wxSizeReportCtrl(this, wxID_ANY,
+		//	wxDefaultPosition, wxDefaultSize);
+		//m_pPage1->SetName(_("page1"));
 		//AddPage(p1, "page1");
-		m_pNoteBook->AddFloatPage(m_pNoteBook, m_pPage1, "page1", wxDefaultPosition, wxSize(500, 300));
+		//m_pNoteBook->AddFloatPage(m_pPage1, "page1", wxDefaultPosition, wxSize(500, 300));
 
-		m_pPage1->SetForegroundColour(wxColor(0, 0, 0));
+		//m_pPage1->SetForegroundColour(wxColor(0, 0, 0));
 
 		int linesize = (155 * 24 + 31) / 8;
 		int a = SIZE_PACK4(155 * 24 / 8);
@@ -384,9 +389,10 @@ public:
 		m_pNoteBook->AddPage(m_pPage2, "page2");
 
 		m_pPage3 = new SceneWindow(this);
+		m_pPage3->SetName("Page3");
 		m_pNoteBook->AddPage(m_pPage3, "page3");
 
-		m_pNoteBook->LoadPerspective(DEFAULT_LAYOUT);
+		//m_pNoteBook->LoadPerspective(DEFAULT_LAYOUT);
 
 		m_mgr.AddPane(m_pNoteBook, wxAuiPaneInfo().Caption("Notebook").CenterPane());
 
@@ -514,9 +520,11 @@ private:
 		{
 		case ID_Save:
 			s = m_pNoteBook->SavePerspective();
+			s1 = m_pSubNoteBook->SavePerspective();
 			break;
 		case ID_Load:
 			m_pNoteBook->LoadPerspective(s);
+			m_pSubNoteBook->LoadPerspective(s1);
 			break;
 		case ID_LoadDefault:
 			m_pNoteBook->LoadPerspective(DEFAULT_LAYOUT);
@@ -573,6 +581,7 @@ private:
 
 	wxAuiManager m_mgr;
 	wxString s;
+	wxString s1;
 	wxArrayString m_perspectives;
 	wxMenu* m_perspectives_menu;
 	long m_notebook_style;
@@ -580,6 +589,7 @@ private:
 
 	SceneWindow* m_pScene;
 	FloatableNotebook* m_pNoteBook;
+	FloatableNotebook* m_pSubNoteBook;
 	long m_nbFlags;
 
 	wxWindow* m_pPage0;

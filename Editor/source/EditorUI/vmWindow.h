@@ -266,13 +266,13 @@ public:
 
 	~vmFrame() {}
 	
-	void AddPageWindow(const char* name, const char* title, LuaIdx wnd)
+	void AddPageWindow(const char* name, LString title, LuaIdx wnd)
 	{
 		Terminal::Lua().SetValue(name, wnd);
-		AddPageWnd(new vmWindow(m_self, name), _(title));
+		AddPageWnd(new vmWindow(m_self, name), title.c_str());
 	}
 
-	virtual void AddPageWnd(vmWindow*, const char* title) = 0;
+	virtual void AddPageWnd(vmWindow*, const wchar_t* title) = 0;
 
 	virtual void Accept() = 0;
 	virtual void Reject() = 0;
