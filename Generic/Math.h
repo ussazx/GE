@@ -106,7 +106,7 @@ struct CMatrix3D
 	void RotateLocalZ(float angle, bool rotatePos);
 	void Move(float x, float y, float z);
 	void Transform(LuacObj<CMatrix3D> M, size_t d = 4);
-	void Perspect(float fov, float width, float height, float nearZ, float farZ);
+	void Perspective(float fov, float width, float height, float nearZ, float farZ);
 	void Copy();
 	void SetByTransposed(LuacObj<CMatrix3D> M, size_t d = 4);
 	void SetByMultiplied(LuacObj<CMatrix3D> M1, LuacObj<CMatrix3D> M2);
@@ -145,7 +145,7 @@ struct CMatrix3D
 		Lua_mf(GetRow1), Lua_mf(GetRow2), Lua_mf(GetRow3), Lua_mf(GetRow4), 
 		Lua_mf(SetRotation), Lua_mf(SetPosition), Lua_mf(Move), 
 		Lua_mf(Rotate), Lua_mf(RotateLocalX), Lua_mf(RotateLocalY), Lua_mf(RotateLocalZ),
-		Lua_mf(Transform), Lua_mf(SetByTransposed), Lua_mf(SetByMultiplied), Lua_mf(Perspect))
+		Lua_mf(Transform), Lua_mf(SetByTransposed), Lua_mf(SetByMultiplied), Lua_mf(Perspective))
 };
 Lua_global_add_cpp_class(CMatrix3D)
 
@@ -524,7 +524,7 @@ inline void CMatrix3D::SetByTransposed(LuacObj<CMatrix3D> N, size_t d)
 		for (size_t j = 0; j < d; j++)
 			M[i][j] = n[j][i];
 }
-inline void CMatrix3D::Perspect(float fovD, float width, float height, float nearZ, float farZ)
+inline void CMatrix3D::Perspective(float fovD, float width, float height, float nearZ, float farZ)
 {
 	CMatrix3D& M = *this;
 	if (fovD == 0 || width == 0 || height == 0 || nearZ == farZ)

@@ -29,7 +29,7 @@ public:
 		s->Add(m_nb, 1, wxEXPAND);
 	}
 
-	void AddPageWnd(vmWindow* w, const wchar_t* title) override
+	void AddPageWnd(wxWindow* w, const wchar_t* title) override
 	{
 		m_nb->AddPage(w, title);
 	}

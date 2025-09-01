@@ -179,7 +179,7 @@ function ResBuffer(cmd, ...)
 		b[k] = b.offset + b.size
 		b.size = b.size + v
 	end
-	cmd.rbPos = cmd.rbPos + (b.size + b.size % 0x100 + 0x100 - 1) // 0x100 * 0x100
+	cmd.rbPos = cmd.rbPos + (b.size + 0xFF) // 0x100 * 0x100
 	cmd[0].gb:Resize(cmd.rbPos)
 	cmd[1].gb:Resize(cmd.rbPos)
 	return b

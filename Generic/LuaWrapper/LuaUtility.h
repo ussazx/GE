@@ -11,7 +11,7 @@ public:
 	}
 	LString(LuaIdx idx)
 	{
-		if (idx.Type() == LUA_TSTRING)
+		if (idx.GetValue(nullptr) == LUA_TSTRING)
 		{
 			const char* utf8{};
 			idx.GetValue(&utf8);
@@ -212,7 +212,7 @@ protected:
 };
 inline LString LuaCustomParam<LString>::GetValue(const LuaIdx& idx)
 {
-	if (idx.Type() == LUA_TSTRING)
+	if (idx.GetValue(nullptr) == LUA_TSTRING)
 	{
 		const char* s{};
 		idx.GetValue(&s);

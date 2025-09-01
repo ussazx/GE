@@ -6,6 +6,7 @@
 class UiManager : public Cloneable<wxAuiManager>
 {
 public:
+	UiManager();
 	virtual ~UiManager() {};
 	
 	void SetExtraFlags(unsigned int extraFlags);

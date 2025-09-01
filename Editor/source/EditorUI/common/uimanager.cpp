@@ -8,6 +8,11 @@
 
 #include <unordered_set>
 
+UiManager::UiManager()
+{
+	SetExtraFlags(GetExtraFlags() | EntirelyLayoutResize | DockContiguousResize);
+}
+
 Cloneable<wxAuiManager>* UiManager::Clone()
 {
 	UiManager* mgr = new UiManager;

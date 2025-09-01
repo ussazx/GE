@@ -67,7 +67,7 @@ protected:
 	};
 
 	FloatableNotebook(wxWindow* parent,
-		Root* root,
+		std::shared_ptr<Root>& root,
 		Cloneable<wxAuiManager>* mgr,
 		wxWindowID id = wxID_ANY,
 		const wxPoint& pos = wxDefaultPosition,
@@ -109,7 +109,7 @@ protected:
 	wxAuiTabCtrl* m_locatingTab;
 	wxAuiTabCtrl* m_deletingTab;
 	FloatableNotebook* m_lastHintNB;
-	Root* m_root;
+	std::shared_ptr<Root> m_root;
 	FloatPageFrame* m_frame;
 	bool m_bShowFullHint;
 

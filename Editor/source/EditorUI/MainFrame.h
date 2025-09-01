@@ -15,16 +15,20 @@ public:
 
 		m_nb = new FloatableNotebook(this, new UiManager);
 		s->Add(m_nb, 1, wxEXPAND);
-
-		wxMenuBar* mb = new wxMenuBar;
-		wxMenu* m = new wxMenu;
-		mb->Append(m, _("Perspective"));
-		SetMenuBar(mb);
+	}
+	~MainFrame()
+	{
+		wxFrame::SetMenuBar({});
 	}
 
-	void AddPageWnd(vmWindow* w, const wchar_t* title) override
+	void AddPageWnd(wxWindow* w, const wchar_t* title) override
 	{
 		m_nb->AddPage(w, title);
+	}
+
+	void SetFrameMenuBar(wxMenuBar* mb) override
+	{
+		wxFrame::SetMenuBar(mb);
 	}
 
 	void Accept() override

@@ -15,13 +15,13 @@ FloatableNotebook::FloatableNotebook(wxWindow* parent,
 	long style) :
 	wxAuiNotebook2(parent, mgr, id, pos, size, style)
 {
-	m_root = new Root(this);
+	m_root = std::make_shared<Root>(Root(this));
 	m_mgrCB = mgr;
 	Init();
 }
 
 FloatableNotebook::FloatableNotebook(wxWindow* parent,
-	Root* root,
+	std::shared_ptr<Root>& root,
 	Cloneable<wxAuiManager>* mgr,
 	wxWindowID id,
 	const wxPoint& pos,
@@ -93,10 +93,7 @@ void FloatableNotebook::OnPageAdded(wxWindow* page)
 
 FloatableNotebook::~FloatableNotebook()
 {
-	if (m_root->rootNB == this)
-		delete m_root;
-	else
-		m_root->NBs.erase(this);
+	m_root->NBs.erase(this);
 }
 
 void FloatableNotebook::AddPage(wxWindow* page,
@@ -745,14 +742,14 @@ bool FloatableNotebook::LoadPerspective(const wxString& s)
 			pFrame->Show();
 		}
 
-		//nb->Hide();
+		nb->Freeze();
 		
 		if (!nb->Load(part) && nb->m_frame)
 			nb->m_frame->Destroy();
 		else if (nb->m_frame)
 			nb->m_frame->Show(show);
 		
-		//nb->Show();
+		nb->Thaw();
 	}
 
 	return true;

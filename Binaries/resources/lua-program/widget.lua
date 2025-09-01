@@ -2183,7 +2183,7 @@ Scene3D = class(SceneWidget)
 
 function Scene3D:ctor(cmd)
 	self.camera = camera or SceneObject()
-	self.camera.mRoot:Move(0, 0, -5)
+	self.camera.mRoot:Move(0, 0, -7)
 	self.mProj = CMatrix3D()
 	
 	self.rb = ResBuffer(cmd, CMatrix3D._size)
@@ -2198,7 +2198,7 @@ end
 
 function Scene3D:Render()
 	if (self.sized) then
-		self.mProj:Perspect(45, self.rect.w, self.rect.h, 1000, 1)
+		self.mProj:Perspective(45, self.rect.w, self.rect.h, 1000, 1)
 	end
 	CMatrixToViewMultiply(self.camera.mRoot, self.mProj, self.rb(), self.rwp)
 	g_cameraRes = self.res_set

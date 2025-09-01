@@ -14,7 +14,6 @@ function GridLayoutTest(w)
 	w:AddChild(layout)
 	
 	local t = UiTextInput(0, uiFont.fontSize)
-	t.z = 1
 	layout:AddChild(t, nil, 20, 10, true, 20, 20)
 	
 	if (1) then return end
@@ -250,8 +249,10 @@ function ContentPanel:ctor()
 	self:AddChild(w, 3, 0, 0, true)
 	
 	self.menu = CMenu()
-	self.menu:Append(1, _('新建场景'))
-	self.menu:Append(2, _('新建UI'))
+	self.menu:AddItem(1, _('新建场景'))
+	self.menu:AddItem(2, _('新建UI'))
+	local m = self.menu:AddSubMenu(_('Sub'))
+	m:AddItem(3, 'zz')
 	--CMenu.SubAppend(self.menu:AppendSub('sub'), 2, '222')
 end
 
@@ -309,13 +310,92 @@ local function PaneWindow()
 	return w
 end
 
+local function SceneWindow()
+	local w = Window()
+	w.drawSelf = false
+	
+	w.scene = NewSceneViewport(w)
+	local v = VBoxLayout()
+	v:AddChild(w.scene, 1, 0, 0, true)
+	w:AddChild(v)
+	return w
+end
+	
+
 function LoadEntrance()
-	cEntrance:AddPageWindow('load_proj', 'Load Project', NewWindow_LoadProj())
-	cEntrance:AddPageWindow('new_proj', 'New Project', NewWindow_CreateProj())
+	cEntrance:AddPageWindow('load_proj', _('加载项目'), NewWindow_LoadProj())
+	cEntrance:AddPageWindow('new_proj', _('新建项目'), NewWindow_CreateProj())
+end
+
+local scenePanelSet = {panels = {}}
+scenePanelSet.panels.presets = PaneWindow()
+scenePanelSet.panels.presets.title = _('预设')
+scenePanelSet.panels.viewport = SceneWindow()
+scenePanelSet.panels.viewport.title = _('视口')
+scenePanelSet.panels.hirachey = PaneWindow()
+scenePanelSet.panels.hirachey.title = _('大纲')
+scenePanelSet.panels.inspector = PaneWindow()
+scenePanelSet.panels.inspector.title = _('细节')
+scenePanelSet.panels.logMessage = PaneWindow()
+scenePanelSet.panels.logMessage.title = _('日志消息')
+scenePanelSet.panels.content = PaneWindow()
+scenePanelSet.panels.content:AddChild(ContentPanel())
+scenePanelSet.panels.content.title = _('内容')
+
+local function SaveLoadLayout(set)
+	return function (id)
+		if (id == 1) then
+			set.layout = set.nb:SaveLayout()
+		elseif (id == 2) then
+			set.nb:LoadLayout(set.layout)
+		end
+	end
+end
+
+local function ShowPanel(set)
+	return function (id)
+		set.nb:ShowPage(get_object(id))
+	end
+end
+
+local function OnShowPanelOpen(set)
+	return function ()
+		for _, v in pairs(set.panels) do
+			CMenu.Check(v.menuItem, set.nb:IsPageShown(v))
+		end
+	end
+end
+
+local function LoadPanelSetLayout(panelSet, menu)
+	local nb = panelSet.nb
+	for k, v in pairs(panelSet.panels) do
+		nb:AddPage(k, v.title, v)
+		v.menuItem = menu:AddCheckItem(v.id, v.title)
+	end
+	menu:BindOnOpen(OnShowPanelOpen(panelSet))
+	nb:LoadLayout(panelSet.layout)
 end
 
 function LoadMainFrame()
-	cMainFrame:AddPageWindow('page0', 'page0', PaneWindow())
+	scenePanelSet.nb = cMainFrame:AddPageNotebook('scene', _('场景'))
+	scenePanelSet.layout = 'notebook_layout0/1<presets>0|2<viewport>0|3<content*logMessage>0|4<hirachey>0|5<inspector>0|*|layout2|name=dummy;caption=;state=2098174;dir=3;layer=0;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=225;minh=225;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=1;caption=;state=2098172;dir=5;layer=0;row=0;pos=0;prop=100000;bestw=250;besth=250;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=2;caption=;state=2098172;dir=2;layer=0;row=1;pos=0;prop=100000;bestw=540;besth=346;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=3;caption=;state=2098172;dir=3;layer=1;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=4;caption=;state=2098172;dir=2;layer=2;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=5;caption=;state=2098172;dir=2;layer=2;row=0;pos=1;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|dock_size(5,0,0)=18|dock_size(2,0,1)=634|dock_size(3,1,0)=227|dock_size(2,2,0)=227|/'
+	
+	local mb = CMenuBar()
+	local m = mb:Add('menu', SaveLoadLayout(scenePanelSet))
+	m:AddItem(1, 'save')
+	m:AddItem(2, 'load')
+	
+	m = mb:Add(_('面板'), ShowPanel(scenePanelSet))
+	LoadPanelSetLayout(scenePanelSet, m)
+	
+	scenePanelSet.mb = mb
+	cMainFrame:SetMenuBar(scenePanelSet.mb)
+	
+	if (1) then return end
+
+	cMainFrame:AddPageWindow('presets', _('预设'), PaneWindow())
+	
+	cMainFrame:AddPageWindow('scene', _('场景'), SceneWindow())
 	
 	local w = PaneWindow()
 	local layout = VBoxLayout()
@@ -323,13 +403,13 @@ function LoadMainFrame()
 	local cp = ContentPanel()
 	cp:ScanDirectory()
 	layout:AddChild(cp, 1, 0, 0, true)
-	cMainFrame:AddPageWindow('page1', 'page1', w)
+	cMainFrame:AddPageWindow('content', _('内容'), w)
 	
-	cMainFrame:AddPageWindow('page2', 'page2', PaneWindow())
+	cMainFrame:AddPageWindow('outline', '大纲', PaneWindow())
 	
 	w = PaneWindow()
 	w:AddChild(FrameBufferPanel())
-	cMainFrame:AddPageWindow('panel', 'page3', w)
+	cMainFrame:AddPageWindow('inspector', '细节', w)
 end
 
 function AppCleanUp()

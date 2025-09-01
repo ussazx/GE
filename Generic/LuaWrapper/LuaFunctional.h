@@ -191,7 +191,7 @@ inline void LuaGetTableTable(lua_State* lua, int tableIdx, const char* key)
 }
 
 template<typename T>
-inline void LuaGetTableTable(lua_State* lua, int tableIdx, T key)
+inline void LuaGetTableTable(lua_State* lua, int tableIdx, const T& key)
 {
 	LuaPushValue(lua, key);
 	lua_gettable(lua, Lua_I(tableIdx, 1));
@@ -223,7 +223,7 @@ inline void LuaGetTableTable(lua_State* lua, int tableIdx, const LuaMeta&)
 }
 
 template<typename T0, typename T1>
-inline void LuaSetField(lua_State* lua, int tableIdx, T0 k, T1 v)
+inline void LuaSetField(lua_State* lua, int tableIdx, const T0& k, const T1& v)
 {
 	LuaGetTable(lua, tableIdx);
 	LuaPushValue(lua, k);
@@ -232,7 +232,7 @@ inline void LuaSetField(lua_State* lua, int tableIdx, T0 k, T1 v)
 }
 
 template<typename T>
-inline void LuaSetField(lua_State* lua, int tableIdx, T k, luaL_Reg* v)
+inline void LuaSetField(lua_State* lua, int tableIdx, const T& k, luaL_Reg* v)
 {
 	LuaGetTable(lua, tableIdx);
 	LuaGetTableTable(lua, tableIdx, k);
@@ -241,7 +241,7 @@ inline void LuaSetField(lua_State* lua, int tableIdx, T k, luaL_Reg* v)
 }
 
 template<typename T>
-inline void LuaSetField(lua_State* lua, int tableIdx, T k, const luaL_Reg* v)
+inline void LuaSetField(lua_State* lua, int tableIdx, const T& k, const luaL_Reg* v)
 {
 	LuaGetTable(lua, tableIdx);
 	LuaGetTableTable(lua, tableIdx, k);
@@ -266,7 +266,7 @@ inline void LuaSetField(lua_State* lua, int tableIdx, const char* k, const luaL_
 }
 
 template<typename T>
-inline void LuaSetField(lua_State* lua, int tableIdx, const char* k, T v)
+inline void LuaSetField(lua_State* lua, int tableIdx, const char* k, const T& v)
 {
 	LuaGetTable(lua, tableIdx);
 	LuaPushValue(lua, v);

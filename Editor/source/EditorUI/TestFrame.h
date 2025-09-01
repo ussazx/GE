@@ -398,8 +398,6 @@ public:
 
 		m_mgr.Update();
 
-		wxMenuBar* mb = new wxMenuBar;
-
 		wxMenu* m = new wxMenu;
 		m->Append(ID_Save, _("Save"));
 		m->Append(ID_Load, _("Load"));
@@ -417,14 +415,21 @@ public:
 		m2->AppendCheckItem(EntirelyLayoutResize, _("Entirely Layout Resize"));
 		m2->AppendCheckItem(EntirelyLayoutResize + 1, _("Hide"));
 
-		mb->Append(m, _("Perspective"));
-		mb->Append(m1, _("Show Page"));
-		mb->Append(m2, _("Layout"));
+		m_mb.Append(m, _("Perspective"));
+		m_mb.Append(m1, _("Show Page"));
+		m_mb.Append(m2, _("Layout"));
 
-		SetMenuBar(mb);
+		SetMenuBar(&m_mb);
 	}
 
+	~TestFrame()
+	{
+		for (size_t i = 0; i < m_mb.GetMenuCount(); i++)
+			m_mb.Remove(i);
+		SetMenuBar({});
+	}
 private:
+	wxMenuBar m_mb;
 	enum
 	{
 		ID_Save = wxID_HIGHEST + 1,

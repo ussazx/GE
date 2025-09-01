@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <memory>
 #include "common/uiutils.h"
+#include "common/floatablenotebook.h"
+#include "common/uimanager.h"
 #include "../../../Generic/Terminal.h"
 
 extern wxStockCursor g_cursor;
@@ -12,7 +14,7 @@ extern wxStockCursor g_cursor;
 class vmWindow : public wxWindow
 {
 public:
-	vmWindow(wxWindow* parent, const char* name,
+	vmWindow(wxWindow* parent, const char* name, LuaIdx& self,
 		wxWindowID id = wxID_ANY,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize)
@@ -54,15 +56,16 @@ public:
 
 		m_timer.Bind(wxEVT_TIMER, &vmWindow::OnTimer, this);
 
-		Terminal::Lua().SetValue(GetName(), Lua_set_cobj(this));
+		Terminal::Lua().SetValue(LuaGetName(), this, self);
+		Terminal::Lua().SetValue(self, Lua_set_cobj(this));
 		int t{};
-		Terminal::Lua().GetValue(GetName(), "init", LuaObjCall(clock(), GetHWND(), GetRect().GetWidth(), GetRect().GetHeight()), &t);
+		Terminal::Lua().GetValue(LuaGetName(), this, "init", LuaObjCall(clock(), GetHWND(), GetRect().GetWidth(), GetRect().GetHeight()), &t);
 		HandleTimer(t);
 	}
 
 	~vmWindow()
 	{
-		Terminal::Lua().SetValue(GetName(), nullptr);
+		Terminal::Lua().SetValue(LuaGetName(), this, nullptr);
 	}
 
 	static int GetEventId(const wxEventType& e)
@@ -116,7 +119,7 @@ private:
 	void OnCaptureLost(wxMouseCaptureLostEvent&)
 	{
 		int t{};
-		Terminal::Lua().GetValue(GetName(), "on_capture_lost", LuaObjCall(clock()), &t);
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_capture_lost", LuaObjCall(clock()), &t);
 		HandleTimer(t);
 	}
 
@@ -128,26 +131,26 @@ private:
 	void OnTimer(wxTimerEvent&)
 	{
 		int t{};
-		Terminal::Lua().GetValue(GetName(), "on_idle", LuaObjCall(clock(), true, IsShown()), &t);
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_idle", LuaObjCall(clock(), true, IsShown()), &t);
 		HandleTimer(t);
 	}
 	void OnIdle(wxIdleEvent& e)
 	{
 		int t{};
 		auto i = GetTickCount();
-		Terminal::Lua().GetValue(GetName(), "on_idle", LuaObjCall(clock(), false, IsShown()), &t);
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_idle", LuaObjCall(clock(), false, IsShown()), &t);
 		//DebugLog(L"idle [ %u ]\n", GetTickCount() - i);
-		Terminal::Lua().SetValue(GetName(), "idle_cost", (uint32_t)(GetTickCount() - i));
+		Terminal::Lua().SetValue(LuaGetName(), this, "idle_cost", (uint32_t)(GetTickCount() - i));
 		HandleTimer(t);
 	}
 	void OnPaint(wxPaintEvent&)
 	{
-		Terminal::Lua().GetValue(GetName(), "render", LuaObjCall());
+		Terminal::Lua().GetValue(LuaGetName(), this, "render", LuaObjCall());
 	}
 	void OnSize(wxSizeEvent& e)
 	{
 		auto i = GetTickCount();
-		Terminal::Lua().GetValue(GetName(), "resize", LuaObjCall(e.GetSize().x, e.GetSize().y));
+		Terminal::Lua().GetValue(LuaGetName(), this, "resize", LuaObjCall(e.GetSize().x, e.GetSize().y));
 		//DebugLog(L"resize [ %u ]\n", GetTickCount() - i);
 	}
 	void OnCharEvent(wxKeyEvent& e)
@@ -191,11 +194,11 @@ private:
 		case 27:  // Ctrl [
 		case 28:  // Ctrl \ 
 		case 29:  // Ctrl ]
-			Terminal::Lua().GetValue(GetName(), "on_acc_key", LuaObjCall(clock(), e.GetUnicodeKey()), &t);
+			Terminal::Lua().GetValue(LuaGetName(), this, "on_acc_key", LuaObjCall(clock(), e.GetUnicodeKey()), &t);
 			break;
 		default:
 			swprintf_s(c, L"%c", e.GetUnicodeKey());
-			Terminal::Lua().GetValue(GetName(), "on_char", LuaObjCall(clock(), conv.to_bytes(c).c_str()), &t);
+			Terminal::Lua().GetValue(LuaGetName(), this, "on_char", LuaObjCall(clock(), conv.to_bytes(c).c_str()), &t);
 			break;
 		}
 		HandleTimer(t);
@@ -223,7 +226,7 @@ private:
 			break;
 		}
 		int t{};
-		Terminal::Lua().GetValue(GetName(), "on_key_down", LuaObjCall(clock(), k, left, right), &t);
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_key_down", LuaObjCall(clock(), k, left, right), &t);
 		HandleTimer(t);
 		e.Skip();
 	}
@@ -231,7 +234,7 @@ private:
 	void OnKeyUp(wxKeyEvent& e)
 	{
 		int t{};
-		Terminal::Lua().GetValue(GetName(), "on_key_up", LuaObjCall(clock(), e.GetRawKeyCode()), &t);
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_key_up", LuaObjCall(clock(), e.GetRawKeyCode()), &t);
 		HandleTimer(t);
 		e.Skip();
 	}
@@ -239,7 +242,7 @@ private:
 	void OnMouseEvent(wxMouseEvent& e)
 	{
 		int t{}, c{};
-		Terminal::Lua().GetValue(GetName(), "on_mouse", LuaObjCall(clock(), GetEventId(e.GetEventType()), e.GetX(), e.GetY(), e.GetWheelRotation()), &t, &c);
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_mouse", LuaObjCall(clock(), GetEventId(e.GetEventType()), e.GetX(), e.GetY(), e.GetWheelRotation()), &t, &c);
 		HandleTimer(t);
 		g_cursor = (wxStockCursor)c;
 		wxSetCursor(g_cursor);
@@ -259,6 +262,134 @@ private:
 };
 Lua_global_add_cpp_class(vmWindow)
 
+class CMenu : public wxMenu
+{
+public:
+	CMenu()
+	{
+		Bind(wxEVT_MENU, &CMenu::OnItem, this);
+		Bind(wxEVT_MENU_OPEN, &CMenu::OnOpen, this);
+	}
+	void Clear()
+	{
+		wxMenuItemList& list = GetMenuItems();
+		for (size_t i = 0; i < list.size(); i++)
+			Destroy(list[i]);
+	}
+	void AddItem(int id, LString text)
+	{
+		Append(id, text.c_str());
+	}
+	wxMenuItem* AddCheckItem(int id, LString text)
+	{
+		return AppendCheckItem(id, text.c_str());
+	}
+	void AddSubMenu(LuaReturn& ret, LString text)
+	{
+		CMenu* sub = new CMenu;
+		ret.Push(Lua_set_cobj(sub));
+		AppendSubMenu(sub, text.c_str());
+	}
+	void Popup(LuaReturn& ret, LuacObj<vmWindow> window)
+	{
+		item = false;
+		window->PopupMenu(this);
+		if (item)
+			ret.Push(id);
+	}
+	void OnItem(wxCommandEvent& e)
+	{
+		item = true;
+		id = e.GetId();
+		if (bindOnItem)
+			Terminal::Lua().GetValue(LuaGetName(), &bindOnItem, LuaCall(id));
+	}
+	void OnOpen(wxMenuEvent&)
+	{
+		if (bindOnOpen)
+			Terminal::Lua().GetValue(LuaGetName(), &bindOnOpen, LuaCall());
+	}
+	void BindOnItem(const LuaIdx& func)
+	{
+		if (func.GetValue(nullptr) == LUA_TFUNCTION)
+		{
+			bindOnItem = true;
+			Terminal::Lua().SetValue(LuaGetName(), &bindOnItem, func);
+		}
+		else
+			bindOnItem = false;
+	}
+	void BindOnOpen(LuaIdx func)
+	{
+		if (func.GetValue(nullptr) == LUA_TFUNCTION)
+		{
+			bindOnOpen = true;
+			Terminal::Lua().SetValue(LuaGetName(), &bindOnOpen, func);
+		}
+		else
+			bindOnOpen = false;
+	}
+	static void Check(wxMenuItem* item, bool check)
+	{
+		item->Check(check);
+	}
+	Lua_wrap_cpp_class(CMenu, Lua_ctor(), Lua_mf(AddItem), Lua_mf(AddCheckItem), Lua_mf(AddSubMenu), 
+		Lua_mf(BindOnOpen), Lua_mf(Check), Lua_mf(Popup), Lua_mf(Clear));
+
+	wxMenu sub;
+	bool item{};
+	int id{};
+	bool bindOnItem{};
+	bool bindOnOpen{};
+};
+Lua_global_add_cpp_class(CMenu)
+
+class CMenuBar : public wxMenuBar
+{
+public:
+	void Clear()
+	{
+		for (size_t i = 0; i < GetMenuCount(); i++)
+			Remove(i);
+	}
+	void Add(LuaReturn& ret, LString text, LuaIdx func)
+	{
+		CMenu* sub = new CMenu;
+		sub->BindOnItem(func);
+		ret.Push(Lua_set_cobj(sub));
+		Append(sub, text.c_str());
+	}
+	Lua_wrap_cpp_class(CMenuBar, Lua_ctor(), Lua_mf(Clear), Lua_mf(Add));
+};
+Lua_global_add_cpp_class(CMenuBar)
+
+class CNotebook
+{
+public:
+	static void AddPage(LuacObj<FloatableNotebook> fnb, const char* name, LString title, LuaIdx wnd)
+	{
+		fnb->AddPage(new vmWindow(fnb, name, wnd), title.c_str());
+	}
+	static void SaveLayout(LuaReturn& ret, LuacObj<FloatableNotebook> fnb)
+	{
+		ret.Push(fnb->SavePerspective().c_str());
+	}
+	static void LoadLayout(LuacObj<FloatableNotebook> fnb, const char* layout)
+	{
+		fnb->LoadPerspective(layout);
+	}
+	static void ShowPage(LuacObj<FloatableNotebook> fnb, LuacObj<wxWindow> wnd)
+	{
+		fnb->ShowPage(wnd);
+	}
+	static bool IsPageShown(LuacObj<FloatableNotebook> fnb, LuacObj<wxWindow> wnd)
+	{
+		return fnb->IsPageShown(wnd);
+	}
+	Lua_wrap_cpp_class(CNotebook, Lua_abstract, Lua_mf(AddPage), Lua_mf(SaveLayout), Lua_mf(LoadLayout),
+		Lua_mf(ShowPage), Lua_mf(IsPageShown));
+};
+
 class vmFrame
 {
 public:
@@ -268,62 +399,36 @@ public:
 	
 	void AddPageWindow(const char* name, LString title, LuaIdx wnd)
 	{
-		Terminal::Lua().SetValue(name, wnd);
-		AddPageWnd(new vmWindow(m_self, name), title.c_str());
+		AddPageWnd(new vmWindow(m_self, name, wnd), title.c_str());
 	}
 
-	virtual void AddPageWnd(vmWindow*, const wchar_t* title) = 0;
+	void AddPageNotebook(LuaReturn& ret, const char* name, LString title)
+	{
+		FloatableNotebook* nb = new FloatableNotebook(m_self, new UiManager);
+		nb->SetName(name);
+		AddPageWnd(nb, title.c_str());
+		ret.Push(LuaSub(0, nb), LuaSub(1, typeid(decltype(nb)).hash_code()), (LuaCustomSet)CNotebook::LuaSetClassTable);
+	}
+
+	void SetMenuBar(LuacObj<CMenuBar> mb)
+	{
+		SetFrameMenuBar(mb);
+	}
+
+	void ResetMenuBar()
+	{
+		SetFrameMenuBar({});
+	}
+
+	virtual void AddPageWnd(wxWindow*, const wchar_t* title) = 0;
+	virtual void SetFrameMenuBar(wxMenuBar*) {}
 
 	virtual void Accept() = 0;
 	virtual void Reject() = 0;
 
-	Lua_wrap_cpp_class(vmFrame, Lua_abstract, Lua_mf(AddPageWindow), Lua_mf(Accept), Lua_mf(Reject));
+	Lua_wrap_cpp_class(vmFrame, Lua_abstract, Lua_mf(AddPageWindow), Lua_mf(AddPageNotebook),
+		Lua_mf(SetMenuBar), Lua_mf(ResetMenuBar),
+		Lua_mf(Accept), Lua_mf(Reject));
 private:
 	wxWindow* m_self{};
 };
-
-class CMenu : public wxMenu
-{
-public:
-	CMenu()
-	{
-		Bind(wxEVT_MENU, &CMenu::OnItem, this);
-	}
-	void Append(int id, LString text)
-	{
-		wxMenu::Append(id, text.c_str());
-	}
-	wxMenu* AppendSub(LString text)
-	{
-		wxMenu* sub = new wxMenu();
-		AppendSubMenu(sub, text.c_str());
-		return sub;
-	}
-	static wxMenu* SubAppendSub(wxMenu* sub, LString text)
-	{
-		wxMenu* subSub = new wxMenu();
-		sub->AppendSubMenu(subSub, text.c_str());
-		return subSub;
-	}
-	static void SubAppend(wxMenu* sub, int id, LString text)
-	{
-		sub->Append(id, text.c_str());
-	}
-	std::tuple<bool, int> Popup(LuacObj<vmWindow> window)
-	{
-		item = false;
-		window->PopupMenu(this);
-		return { item, id };
-	}
-	void OnItem(wxCommandEvent& e)
-	{
-		item = true;
-		id = e.GetId();
-	}
-	Lua_wrap_cpp_class(CMenu, Lua_ctor(), Lua_mf(Append), Lua_mf(AppendSub), Lua_mf(SubAppend), Lua_mf(SubAppendSub), Lua_mf(Popup));
-
-	wxMenu sub;
-	bool item{};
-	int id{};
-};
-Lua_global_add_cpp_class(CMenu)

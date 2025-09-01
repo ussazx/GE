@@ -205,7 +205,7 @@ bool MyApp::OnInit()
 	MainFrame* mf = new MainFrame(nullptr, wxID_ANY, "");
 	Terminal::Lua().SetValue("cMainFrame", Lua_set_cobj(mf));
 	Terminal::Lua().GetValue("LoadMainFrame", LuaCall());
-	mf->m_nb->LoadPerspective(DEFAULT_LAYOUT);
+	//mf->m_nb->LoadPerspective(DEFAULT_LAYOUT);
 
 	mf->Show();
 
