@@ -315,7 +315,7 @@ inline float float3::operator [] (size_t i) const
 
 inline bool float3::Same(const float3& v)
 {
-	return x == v.x && y && v.y && z == v.z;
+	return x == v.x && y == v.y && z == v.z;
 }
 
 inline float Cross2D(float x0, float y0, float x1, float y1)
