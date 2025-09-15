@@ -713,7 +713,10 @@ bool wxAuiNotebook2::RemovePage(size_t page_idx)
 
     // set new active pane unless we're being destroyed anyhow
     if (new_active && !m_isBeingDeleted)
-        SetSelectionToWindow(new_active);
+	{
+		SetSelectionToWindow(new_active);
+		new_active->SetFocus();
+	}
 
     return true;
 }

@@ -41,7 +41,6 @@ void FloatableNotebook::Init()
 	m_deletingTab = nullptr;
 	m_lastHintNB = nullptr;
 	m_bShowFullHint = false;
-	new wxWindow(this, wxID_ANY, wxPoint(0, 0), wxSize(0, 0));
 
 	m_root->NBs.insert(this);
 	SetArtProvider(new wxAuiGenericTabArt);
