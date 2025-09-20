@@ -621,6 +621,8 @@ function Renderer:ctor(mesh, fields, reader, doCache)
 	self.fields = fields
 	self.doCache = doCache
 	self.insArgs = {}
+	self.n_vtx = 0
+	self.n_idx = 0
 	
 	if (doCache) then
 		self.copy = CBufferCopy

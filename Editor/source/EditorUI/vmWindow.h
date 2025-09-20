@@ -1,5 +1,6 @@
 #pragma once
 #include "wx/clipbrd.h"
+#include "wx/dnd.h"
 #include <string>
 #include <codecvt>
 #include <unordered_map>
@@ -10,6 +11,65 @@
 #include "../../../Generic/Terminal.h"
 
 extern wxStockCursor g_cursor;
+
+struct vmDataObject : public wxTextDataObject
+{
+	enum Type
+	{
+		Inner,
+		File
+	};
+	vmDataObject(const wxString& text = wxEmptyString) : wxTextDataObject(text)
+	{
+		m_type = Inner;
+		SetFormat(wxDataFormat("vmData"));
+	}
+	virtual size_t GetFormatCount(Direction dir) const wxOVERRIDE
+	{
+		size_t nFormats = 1;
+		if (dir == Set)
+			nFormats += m_fileDataObj.GetFormatCount(dir);
+
+		return nFormats;
+	}
+	virtual void GetAllFormats(wxDataFormat *formats, Direction dir) const wxOVERRIDE
+	{
+		formats[0] = GetFormat();
+		if (dir == Set)
+			m_fileDataObj.GetAllFormats(formats + 1, dir);
+	}
+	virtual bool SetData(const wxDataFormat& format,
+		size_t len, const void *buf) wxOVERRIDE
+	{
+		if (format == GetFormat())
+		{
+			m_type = Inner;
+			wxTextDataObject::SetData(format, len, buf);
+		}
+		else
+		{
+			m_type = File;
+			m_fileDataObj.SetData(format, len, buf);
+			wxString s = "{";
+			size_t n = m_fileDataObj.GetFilenames().size();
+			auto& list = m_fileDataObj.GetFilenames();
+			for (size_t i = 0; i < n; i++)
+			{
+				if (i > 0)
+					s += ", ";
+				s += "\"";
+				s += list[i];
+				s += "\"";
+			}
+			s += "}";
+			s.Replace("\\", "/");
+			wxTextDataObject::SetText(s);
+		}
+		return true;
+	}
+	Type m_type;
+	wxFileDataObject m_fileDataObj;
+};
 
 class vmWindow : public wxWindow
 {
@@ -56,6 +116,8 @@ public:
 
 		m_timer.Bind(wxEVT_TIMER, &vmWindow::OnTimer, this);
 
+		SetDropTarget(new DropTarget(this));
+
 		Terminal::Lua().SetValue(LuaGetName(), this, self);
 		Terminal::Lua().SetValue(self, Lua_set_cobj(this));
 		int t{};
@@ -66,6 +128,24 @@ public:
 	~vmWindow()
 	{
 		Terminal::Lua().SetValue(LuaGetName(), this, nullptr);
+	}
+
+	void DoDragDrop()
+	{
+		vmDataObject d;
+		wxDropSource source(d);
+		source.DoDragDrop();
+	}
+	bool OnDragHolding(wxCoord x, wxCoord y, vmDataObject::Type type, const char* text)
+	{
+		bool res{};
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_drag_holding", LuaObjCall(x, y, type, text), &res);
+		return res;
+	}
+
+	void OnDrop(wxCoord x, wxCoord y, vmDataObject::Type type, const char* text)
+	{
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_drop", LuaObjCall(x, y, type, text));
 	}
 
 	static int GetEventId(const wxEventType& e)
@@ -103,7 +183,7 @@ public:
 			m_eventId[it->second] = id;
 	}
 
-	Lua_wrap_cpp_class(vmWindow, Lua_abstract, Lua_mf(Capture));
+	Lua_wrap_cpp_class(vmWindow, Lua_abstract, Lua_mf(Capture), Lua_mf(DoDragDrop));
 private:
 	void Capture(bool b)
 	{
@@ -254,6 +334,30 @@ private:
 		else if (t < 0)
 			m_timer.Stop();
 	}
+
+	struct DropTarget : public wxDropTarget
+	{
+		DropTarget(vmWindow* window) : m_window(window)
+		{
+			SetDataObject(new vmDataObject);
+		}
+		wxDragResult OnDragOver(wxCoord x, wxCoord y, wxDragResult def) override
+		{
+			if (!GetData())
+				return wxDragNone;
+			vmDataObject* data = (vmDataObject*)m_dataObject;
+			return m_window->OnDragHolding(x, y, data->m_type, data->GetText().c_str()) ? def : wxDragNone;
+		}
+		wxDragResult OnData(wxCoord x, wxCoord y, wxDragResult def) override
+		{
+			if (!GetData())
+				return wxDragNone;
+			vmDataObject *data = (vmDataObject *)m_dataObject;
+			m_window->OnDrop(x, y, data->m_type, data->GetText().c_str());
+			return def;
+		}
+		vmWindow* m_window;
+	};
 
 	wxTimer m_timer;
 

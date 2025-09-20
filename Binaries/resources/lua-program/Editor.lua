@@ -273,6 +273,12 @@ function ContentPanel:ScanDirectory(d)
 	self.list:AddNode(n, g_iconFolder, 'sub111111111111111')
 end
 
+function ContentPanel:OnDropFile(x, y, files)
+	for _, f in pairs(files) do
+		Print(f)
+	end
+end
+
 function NewWindow_LoadProj()
 	local w = Window()
 	w.name = 'load'
@@ -304,23 +310,56 @@ function NewWindow_LoadProj()
 	return w
 end
 
-local function PaneWindow()
-	local w = Window()
-	w.color:set(70, 70, 70, 255)
-	return w
+
+PaneWindow = class(Window)
+function PaneWindow:ctor()
+	self.color:set(70, 70, 70, 255)
 end
 
-local function SceneWindow()
-	local w = Window()
-	w.drawSelf = false
-	
-	w.scene = NewSceneViewport(w)
+SceneWindow = class(PaneWindow)
+function SceneWindow:ctor()
+	self.drawSelf = false
+	self.scene = NewSceneViewport(self)
 	local v = VBoxLayout()
-	v:AddChild(w.scene, 1, 0, 0, true)
-	w:AddChild(v)
-	return w
+	v:AddChild(self.scene, 1, 0, 0, true)
+	self:AddChild(v)
 end
-	
+
+function SceneWindow:OnDragHolding(o, x, y)
+	return true
+end
+
+function SceneWindow:OnInnerDrop(o, x, y)
+	Print('inner drop')
+end
+
+PresetsWindow = class(PaneWindow)
+function PresetsWindow:ctor()
+	local v = VBoxLayout()
+	self:AddChild(v)
+	local sp = UiScrollPanel()
+	v:AddChild(sp, 1, 0, 0, true)
+	self.vLayout = VBoxLayout()
+	sp:SetWidget(self.vLayout)
+	self:AddPresetItem(g_cube, _('立方体'))
+	self:AddPresetItem(g_cube, _('球体'))
+end
+
+function PresetsWindow:AddPresetItem(item, text)
+	local o = UiButton(0, 28)
+	o.color2 = o.color1
+	local icon = UiPolyIcon(g_iconPreset)
+	icon.writeId = false
+	o.layout:AddChild(icon, nil, 7)
+	o.text:SetText(text)
+	o.layout:AddChild(o.text, 1, 7, 5)
+	self.vLayout:AddChild(o, nil, 0, 0, true, 0, 0)
+	o:bind_event(EVT.LEFT_DOWN, self, PresetsWindow.OnItemLeftDown)
+end
+
+function PresetsWindow:OnItemLeftDown()
+	self:Drag()
+end
 
 function LoadEntrance()
 	cEntrance:AddPageWindow('load_proj', _('加载项目'), NewWindow_LoadProj())
@@ -328,7 +367,7 @@ function LoadEntrance()
 end
 
 local scenePanelSet = {panels = {}}
-scenePanelSet.panels.presets = PaneWindow()
+scenePanelSet.panels.presets = PresetsWindow()
 scenePanelSet.panels.presets.title = _('预设')
 scenePanelSet.panels.viewport = SceneWindow()
 scenePanelSet.panels.viewport.title = _('视口')

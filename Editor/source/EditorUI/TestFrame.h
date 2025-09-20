@@ -348,29 +348,29 @@ public:
 		//m_pPage0->SetName(_("page0"));
 		//m_pNoteBook->AddPage(m_pPage0, "page0");
 
-		m_pSubNoteBook = new FloatableNotebook(m_pNoteBook, new UiManager);
-		m_pPage0 = m_pSubNoteBook;
-		auto p0 = new wxSizeReportCtrl(m_pNoteBook, wxID_ANY,
-			wxDefaultPosition, wxDefaultSize);
-		p0->SetName("p0");
-		m_pSubNoteBook->AddPage(p0, "p0");
-		auto p1 = new wxSizeReportCtrl(m_pNoteBook, wxID_ANY,
-			wxDefaultPosition, wxDefaultSize);
-		p1->SetName("p1");
-		m_pSubNoteBook->AddPage(p1, "p1");
-		auto p2 = new wxSizeReportCtrl(m_pNoteBook, wxID_ANY,
-			wxDefaultPosition, wxDefaultSize);
-		p1->SetName("p2");
-		m_pSubNoteBook->AddPage(p2, "p2");
+		//m_pSubNoteBook = new FloatableNotebook(m_pNoteBook, new UiManager);
+		//m_pPage0 = m_pSubNoteBook;
+		//auto p0 = new wxSizeReportCtrl(m_pNoteBook, wxID_ANY,
+		//	wxDefaultPosition, wxDefaultSize);
+		//p0->SetName("p0");
+		//m_pSubNoteBook->AddPage(p0, "p0");
+		//auto p1 = new wxSizeReportCtrl(m_pNoteBook, wxID_ANY,
+		//	wxDefaultPosition, wxDefaultSize);
+		//p1->SetName("p1");
+		//m_pSubNoteBook->AddPage(p1, "p1");
+		//auto p2 = new wxSizeReportCtrl(m_pNoteBook, wxID_ANY,
+		//	wxDefaultPosition, wxDefaultSize);
+		//p1->SetName("p2");
+		//m_pSubNoteBook->AddPage(p2, "p2");
 		//wxAuiManager* am = new wxAuiManager;
 		//am->SetManagedWindow(nb);
 		//am->AddPane(nb, wxAuiPaneInfo().Caption("Notebook").CenterPane());
 		//am->Update();
-		unsigned int extraFlags = m_pSubNoteBook->GetSpecMgr<UiManager>()->GetExtraFlags();
-		extraFlags ^= UiManager::EntirelyLayoutResize;
-		m_pSubNoteBook->GetSpecMgr<UiManager>()->SetExtraFlags(extraFlags);
-		m_pPage0->SetName(_("page0"));
-		m_pNoteBook->AddPage(m_pPage0, "page0");
+		//unsigned int extraFlags = m_pSubNoteBook->GetSpecMgr<UiManager>()->GetExtraFlags();
+		//extraFlags ^= UiManager::EntirelyLayoutResize;
+		//m_pSubNoteBook->GetSpecMgr<UiManager>()->SetExtraFlags(extraFlags);
+		//m_pPage0->SetName(_("page0"));
+		//m_pNoteBook->AddPage(m_pPage0, "page0");
 
 		//m_pPage1 = new wxSizeReportCtrl(this, wxID_ANY,
 		//	wxDefaultPosition, wxDefaultSize);
@@ -391,6 +391,10 @@ public:
 		m_pPage3 = new SceneWindow(this);
 		m_pPage3->SetName("Page3");
 		m_pNoteBook->AddPage(m_pPage3, "page3");
+
+		//SceneWindow* m_pPage4 = new SceneWindow(this);
+		//m_pPage4->SetName("Page4");
+		//m_pNoteBook->AddPage(m_pPage4, "page4");
 
 		//m_pNoteBook->LoadPerspective(DEFAULT_LAYOUT);
 

@@ -145,6 +145,10 @@ g_iconMagnifier = AddPoly2D(true, DrawLine(3, false, true, MakeCircle(0, 0, r, 1
 
 g_iconLine = AddPoly2D(true, DrawLine(5, false, false, {0, 0}, {100, 0}, {50, 100}, {366, 210}, {500, 710}))
 
+local o = DrawLine(4, false, true, MakeCircle(0, 0, 10, 6))
+o.color = Color(255, 255, 255, 255)
+g_iconPreset = AddPoly2D(true, o)
+
 --local vb = CMBuffer(1)
 --local uvb = CMBuffer(1)
 --local ib = CMBuffer(1)

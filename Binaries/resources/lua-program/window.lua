@@ -397,6 +397,42 @@ function Window:on_key_up(t, k)
 	return self:TimerPeriod()
 end
 
+function Window:on_drag_holding(x, y, type, text)
+	local id = PickByTexture(self.idTexture, x, y)
+	obj = get_object(id) or self
+	while (obj) do
+		if (type == 1) then
+			if (obj.OnDropFile) then
+				return true
+			end
+		elseif (obj.OnDragHolding) then
+			return obj:OnDragHolding(x, y, text)
+		end
+		obj = obj.parent
+	end
+	return false
+end
+
+function Window:on_drop(x, y, type, text)
+	local id = PickByTexture(self.idTexture, x, y)
+	obj = get_object(id) or self
+	while (obj) do
+		if (type == 1)then
+			if (obj.OnDropFile) then
+				return obj:OnDropFile(x, y, load('return '..text, '', 't')())
+			end
+		elseif (obj.OnInnerDrop) then
+			return obj:OnInnerDrop(x, y)
+		end
+		obj = obj.parent
+	end
+end
+
+function Window:Drag(data)
+	Window.dragData = data
+	self:DoDragDrop()
+end
+
 function Window:HandleTimer(onTimer, t)
 	local o = {}
 	local b = false

@@ -36,6 +36,9 @@ EVT.WIDGET_REMOVED = new_event()
 
 EVT.OBJ_DELIST = new_event()
 
+EVT.DRAG_HOLDING = new_event()
+EVT.DROP = new_event()
+
 EVT.UNDEFINED = new_event('EVT_UNDEFINED')
 --EVT.ENTER_WINDOW = new_event('EVT_ENTER_WINDOW')
 --EVT.LEAVE_WINDOW = new_event('EVT_LEAVE_WINDOW')
