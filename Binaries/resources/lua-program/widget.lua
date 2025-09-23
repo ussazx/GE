@@ -17,12 +17,26 @@ function Widget2D:ctor(parent)
 	self.moved = true
 	self.sized = true
 	self.show = true
+	self.dropId = WeakTable()
 end
 
 function Widget2D:dtor()
 	if (self.window) then
 		self.window:OnWidgetDtor(self)
 	end
+end
+
+function Widget2D:EnableDrop(id, flag)
+	self.dropId[id] = flag
+end
+
+function Widget2D:OnInnerDragEnter(id, data)
+end
+
+function Widget2D:OnInnerDragLeave(id, data)
+end
+
+function Widget2D:OnInnerDrop(x, y)
 end
 
 function Widget2D:EnableActive(flag)
@@ -2110,6 +2124,12 @@ function SceneWidget:ctor()
 	self.clearFunc = {}
 	self.clearFunc[g_rp0[2]] = SceneWidget.ClearViewRP0_2
 end	
+
+function SceneWidget:Refresh()
+	if (self.window) then
+		self.window.update = true
+	end
+end
 
 function SceneWidget:DoUpdate(crCpu, crGpu)
 	local crGpuNew = self.crNew

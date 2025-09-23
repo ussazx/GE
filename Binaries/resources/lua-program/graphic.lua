@@ -522,6 +522,9 @@ function Geometry:ctor(o)
 	end
 	write = write .. 'CCopyIndexBuffer(self.ib, idxOffset, idxCount, ibStart - vbStart, ib, iwp) end '
 	self.Write = load(write, 'Write', 't')()
+	if (EDITOR) then
+		g_previews[self] = Model(self)
+	end
 end
 
 ---Mesh---
@@ -548,7 +551,6 @@ end
 Model = class()
 Model.Renderer = {}
 function Model:ctor(geom)
-	g_sceneObjects:insert(self)
 	self.geom = geom
 	self.matrix = CMatrix3D()
 	self.meshes = {}

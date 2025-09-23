@@ -339,6 +339,8 @@ end, mergeType = DC_MTL_MERGED, order = g_mtl3d}
 	-- dcList:SetInsVB(g_idVbSet, 3)
 -- end, mergeType = DC_MTL_MERGED, order = g_mtl3d}
 
+g_previews = {}
+
 ---Cube---
 local vb = CMBuffer(1)
 local ub = CMBuffer(1)
@@ -361,9 +363,7 @@ geoInfo.vb[4] = {cb, Geometry.TRANS_NONE}
 geoInfo.ib = ib
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 36, g_mtl3d}
-local cube = Geometry(geoInfo)
-
-g_cube = Model(cube)
+g_cube = Geometry(geoInfo)
 
 -- cParamResourceLayout:Reset()
 -- cParamResourceLayout:Add(RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, SHADER_STAGE_VERTEX_BIT)

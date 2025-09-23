@@ -397,7 +397,7 @@ function Window:on_key_up(t, k)
 	return self:TimerPeriod()
 end
 
-function Window:on_drag_holding(x, y, type, text)
+function Window:on_dragging(x, y, type, text)
 	local id = PickByTexture(self.idTexture, x, y)
 	obj = get_object(id) or self
 	while (obj) do
@@ -405,30 +405,54 @@ function Window:on_drag_holding(x, y, type, text)
 			if (obj.OnDropFile) then
 				return true
 			end
-		elseif (obj.OnDragHolding) then
-			return obj:OnDragHolding(x, y, text)
+		elseif (obj.dropId[Window.dragId]) then
+			if (Window.dragOn ~= obj) then
+				if (Window.dragOn) then
+					Window.dragOn:OnInnerDragLeave(Window.dragId, Window.dragData)
+				end
+				obj:OnInnerDragEnter(x, y, Window.dragId, Window.dragData)
+			end
+			Window.dragOn = obj
+			if (obj.OnInnerDragging) then
+				local dx = obj.location.x
+				local dy = obj.location.y
+				obj:OnInnerDragging(x - dx, y - dy, Window.dragId, Window.dragData)
+			end
+			return true
 		end
 		obj = obj.parent
 	end
 	return false
 end
 
+function Window:on_drag_leave()
+	if (Window.dragOn) then
+		Window.dragOn:OnInnerDragLeave(Window.dragId, Window.dragData)
+		Window.dragOn = nil
+	end
+end
+
 function Window:on_drop(x, y, type, text)
+	Window.dragOn = nil
 	local id = PickByTexture(self.idTexture, x, y)
 	obj = get_object(id) or self
 	while (obj) do
 		if (type == 1)then
 			if (obj.OnDropFile) then
-				return obj:OnDropFile(x, y, load('return '..text, '', 't')())
+				obj:OnDropFile(x, y, load('return '..text, '', 't')())
 			end
-		elseif (obj.OnInnerDrop) then
-			return obj:OnInnerDrop(x, y)
+		elseif (obj.dropId[Window.dragId]) then
+			local dx = obj.location.x
+			local dy = obj.location.y
+			obj:OnInnerDrop(x - dx, y - dy, Window.dragId, Window.dragData)
 		end
 		obj = obj.parent
 	end
 end
 
-function Window:Drag(data)
+function Window:Drag(id, data)
+	Window.dragOn = nil
+	Window.dragId = id
 	Window.dragData = data
 	self:DoDragDrop()
 end

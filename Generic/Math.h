@@ -524,6 +524,16 @@ inline void CMatrix3D::SetByTransposed(LuacObj<CMatrix3D> N, size_t d)
 		for (size_t j = 0; j < d; j++)
 			M[i][j] = n[j][i];
 }
+inline void CMatrix3D::SetByMultiplied(LuacObj<CMatrix3D> M1, LuacObj<CMatrix3D> M2)
+{
+	*this = *M1;
+	*this *= *M2;
+}
+inline const CMatrix3D& CMatrix3D::operator *= (const CMatrix3D& n)
+{
+	Transform(const_cast<CMatrix3D*>(&n), 4);
+	return *this;
+}
 inline void CMatrix3D::Perspective(float fovD, float width, float height, float nearZ, float farZ)
 {
 	CMatrix3D& M = *this;
@@ -537,13 +547,43 @@ inline void CMatrix3D::Perspective(float fovD, float width, float height, float 
 	M.SetRow3(0, 0, farZ / (farZ - nearZ), 1);
 	M.SetRow4(0, 0, -M[2][2] * nearZ, 0);
 }
-inline void CMatrix3D::SetByMultiplied(LuacObj<CMatrix3D> M1, LuacObj<CMatrix3D> M2)
+
+inline std::tuple<float, float> CScreenToViewPos(float x, float y, float fov, float width, float height)
 {
-	*this = *M1;
-	*this *= *M2;
+	if (fov == 0 || width == 0 || height == 0)
+		return { 0, 0 };
+	float t = tanf(fov * M_PI / 180.0f * 0.5f);
+	float aspect = width / height;
+	float xw = (x / width * 2 - 1) * t * aspect;
+	float yw = -(y / height * 2 - 1) * t;
+	return { xw, yw };
 }
-inline const CMatrix3D& CMatrix3D::operator *= (const CMatrix3D& n)
+Lua_global_add_cfunc(CScreenToViewPos)
+
+inline std::tuple<float, float, float> CNormalize3D(float x, float y, float z)
 {
-	Transform(const_cast<CMatrix3D*>(&n), 4);
-	return *this;
+	float d = x * x + y * y + z * z;
+	if (d == 0)
+		d = 1;
+	else if (d > 1)
+		d = sqrt(d);
+	return { x / d, y / d, z / d };
 }
+Lua_global_add_cfunc(CNormalize3D)
+
+inline std::tuple<float, float, float> CNormalizeScale3D(float x, float y, float z, float scale)
+{
+	float3 v{};
+	v = CNormalize3D(x, y, z);
+	v *= scale;
+	return { v.x, v.y, v.z };
+}
+Lua_global_add_cfunc(CNormalizeScale3D)
+
+inline std::tuple<float, float, float> CTransform3D(float x, float y, float z, LuacObj<CMatrix3D> m)
+{
+	float3 v = { x, y, z };
+	v *= *m;
+	return { v.x, v.y, v.z };
+}
+Lua_global_add_cfunc(CTransform3D)

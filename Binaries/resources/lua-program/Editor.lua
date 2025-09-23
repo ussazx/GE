@@ -133,7 +133,7 @@ local function OnSceneMouse(w, e, x, y)
 			w.my = y
 		end
 	end
-	w.window.update = true
+	w:Refresh()
 end
 
 local function NewSceneViewport(window)
@@ -253,7 +253,6 @@ function ContentPanel:ctor()
 	self.menu:AddItem(2, _('新建UI'))
 	local m = self.menu:AddSubMenu(_('Sub'))
 	m:AddItem(3, 'zz')
-	--CMenu.SubAppend(self.menu:AppendSub('sub'), 2, '222')
 end
 
 function ContentPanel:OnMouse(e)
@@ -323,14 +322,49 @@ function SceneWindow:ctor()
 	local v = VBoxLayout()
 	v:AddChild(self.scene, 1, 0, 0, true)
 	self:AddChild(v)
+	self:EnableDrop(PresetsWindow, true)
 end
 
-function SceneWindow:OnDragHolding(o, x, y)
+function SceneWindow:UpdateDragging(x, y, m)
+	if (self.x == x and self.y == y and self.dragging == m) then
+		return false
+	end
+	self.x, self.y, self.dragging = x, y, m
+	x, y = CScreenToViewPos(x, y, 45, self.rect.w, self.rect.h)
+	local z = 1
+	x, y, z = CNormalizeScale3D(x, y, z, 20)
+	x, y, z = CTransform3D(x, y, z, self.scene.camera.mRoot)
+	m.matrix:SetPosition(x, y, z)
 	return true
 end
 
-function SceneWindow:OnInnerDrop(o, x, y)
-	Print('inner drop')
+function SceneWindow:OnInnerDragEnter(x, y, id, data)
+	local m = g_previews[data]
+	m.sid = g_sceneObjects:insert(m)
+	self.dragging = m
+	if (self:UpdateDragging(x, y, m)) then
+		self:Refresh()
+		self:render()
+	end
+end
+	
+function SceneWindow:OnInnerDragging(x, y)
+	local m = self.dragging
+	if (self:UpdateDragging(x, y, m)) then
+		self:Refresh()
+		self:render()
+	end
+end
+
+function SceneWindow:OnInnerDragLeave()
+	g_sceneObjects:remove_idx(self.dragging.sid)
+	self:Refresh()
+	self:render()
+end
+
+function SceneWindow:OnInnerDrop(x, y, id, data)
+	g_previews[data] = Model(data)
+	self:Refresh()
 end
 
 PresetsWindow = class(PaneWindow)
@@ -350,15 +384,18 @@ function PresetsWindow:AddPresetItem(item, text)
 	o.color2 = o.color1
 	local icon = UiPolyIcon(g_iconPreset)
 	icon.writeId = false
+	
 	o.layout:AddChild(icon, nil, 7)
 	o.text:SetText(text)
 	o.layout:AddChild(o.text, 1, 7, 5)
 	self.vLayout:AddChild(o, nil, 0, 0, true, 0, 0)
+	
+	o.item = item
 	o:bind_event(EVT.LEFT_DOWN, self, PresetsWindow.OnItemLeftDown)
 end
 
 function PresetsWindow:OnItemLeftDown()
-	self:Drag()
+	self:Drag(PresetsWindow, EVT.obj.item)
 end
 
 function LoadEntrance()

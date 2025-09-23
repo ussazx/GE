@@ -136,13 +136,16 @@ public:
 		wxDropSource source(d);
 		source.DoDragDrop();
 	}
-	bool OnDragHolding(wxCoord x, wxCoord y, vmDataObject::Type type, const char* text)
+	bool OnDragging(wxCoord x, wxCoord y, vmDataObject::Type type, const char* text)
 	{
 		bool res{};
-		Terminal::Lua().GetValue(LuaGetName(), this, "on_drag_holding", LuaObjCall(x, y, type, text), &res);
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_dragging", LuaObjCall(x, y, type, text), &res);
 		return res;
 	}
-
+	void OnDragLeave()
+	{
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_drag_leave", LuaObjCall());
+	}
 	void OnDrop(wxCoord x, wxCoord y, vmDataObject::Type type, const char* text)
 	{
 		Terminal::Lua().GetValue(LuaGetName(), this, "on_drop", LuaObjCall(x, y, type, text));
@@ -346,7 +349,11 @@ private:
 			if (!GetData())
 				return wxDragNone;
 			vmDataObject* data = (vmDataObject*)m_dataObject;
-			return m_window->OnDragHolding(x, y, data->m_type, data->GetText().c_str()) ? def : wxDragNone;
+			return m_window->OnDragging(x, y, data->m_type, data->GetText().c_str()) ? def : wxDragNone;
+		}
+		virtual void OnLeave() override
+		{
+			m_window->OnDragLeave();
 		}
 		wxDragResult OnData(wxCoord x, wxCoord y, wxDragResult def) override
 		{

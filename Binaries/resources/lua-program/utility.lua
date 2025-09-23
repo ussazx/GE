@@ -274,6 +274,10 @@ function Recorder:Redo()
 	end
 end
 
+function WeakTable()
+	return setmetatable({}, {__mode = 'kv'})
+end
+
 --ObjectArray---
 local objNotifier = Object()
 
