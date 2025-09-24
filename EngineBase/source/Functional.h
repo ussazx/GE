@@ -223,11 +223,11 @@ inline void CAddFloat1(float x, LuacObj<CBuffer> vb, int wp, int num)
 }
 Lua_global_add_cfunc(CAddFloat1)
 
-//inline void CAddFloat2(LuacObj<CBuffer> vb, int wp, int num, float x, float y)
-//{
-//	AddValue<float2>(*vb, wp, num, x, y);
-//}
-//Lua_global_add_cfunc(CAddFloat2)
+inline void CAddFloat2(float x, float y, LuacObj<CBuffer> vb, int wp, int num)
+{
+	AddValue<float2>(*vb, wp, num, x, y);
+}
+Lua_global_add_cfunc(CAddFloat2)
 
 inline void CAddFloat3(float x, float y, float z, LuacObj<CBuffer> vb, int wp, int num)
 {

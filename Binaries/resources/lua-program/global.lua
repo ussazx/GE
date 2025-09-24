@@ -365,6 +365,33 @@ geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 36, g_mtl3d}
 g_cube = Geometry(geoInfo)
 
+---plane---
+local vb = CMBuffer(1)
+local ub = CMBuffer(1)
+local cb = CMBuffer(1)
+local ib = CMBuffer(1)
+CAddFloat3(-1000, -10, 1000, vb, APPEND, 1)
+CAddFloat3(1000, -10, 1000, vb, APPEND, 1)
+CAddFloat3(1000, -10, -1000, vb, APPEND, 1)
+CAddFloat3(-1000, -10, -1000, vb, APPEND, 1)
+CAddFloat2(0, 0, ub, APPEND, 1)
+CAddFloat2(1, 0, ub, APPEND, 1)
+CAddFloat2(0, 1, ub, APPEND, 1)
+CAddFloat2(1, 1, ub, APPEND, 1)
+CAddUByte4(150, 150, 150, 255, cb, APPEND, 4)
+CAddConvexPolyIndex(0, 4, ib, APPEND, 1)
+geoInfo = {}
+geoInfo.layout = 1|2|4
+geoInfo.vb = {}
+geoInfo.vb[1] = {vb, Geometry.TRANS_DEFAULT}
+geoInfo.vb[2] = {ub, Geometry.TRANS_NONE}
+geoInfo.vb[4] = {cb, Geometry.TRANS_NONE}
+geoInfo.ib = ib
+geoInfo.meshes = {}
+geoInfo.meshes[1] = {0, 6, g_mtl3d}
+g_plane = Geometry(geoInfo)
+
+g_sceneObjects:insert(Model(g_plane))
 -- cParamResourceLayout:Reset()
 -- cParamResourceLayout:Add(RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, SHADER_STAGE_VERTEX_BIT)
 -- self.resourceLayout = cGI:NewResourceLayout(cParamResourceLayout)

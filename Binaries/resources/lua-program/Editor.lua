@@ -319,6 +319,7 @@ SceneWindow = class(PaneWindow)
 function SceneWindow:ctor()
 	self.drawSelf = false
 	self.scene = NewSceneViewport(self)
+	self.scene.fColor:set(0.25, 0.25, 0.25, 1)
 	local v = VBoxLayout()
 	v:AddChild(self.scene, 1, 0, 0, true)
 	self:AddChild(v)
@@ -339,8 +340,11 @@ function SceneWindow:UpdateDragging(x, y, m)
 end
 
 function SceneWindow:OnInnerDragEnter(x, y, id, data)
+	if (not g_previews[data]) then
+		g_previews[data] = Model(data)
+	end
 	local m = g_previews[data]
-	m.sid = g_sceneObjects:insert(m)
+	g_sceneObjects:insert(m)
 	self.dragging = m
 	if (self:UpdateDragging(x, y, m)) then
 		self:Refresh()
@@ -357,7 +361,7 @@ function SceneWindow:OnInnerDragging(x, y)
 end
 
 function SceneWindow:OnInnerDragLeave()
-	g_sceneObjects:remove_idx(self.dragging.sid)
+	g_sceneObjects:remove_obj(self.dragging)
 	self:Refresh()
 	self:render()
 end
@@ -376,7 +380,7 @@ function PresetsWindow:ctor()
 	self.vLayout = VBoxLayout()
 	sp:SetWidget(self.vLayout)
 	self:AddPresetItem(g_cube, _('立方体'))
-	self:AddPresetItem(g_cube, _('球体'))
+	self:AddPresetItem(g_plane, _('平面'))
 end
 
 function PresetsWindow:AddPresetItem(item, text)

@@ -2120,8 +2120,10 @@ SceneWidget.writeId = true
 function SceneWidget:ctor()
 	self.vpNew = Rect()
 	self.crNew = Rect()
+	self.fColor = Color()
 	self.dcLists = {}
 	self.clearFunc = {}
+	self.clearFunc[g_rp0[1]] = SceneWidget.ClearViewRP0_1
 	self.clearFunc[g_rp0[2]] = SceneWidget.ClearViewRP0_2
 end	
 
@@ -2163,6 +2165,12 @@ function SceneWidget:DoUpdate(crCpu, crGpu)
 		end
 	end
 	return true, crCpu, crGpuNew
+end
+
+function SceneWidget:ClearViewRP0_1(spId, dcList)
+	local c = self.fColor
+	local vpNew = self.vpNew
+	dcList:ClearSwapchain(vpNew.x, vpNew.y, vpNew.w, vpNew.h, c.r, c.g, c.b, c.a)
 end
 
 function SceneWidget:ClearViewRP0_2(spId, dcList)
