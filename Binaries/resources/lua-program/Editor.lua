@@ -110,38 +110,64 @@ function LoadAssets(path)
 	
 end
 
-local function RotateView(m, yaw, pitch)
+SceneView = class(Scene3D)
+function SceneView:ctor()
+	self:bind_event(EVT.LEFT_DOWN, self, SceneView.OnSceneMouse)
+	self:bind_event(EVT.LEFT_UP, self, SceneView.OnSceneMouse)
+	self:bind_event(EVT.MOTION, self, SceneView.OnSceneMouse)
+	self:bind_event(EVT.MIDDLE_DOWN, self, SceneView.OnSceneMouse)
+	self:bind_event(EVT.MOUSEWHEEL, self, SceneView.OnSceneMouse)
+	g_sceneObjects:insert(Model(g_grid3d))
+end
+
+function SceneView:RotateView(yaw, pitch)
+	yaw = yaw / 2
+	pitch = pitch / 2
+	local m = self.camera.mRoot
 	m:Rotate(0, 1, 0, yaw, true)
 	m:RotateLocalX(pitch, true)
 end
 
-local function OnSceneMouse(w, e, x, y)
-	if (e == EVT.LEFT_DOWN) then
-		g_actWindow:CaptureMouse(w)
-		w.mx = x
-		w.my = y
-		w.md = true
-	elseif (e == EVT.LEFT_UP) then
-		if (g_actWindow.captured == w) then
-			g_actWindow:ReleaseCaptured()
-			w.md = false
-		end
-	elseif (e == EVT.MOTION) then
-		if (w.md) then
-			RotateView(w.camera.mRoot, x - w.mx, y - w.my)
-			w.mx = x
-			w.my = y
-		end
+function SceneView:MoveView(x, y, z)
+	x = x / 20
+	y = y / 20
+	if (z > 0) then
+		z = 1
+	elseif (z < 0) then
+		z = -1
 	end
-	w:Refresh()
+	local m = self.camera.mRoot
+	m:MoveLocal(x, y, z)
 end
 
-local function NewSceneViewport(window)
-	local w = Scene3D(window.cmd)
-	w:bind_event(EVT.LEFT_DOWN, w, OnSceneMouse)
-	w:bind_event(EVT.LEFT_UP, w, OnSceneMouse)
-	w:bind_event(EVT.MOTION, w, OnSceneMouse)
-	return w
+function SceneView:OnSceneMouse(e, x, y, w, m)
+	if (e == EVT.LEFT_DOWN) then
+		g_actWindow:CaptureMouse(self)
+		self.mx = x
+		self.my = y
+		self.md = true
+	elseif (e == EVT.LEFT_UP) then
+		if (g_actWindow.captured == self) then
+			g_actWindow:ReleaseCaptured()
+			self.md = false
+		elseif (g_sceneModel) then
+		
+		end
+	elseif (e == EVT.MOTION) then
+		if (self.md) then
+			self:RotateView(x - self.mx, y - self.my)
+		elseif (m) then
+			self:MoveView(self.mx - x, y - self.my, 0)
+		end
+		self.mx = x
+		self.my = y
+	elseif (e == EVT.MIDDLE_DOWN) then
+			self.mx = x
+			self.my = y
+	elseif (e == EVT.MOUSEWHEEL) then
+		self:MoveView(0, 0, w)
+	end
+	self:Refresh()
 end
 
 function NewWindow_CreateProj()
@@ -170,8 +196,8 @@ function NewWindow_CreateProj()
 	-- combo:ShowOutline(true, Color(150, 150, 150, 255))
 	-- ww:AddChild(combo, 100, 100)
 	
-	local ww = NewSceneViewport(w)
-	layout:AddChild(ww, 1, 10, 10, true, 10, 10)
+	--local ww = NewSceneViewport(w)
+	--layout:AddChild(ww, 1, 10, 10, true, 10, 10)
 	
 	local cp = ContentPanel()
 	layout:AddChild(cp, 1, 0, 10, true, 10, 10)
@@ -318,7 +344,7 @@ end
 SceneWindow = class(PaneWindow)
 function SceneWindow:ctor()
 	self.drawSelf = false
-	self.scene = NewSceneViewport(self)
+	self.scene = SceneView(Scene3D(self.cmd))
 	self.scene.fColor:set(0.25, 0.25, 0.25, 1)
 	local v = VBoxLayout()
 	v:AddChild(self.scene, 1, 0, 0, true)
@@ -331,8 +357,8 @@ function SceneWindow:UpdateDragging(x, y, m)
 		return false
 	end
 	self.x, self.y, self.dragging = x, y, m
-	x, y = CScreenToViewPos(x, y, 45, self.rect.w, self.rect.h)
-	local z = 1
+	local z
+	x, y, z = CScreenToViewPos(x, y, 45, self.rect.w, self.rect.h)
 	x, y, z = CNormalizeScale3D(x, y, z, 20)
 	x, y, z = CTransform3D(x, y, z, self.scene.camera.mRoot)
 	m.matrix:SetPosition(x, y, z)
@@ -344,8 +370,10 @@ function SceneWindow:OnInnerDragEnter(x, y, id, data)
 		g_previews[data] = Model(data)
 	end
 	local m = g_previews[data]
-	g_sceneObjects:insert(m)
-	self.dragging = m
+	if (self.dragging ~= m) then
+		m:EnableWriteId(false)
+		g_sceneObjects:insert(m)
+	end
 	if (self:UpdateDragging(x, y, m)) then
 		self:Refresh()
 		self:render()
@@ -362,11 +390,13 @@ end
 
 function SceneWindow:OnInnerDragLeave()
 	g_sceneObjects:remove_obj(self.dragging)
+	self.dragging = nil
 	self:Refresh()
 	self:render()
 end
 
 function SceneWindow:OnInnerDrop(x, y, id, data)
+	self.dragging:EnableWriteId(true)
 	g_previews[data] = Model(data)
 	self:Refresh()
 end
@@ -387,7 +417,7 @@ function PresetsWindow:AddPresetItem(item, text)
 	local o = UiButton(0, 28)
 	o.color2 = o.color1
 	local icon = UiPolyIcon(g_iconPreset)
-	icon.writeId = false
+	icon:EnableWriteId(false)
 	
 	o.layout:AddChild(icon, nil, 7)
 	o.text:SetText(text)

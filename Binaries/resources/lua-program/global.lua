@@ -198,6 +198,11 @@ object3d_ps = cGI:NewShaderModule(f)
 f:Open('Resources/shaders/'..cGI:Type()..'/object3d_id.vsc', true)
 object3d_id_vs = cGI:NewShaderModule(f)
 
+f:Open('Resources/shaders/'..cGI:Type()..'/plane3d.vsc', true)
+plane3d_vs = cGI:NewShaderModule(f)
+f:Open('Resources/shaders/'..cGI:Type()..'/plane3d.psc', true)
+plane3d_ps = cGI:NewShaderModule(f)
+
 f:Open('Resources/shaders/'..cGI:Type()..'/id.psc', true)
 id_ps = cGI:NewShaderModule(f)
 
@@ -234,8 +239,8 @@ g_rp0 = cGI:NewRenderPass(cParamRenderPass)
 g_rp0[1] = SubpassId(g_rp0, 1)
 g_rp0[2] = SubpassId(g_rp0, 2)
 
-g_writeId = {}
-g_writeId[g_rp0[2]] = 0
+g_idView = {}
+g_idView[g_rp0[2]] = 0
 
 --ui resource layout
 cParamResourceLayout:Reset()
@@ -271,10 +276,8 @@ g_plId2D = cGI:NewPipeline(g_rp0, 1, 1, ui_id_vs, 'main', id_ps, 'main', cParamP
 --ui materal
 g_mtlUi = {}
 g_mtlUi.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT3, SIZE_UINT1)
-g_mtlUi.slot = {}
-g_mtlUi.insSlot = {}
-g_mtlUi.insSlot[g_rp0[1]] = 1
-g_mtlUi.insSlot[g_rp0[2]] = 2
+g_mtlUi.insSlot = {{g_rp0[1], 0, 1}}
+g_mtlUi.idSlot = {g_rp0[2]}
 
 uiFont.res = ResourceSetNew(g_rlUi1)
 uiFont.res:BindTexelView(uiFont.view)
@@ -310,6 +313,13 @@ cParamPipeline:AddVertexElement(1, 1, cGI.FORMAT_R32G32_SFLOAT, SIZE_FLOAT2)
 cParamPipeline:AddVertexElement(2, 2, cGI.FORMAT_R8G8B8A8_UNORM, SIZE_UINT1)
 g_pl3D = cGI:NewPipeline(g_rp0, 0, 1, object3d_vs, 'main', object3d_ps, 'main', cParamPipeline)
 
+cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_NONE, true, false, false, false)
+cParamPipeline:SetDethStencilStates(true, false, false, cGI.COMPARE_OP_GREATER_OR_EQUAL, false)
+g_plPlane3D = cGI:NewPipeline(g_rp0, 0, 1, plane3d_vs, 'main', plane3d_ps, 'main', cParamPipeline)
+
+cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_LINE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_NONE, true, false, false, false)
+g_plGrid3D = cGI:NewPipeline(g_rp0, 0, 1, plane3d_vs, 'main', object3d_ps, 'main', cParamPipeline)
+
 cParamPipeline:Reset()
 cParamPipeline:AddResourceLayout(g_rl3D0)
 cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_BACK_BIT, true, false, false, false)
@@ -319,12 +329,11 @@ cParamPipeline:AddVertexElement(3, 1, cGI.FORMAT_WRITE_ID, SIZE_WRITE_ID)
 cParamPipeline:SetVertexInputRate(3, true)
 g_plId3D = cGI:NewPipeline(g_rp0, 1, 1, object3d_id_vs, 'main', id_ps, 'main', cParamPipeline)
 
---3d materal
+--3d material
 g_mtl3d = {}
 g_mtl3d.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT2, SIZE_UINT1)
-g_mtl3d.insSlot = {}
-g_mtl3d.insSlot[g_rp0[1]] = 1
-g_mtl3d.insSlot[g_rp0[2]] = 2
+g_mtl3d.insSlot = {{g_rp0[1], 0, 1}}
+g_mtl3d.idSlot = {g_rp0[2]}
 
 g_mtl3d.func = {}
 
@@ -333,11 +342,37 @@ g_mtl3d.func[g_rp0[1]] = {func = function(dcList)
 	dcList:SetPipeline(g_pl3D, g_mtl3d.vbLayout, 0)
 end, mergeType = DC_MTL_MERGED, order = g_mtl3d}
 
--- g_mtl3d.func[g_rp0[2]] = {func = function(dcList)
-	-- dcList:AddResourceSet(g_cameraRes)  
-	-- dcList:SetPipeline(g_plId3D, g_mtl3d.vbLayout, 0)
-	-- dcList:SetInsVB(g_idVbSet, 3)
--- end, mergeType = DC_MTL_MERGED, order = g_mtl3d}
+g_mtl3d.func[g_rp0[2]] = {func = function(dcList)
+	dcList:AddResourceSet(g_cameraRes)
+	dcList:SetPipeline(g_plId3D, g_mtl3d.vbLayout, 0)
+	dcList:SetInsVB(g_idVbSet, 3)
+end, mergeType = DC_MTL_MERGED, order = g_mtl3d}
+
+--plane3d material
+g_mtlPlane3d = {}
+g_mtlPlane3d.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT2, SIZE_UINT1)
+g_mtlPlane3d.insSlot = {{g_rp0[1], 0, 1}}
+g_mtlPlane3d.idSlot = {}
+
+g_mtlPlane3d.func = {}
+
+g_mtlPlane3d.func[g_rp0[1]] = {func = function(dcList)
+	dcList:AddResourceSet(g_cameraRes)
+	dcList:SetPipeline(g_plPlane3D, g_mtlPlane3d.vbLayout, 0)
+end, mergeType = DC_SORTED_2, order = 1}
+
+--grid3d material
+g_mtlGrid3d = {}
+g_mtlGrid3d.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT2, SIZE_UINT1)
+g_mtlGrid3d.insSlot = {{g_rp0[1], 0, 1}}
+g_mtlGrid3d.idSlot = {}
+
+g_mtlGrid3d.func = {}
+g_mtlGrid3d.func[g_rp0[1]] = {func = function(dcList)
+	dcList:AddResourceSet(g_cameraRes)
+	dcList:SetLineWidth(1)
+	dcList:SetPipeline(g_plGrid3D, g_mtlGrid3d.vbLayout, 0)
+end, mergeType = DC_SORTED_2, order = 1}
 
 g_previews = {}
 
@@ -365,19 +400,19 @@ geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 36, g_mtl3d}
 g_cube = Geometry(geoInfo)
 
----plane---
+---plane3d---
 local vb = CMBuffer(1)
 local ub = CMBuffer(1)
 local cb = CMBuffer(1)
 local ib = CMBuffer(1)
-CAddFloat3(-1000, -10, 1000, vb, APPEND, 1)
-CAddFloat3(1000, -10, 1000, vb, APPEND, 1)
-CAddFloat3(1000, -10, -1000, vb, APPEND, 1)
-CAddFloat3(-1000, -10, -1000, vb, APPEND, 1)
+CAddFloat3(-10, 0, 10, vb, APPEND, 1)
+CAddFloat3(10, 0, 10, vb, APPEND, 1)
+CAddFloat3(10, 0, -10, vb, APPEND, 1)
+CAddFloat3(-10, 0, -10, vb, APPEND, 1)
 CAddFloat2(0, 0, ub, APPEND, 1)
 CAddFloat2(1, 0, ub, APPEND, 1)
-CAddFloat2(0, 1, ub, APPEND, 1)
 CAddFloat2(1, 1, ub, APPEND, 1)
+CAddFloat2(0, 1, ub, APPEND, 1)
 CAddUByte4(150, 150, 150, 255, cb, APPEND, 4)
 CAddConvexPolyIndex(0, 4, ib, APPEND, 1)
 geoInfo = {}
@@ -388,10 +423,38 @@ geoInfo.vb[2] = {ub, Geometry.TRANS_NONE}
 geoInfo.vb[4] = {cb, Geometry.TRANS_NONE}
 geoInfo.ib = ib
 geoInfo.meshes = {}
-geoInfo.meshes[1] = {0, 6, g_mtl3d}
+geoInfo.meshes[1] = {0, 6, g_mtlPlane3d}
 g_plane = Geometry(geoInfo)
 
-g_sceneObjects:insert(Model(g_plane))
+---Grid3d---
+local vb = CMBuffer(1)
+local ub = CMBuffer(1)
+local cb = CMBuffer(1)
+local ib = CMBuffer(1)
+CAddFloat3(-10, 0, 0, vb, APPEND, 1)
+CAddFloat3(10, 0, 0, vb, APPEND, 1)
+CAddFloat3(0, 0, -10, vb, APPEND, 1)
+CAddFloat3(0, 0, 10, vb, APPEND, 1)
+CAddFloat2(0, 0, ub, APPEND, 1)
+CAddFloat2(1, 0, ub, APPEND, 1)
+CAddFloat2(1, 1, ub, APPEND, 1)
+CAddFloat2(0, 1, ub, APPEND, 1)
+CAddUByte4(150, 150, 150, 255, cb, APPEND, 4)
+CAddUInt1(0, ib, APPEND, 1)
+CAddUInt1(1, ib, APPEND, 1)
+CAddUInt1(2, ib, APPEND, 1)
+CAddUInt1(3, ib, APPEND, 1)
+geoInfo = {}
+geoInfo.layout = 1|2|4
+geoInfo.vb = {}
+geoInfo.vb[1] = {vb, Geometry.TRANS_DEFAULT}
+geoInfo.vb[2] = {ub, Geometry.TRANS_NONE}
+geoInfo.vb[4] = {cb, Geometry.TRANS_NONE}
+geoInfo.ib = ib
+geoInfo.meshes = {}
+geoInfo.meshes[1] = {0, 4, g_mtlGrid3d}
+g_grid3d = Geometry(geoInfo)
+
 -- cParamResourceLayout:Reset()
 -- cParamResourceLayout:Add(RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, SHADER_STAGE_VERTEX_BIT)
 -- self.resourceLayout = cGI:NewResourceLayout(cParamResourceLayout)

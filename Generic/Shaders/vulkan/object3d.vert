@@ -5,7 +5,8 @@ layout(location = 1) in vec2 uv;
 layout(location = 2) in vec4 color;
 
 layout(binding = 0) uniform cb {
-    mat4 mvp;
+    mat4 view;
+	mat4 proj;
 } b;
 
 layout(location = 0) out vec2 o_uv;
@@ -13,7 +14,7 @@ layout(location = 1) out vec4 o_color;
 
 void main()
 {
-	gl_Position = vec4(pos, 1) * b.mvp;
+	gl_Position = vec4(pos, 1) * b.view * b.proj;
 	o_uv = uv;
 	o_color = color;
 }

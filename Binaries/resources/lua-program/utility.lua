@@ -278,6 +278,47 @@ function WeakTable()
 	return setmetatable({}, {__mode = 'kv'})
 end
 
+--SortedMap---
+local function SetSorted(m, k, v)
+	if (v) then
+		table.insert(m._keys, k)
+		rawset(m, '_sorted', false)
+	end
+	rawset(m, k, v)
+end
+
+local function UnsortedPairs(m)
+	return pairs(m)
+end
+
+local function SortedPairs(m)
+	if (not m._sorted) then
+		table.sort(m._keys)
+		rawset(m, '_sorted', true)
+	end
+	rawset(m, '_k', nil)
+	return m._pairs
+end
+	
+function SortedMap(unsort, mode)
+	local keys = setmetatable({}, {__mode = 'v'})
+	if (unsort) then
+		return setmetatable({}, {__index = {pairs = UnsortedPairs}, __mode = mode})
+	end
+	local m = setmetatable({_keys = keys, pairs = SortedPairs}, {__mode = mode, __newindex = SetSorted})
+	rawset(m, '_pairs', function()
+		local i, k = next(m._keys, m._k)
+		local v = m[k]
+		while (i and not v) do
+			i, k = next(m._keys, i)
+			v = m[k]
+		end
+		rawset(m, '_k', i)
+		return k, m[k]
+	end)
+	return m
+end
+
 --ObjectArray---
 local objNotifier = Object()
 
@@ -291,17 +332,28 @@ function ObjectArray:ctor(mode)
 	self.n = 0
 	objNotifier:bind_event(EVT.DELIST, self, ObjectArray.on_object_delist)
 	
-	self.newPairs = load('i = i + 1 return o[i], i', '', 't', self)
-	
-	self.o = self
-	local filterredPairs = [[
+	local o = self
+	self.newPairs = function()
+		local i = o.i
 		i = i + 1
-		while (o[i] and filter_func(o[i], filter_param) == false) do
+		if (o[i]) then
+			o.i = i
+			return i, o[i]
+		end
+	end
+	self.filterredPairs = function()
+		local i = o.i
+		i = i + 1
+		local filter_func = o.filter_func
+		local filter_param = o.filter_param
+		while (o[i] and not filter_func(o[i], filter_param)) do
 			i = i + 1
 		end
-		return o[i], i
-	]]
-	self.filterredPairs = load(filterredPairs, '', 't', self)
+		if (o[i]) then
+			o.i = i
+			return i, o[i]
+		end
+	end
 end
 
 function ObjectArray:on_object_delist(e, obj)
@@ -324,7 +376,7 @@ function ObjectArray:remove_idx(idx)
 end
 
 function ObjectArray:remove_obj(obj)
-	for v, i in self:pairs() do
+	for i, v in self:pairs() do
 		if (obj == v) then
 			table.remove(self, i)
 			self.n = self.n - 1

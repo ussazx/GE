@@ -105,6 +105,7 @@ struct CMatrix3D
 	void RotateLocalY(float angle, bool rotatePos);
 	void RotateLocalZ(float angle, bool rotatePos);
 	void Move(float x, float y, float z);
+	void MoveLocal(float x, float y, float z);
 	void Transform(LuacObj<CMatrix3D> M, size_t d = 4);
 	void Perspective(float fov, float width, float height, float nearZ, float farZ);
 	void Copy();
@@ -143,7 +144,7 @@ struct CMatrix3D
 
 	Lua_wrap_cpp_class(CMatrix3D, Lua_ctor(), Lua_mf(Identity), Lua_mf(SetRow1), Lua_mf(SetRow2), Lua_mf(SetRow3), Lua_mf(SetRow4),
 		Lua_mf(GetRow1), Lua_mf(GetRow2), Lua_mf(GetRow3), Lua_mf(GetRow4), 
-		Lua_mf(SetRotation), Lua_mf(SetPosition), Lua_mf(Move), 
+		Lua_mf(SetRotation), Lua_mf(SetPosition), Lua_mf(Move), Lua_mf(MoveLocal),
 		Lua_mf(Rotate), Lua_mf(RotateLocalX), Lua_mf(RotateLocalY), Lua_mf(RotateLocalZ),
 		Lua_mf(Transform), Lua_mf(SetByTransposed), Lua_mf(SetByMultiplied), Lua_mf(Perspective))
 };
@@ -499,6 +500,17 @@ inline void CMatrix3D::Move(float x, float y, float z)
 	CMatrix3D& M = *this;
 	M.SetRow4(M[3][0] + x, M[3][1] + y, M[3][2] + z, M[3][3]);
 }
+inline void CMatrix3D::MoveLocal(float x, float y, float z)
+{
+	CMatrix3D& M = *this;
+	float3 v1{}, v2{}, v3{}, v4{};
+	v1 = M.GetRow1();
+	v2 = M.GetRow2();
+	v3 = M.GetRow3();
+	v4 = M.GetRow4();
+	v4 += v1 * x + v2 * y + v3 * z;
+	M.SetRow4(v4.x, v4.y, v4.z, M[3][3]);
+}
 inline void CMatrix3D::Transform(LuacObj<CMatrix3D> N, size_t d)
 {
 	d %= 5;
@@ -548,15 +560,15 @@ inline void CMatrix3D::Perspective(float fovD, float width, float height, float 
 	M.SetRow4(0, 0, -M[2][2] * nearZ, 0);
 }
 
-inline std::tuple<float, float> CScreenToViewPos(float x, float y, float fov, float width, float height)
+inline std::tuple<float, float, float> CScreenToViewPos(float x, float y, float fov, float width, float height)
 {
 	if (fov == 0 || width == 0 || height == 0)
-		return { 0, 0 };
+		return { 0, 0, 0 };
 	float t = tanf(fov * M_PI / 180.0f * 0.5f);
 	float aspect = width / height;
 	float xw = (x / width * 2 - 1) * t * aspect;
 	float yw = -(y / height * 2 - 1) * t;
-	return { xw, yw };
+	return { xw, yw, 1 };
 }
 Lua_global_add_cfunc(CScreenToViewPos)
 

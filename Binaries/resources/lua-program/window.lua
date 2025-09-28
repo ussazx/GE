@@ -126,9 +126,7 @@ function Window:TimerPeriod()
 	return t
 end
 
-function Window:init(t, hwnd, w, h)
-	self:SetTime(t)
-
+function Window:init(hwnd, w, h)
 	self.rect:set(0, 0, w, h)
 	self.sizegroup = SizeGroup(w, h)
 	self.swapchain = cGI:NewSwapchain(hwnd, 0, w, h)
@@ -181,9 +179,7 @@ function Window:init(t, hwnd, w, h)
 	return self:TimerPeriod()
 end
 
-function Window:on_idle(t, onTimer, show)
-	self:SetTime(t)
-
+function Window:on_idle(onTimer, show)
 	self:HandleTimer(onTimer, t)
 	
 	if (self.idleText) then
@@ -279,7 +275,6 @@ end
 
 function Window:on_capture_lost(t)
 	g_actWindow = self
-	self:SetTime(t)
 
 	if (self.captured) then
 		self.captured:process_event(EVT.CAPTURE_LOST)
@@ -290,9 +285,34 @@ function Window:on_capture_lost(t)
 	return self:TimerPeriod()
 end
 
-function Window:on_mouse(t, e, x, y, n)
+local function FindScene(w, x, y)
+	local loc = w.location
+	local rect = w.rect
+	if ((x < loc.x or x > loc.x + rect.w) and (y < loc.y or y > loc.y + rect.h)) then
+		return
+	end
+	for i = w.children.n, 1, -1 do
+		local v = FindScene(w.children[i], x, y)
+		if (v) then
+			return v
+		end
+	end
+	if (w[SceneWidget]) then
+		return w
+	end
+end
+
+local function CheckScene(obj, w, x, y)
+	g_sceneModel = nil
+	if (obj[Model]) then
+		g_sceneModel = obj
+		return FindScene(w, x, y)
+	end
+	return obj
+end
+
+function Window:on_mouse(e, x, y, w, m)
 	g_actWindow = self
-	self:SetTime(t)
 	
 	local id 
 	local obj
@@ -302,8 +322,9 @@ function Window:on_mouse(t, e, x, y, n)
 	else
 		id = PickByTexture(self.idTexture, x, y)
 		obj = get_object(id) or self
+		obj = CheckScene(obj, self, x, y)
 	end
-	
+		
 	if (EVT.entered_id ~= id) then
 		local last_obj = get_object(EVT.entered_id)
 		if (last_obj) then
@@ -328,16 +349,14 @@ function Window:on_mouse(t, e, x, y, n)
 		end
 	end
 	if (obj) then
-		obj:process_event(e, x, y, n)
+		obj:process_event(e, x, y, w, m)
 	end
-	
 	g_actWindow = nil
 	return self:TimerPeriod(), self.cursor
 end
 
-function Window:on_char(t, c)
+function Window:on_char(c)
 	g_actWindow = self
-	self:SetTime(t)
 
 	local w = get_object(EVT.focus_id)
 	if (w) then
@@ -348,9 +367,8 @@ function Window:on_char(t, c)
 	return self:TimerPeriod()
 end
 
-function Window:on_acc_key(t, k)
+function Window:on_acc_key(k)
 	g_actWindow = self
-	self:SetTime(t)
 	
 	if (k == SYS.VK_CTRL_Z) then
 		g_recorder:Undo()
@@ -367,9 +385,8 @@ function Window:on_acc_key(t, k)
 	return self:TimerPeriod()
 end
 
-function Window:on_key_down(t, k, left, right)
+function Window:on_key_down(k, left, right)
 	g_actWindow = self
-	self:SetTime(t)
 	
 	self.keyDowns[k] = true
 
@@ -382,9 +399,8 @@ function Window:on_key_down(t, k, left, right)
 	return self:TimerPeriod()
 end	
 
-function Window:on_key_up(t, k)
+function Window:on_key_up(k)
 	g_actWindow = self
-	self:SetTime(t)
 	
 	self.keyDowns[k] = false
 
@@ -400,6 +416,7 @@ end
 function Window:on_dragging(x, y, type, text)
 	local id = PickByTexture(self.idTexture, x, y)
 	obj = get_object(id) or self
+	obj = CheckScene(obj, self, x, y)
 	while (obj) do
 		if (type == 1) then
 			if (obj.OnDropFile) then
@@ -436,6 +453,7 @@ function Window:on_drop(x, y, type, text)
 	Window.dragOn = nil
 	local id = PickByTexture(self.idTexture, x, y)
 	obj = get_object(id) or self
+	obj = CheckScene(obj, self, x, y)
 	while (obj) do
 		if (type == 1)then
 			if (obj.OnDropFile) then
@@ -497,7 +515,7 @@ function Window:AddTimer(t)
 			break
 		end
 	end
-	self.timers:insert(t, i)
+	self.timers:insert(i)
 end
 
 function Window:RemoveTimer(t)

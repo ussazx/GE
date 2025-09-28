@@ -29,8 +29,9 @@ local function instantiate(c, base, ...)
 	local o
 	local b = getmetatable(base)
 	if (b and c._base and b == c._base._class) then
+		local bctor = base.ctor
 		o = setmetatable(base, c._class)
-		if (o.ctor and o.ctor ~= base.ctor) then
+		if (o.ctor and o.ctor ~= bctor) then
 			o:ctor(...)
 		end
 	else
@@ -43,6 +44,7 @@ end
 function class(base_class)
 	local c = setmetatable({_base = base_class}, {__index = base_class, __call = instantiate})
 	c._class = {__index = c, __gc = dtor}
+	c[c] = true
 	return c
 end
 

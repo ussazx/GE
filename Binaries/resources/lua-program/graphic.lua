@@ -212,6 +212,10 @@ local function SetScissor(op, cmd)
 	cmd:SetScissor(op.x, op.y, op.w, op.h)
 end
 
+local function SetLineWidth(op, cmd)
+	cmd:SetLineWidth(op.w)
+end
+
 local function SetVertexBuffers(op, cmd)
 	cmd:SetVertexBuffers(op.vtxInput, op.slot)
 end
@@ -225,7 +229,7 @@ local function SetupSubList(op, cmd)
 end
 
 local function DrawIndexed(op, cmd)
-	cmd:DrawIndexed(op.pl, op.ib, 0, op.idxStart,op.idxCount, op.instStart, op.instCount)
+	cmd:DrawIndexed(op.pl, op.ib, 0, op.idxStart, op.idxCount, op.instStart, op.instCount)
 end
 
 local function DrawIndexedIndirect(op, cmd)
@@ -270,6 +274,7 @@ function DrawcallList:Reset(input)
 	self.rs = self.d_rs
 	self.rs.vp = nil
 	self.rs.sc = nil 
+	self.rs.lw = nil
 	self.rs.pl = nil
 	self.rs.vbMain = nil
 	self.res = self.d_res
@@ -376,6 +381,17 @@ function DrawcallList:SetScissor(x, y, w, h)
 		op.w = w
 		op.h = h
 		rs.sc = op
+	end
+end
+
+function DrawcallList:SetLineWidth(w)
+	local op = self.rs.lw
+	if (not op or op.w ~= w) then
+		self:CommitDrawcall()
+		op = self:NewOP()
+		op.func = SetLineWidth
+		op.w = w
+		self.rs.lw = op
 	end
 end
 
@@ -545,16 +561,17 @@ function Mesh:Write(...)
 end
 
 ---Model---
-Model = class()
+Model = class(Object)
 Model.Renderer = {}
 function Model:ctor(geom)
 	self.geom = geom
 	self.matrix = CMatrix3D()
 	self.meshes = {}
+	self.writeId = true
 	for _, v in pairs(geom.meshes) do
 		local mesh = Mesh(geom, v[1], v[2])
 		table.insert(self.meshes, mesh)
-		mesh.renderer:SetMaterial(v[3])
+		mesh.renderer:SetMaterial(v[3], self.id)
 	end
 	self.RenderMeshes = Model.Renderer[geom]
 	if (not self.RenderMeshes) then
@@ -569,11 +586,21 @@ function Model:ctor(geom)
 	self:Reschedule()
 end
 
-function Model:SetMaterial(idx, ...)
+function Model:SetMaterial(idx, mtl, ...)
 	local m = self.meshes[idx]
 	if (m) then
-		m.renderer:SetMaterial(...)
+		m.renderer:SetMaterial(mtl, self.id, ...)
+		m.renderer:EnableWriteId(self.writeId)
 		self:Reschedule()
+	end	
+end
+
+function Model:EnableWriteId(flag)
+	if (self.writeId ~= flag) then
+		for _, m in pairs(self.meshes) do
+			m.renderer:EnableWriteId(flag)
+		end
+		self.writeId = flag
 	end
 end
 
@@ -619,9 +646,11 @@ function Renderer:ctor(mesh, fields, reader, doCache)
 	self.reader = reader
 	self.fields = fields
 	self.doCache = doCache
+	self.disables = {}
 	self.insArgs = {}
 	self.n_vtx = 0
 	self.n_idx = 0
+	self.writeId = true
 	
 	if (doCache) then
 		self.copy = CBufferCopy
@@ -653,9 +682,8 @@ function Renderer:ctor(mesh, fields, reader, doCache)
 	self.update = true
 end
 
-function Renderer:Render(scene, disables)
+function Renderer:Render(scene)
 	self.vwp = g_input.vtx[self.mtl.vbLayout].wp
-	disables = disables or {}
 	Renderer.o = self
 	local mtl = self.mtl
 	self.vbDst = g_input.vtx[mtl.vbLayout].vb
@@ -666,13 +694,13 @@ function Renderer:Render(scene, disables)
 	local iwp = g_input.idxCount * SIZE_INDEX
 	for spId, func in pairs(mtl.func) do
 		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
-		if (not disables[spId] and dcList) then
+		if (not self.disables[spId] and dcList) then
 			func.func(dcList)
 			if (draw) then
 				self.vtxHandler()
 				draw = false
 			end
-			local insArgs = self.insArgs[mtl.insSlot[spId]]
+			local insArgs = self.insArgs[spId]
 			dcList:Draw(g_input.idxCount, self.n_idx, insArgs[1], insArgs[2])
 		end
 	end
@@ -682,9 +710,8 @@ function Renderer:Render(scene, disables)
 	self.n_idx = 0
 end
 
-function Renderer:RenderCached(scene, disables)
+function Renderer:RenderCached(scene)
 	self.vwp = g_input.vtx[self.mtl.vbLayout].wp
-	disables = disables or {}
 	Renderer.o = self
 	if (self.update) then
 		self.updateCached()
@@ -696,9 +723,9 @@ function Renderer:RenderCached(scene, disables)
 	local iwp = g_input.idxCount * SIZE_INDEX
 	for spId, func in pairs(mtl.func) do
 		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
-		if (not disables[spId] and dcList) then
+		if (not self.disables[spId] and dcList) then
 			func.func(dcList)
-			local insArgs = self.insArgs[mtl.insSlot[spId]]
+			local insArgs = self.insArgs[spId]
 			dcList:Draw(g_input.idxCount, self.n_idx, insArgs[1], insArgs[2])
 			draw = true
 		end
@@ -711,16 +738,22 @@ function Renderer:RenderCached(scene, disables)
 	end
 end
 
-function Renderer:SetMaterial(mtl, ...)
+function Renderer:SetMaterial(mtl, id, ...)
 	if (self.mtl == mtl) then
 		return
 	end
 	self.mtl = mtl
 	self.strides = mtl.vbLayout.strides
 	local strides = self.strides
-	self.insArgs = {...}
-	for _, v in pairs(mtl.insSlot) do
-		self.insArgs[v] = self.insArgs[v] or {0, 1}
+	local insArgs = {...}
+	for k, v in pairs(mtl.insSlot) do
+		self.insArgs[v[1]] = insArgs[k] or {v[2], v[3]}
+	end
+	for k, spId in pairs(mtl.idSlot) do
+		self.insArgs[spId] = {id, 1}
+		if (not self.writeId) then
+			self.disables[spId] = true
+		end
 	end
 	
 	local srcFields = self.fields
@@ -787,6 +820,19 @@ function Renderer:SetMaterial(mtl, ...)
 		end
 	end
 	self.vtxHandler = f
+end
+
+function Renderer:EnableSubpass(spId, flag)
+	self.disables[spId] = not flag
+end
+
+function Renderer:EnableWriteId(flag)
+	if (self.writeId ~= flag) then
+		for _, spId in pairs(self.mtl.idSlot) do
+			self.disables[spId] = not flag
+		end
+		self.writeId = flag
+	end
 end
 
 ---FramePipeline---

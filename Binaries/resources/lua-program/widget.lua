@@ -136,7 +136,7 @@ end
 
 function Widget2D:UpdateChildren(b, ...)
 	if (b) then
-		for w in self.children:pairs() do
+		for _, w in self.children:pairs() do
 			w:Update(...)
 		end
 	end
@@ -301,7 +301,7 @@ function VBoxLayout:Layout(w, h)
 	local scale = 0
 	local expands = self.expands
 	local exnum = 0
-	for v, k in self:ChildrenPairs() do
+	for k, v in self:ChildrenPairs() do
 		local prop = self.props[v]
 	
 		if (prop.expand) then
@@ -332,7 +332,7 @@ function VBoxLayout:Layout(w, h)
 	self.scale = math.max(0, scale)
 	
 	h = 0
-	for v, k in self:ChildrenPairs() do
+	for k, v in self:ChildrenPairs() do
 		local prop = self.props[v]
 		
 		local rh = 0
@@ -388,7 +388,7 @@ function HBoxLayout:Layout(w, h)
 	local scale = 0
 	local expands = self.expands
 	local exnum = 0
-	for v, k in self:ChildrenPairs() do
+	for k, v in self:ChildrenPairs() do
 		local prop = self.props[v]
 		
 		if (prop.expand) then
@@ -419,7 +419,7 @@ function HBoxLayout:Layout(w, h)
 	self.scale = math.max(0, scale)
 	
 	w = 0
-	for v in self:ChildrenPairs() do
+	for _, v in self:ChildrenPairs() do
 		local prop = self.props[v]
 		
 		local rw = 0
@@ -504,7 +504,7 @@ local function SizerLayout_OnSizerMouse(layout, e, x, y)
 		layout.c0 = nil
 		layout.c1 = nil
 		local sizer
-		for c in layout:ChildrenPairs() do
+		for _, c in layout:ChildrenPairs() do
 			if (c == EVT.obj) then
 				if (not layout.c0) then
 					return
@@ -595,7 +595,7 @@ local function SizerLayout_AddChild(layout, w, ...)
 	sizer:bind_event(EVT.LEFT_UP, layout, SizerLayout_OnSizerMouse)
 	sizer:bind_event(EVT.CAPTURE_LOST, layout, SizerLayout_OnSizerCaptureLost)
 	local show = false
-	for c in layout:ChildrenPairs() do
+	for _, c in layout:ChildrenPairs() do
 		show = true
 		break
 	end
@@ -660,7 +660,7 @@ end
 function GridLayout:Layout(w, h)
 	local gw = 0
 	local gh = 0
-	for v in self.children:pairs() do
+	for _, v in self.children:pairs() do
 		local prop = self.props[v]
 		v:SetSize()
 		gw = math.max(gw, prop.gapLeft + v.rect.w + prop.gapRight)
@@ -677,7 +677,7 @@ function GridLayout:Layout(w, h)
 	local x = 0
 	local y = 0
 	local i = 1
-	for v in self.children:pairs() do
+	for _, v in self.children:pairs() do
 		local prop = self.props[v]
 		v:DoSetPos(x + prop.gapLeft - prop.gapRight + (gw - v.rect.w) // 2, y + prop.gapTop - prop.gapBottom + (gh - v.rect.h) // 2)
 		if (i == col) then
@@ -701,7 +701,6 @@ UiWidget.cached = false
 UiWidget.cpuClip = true
 UiWidget.gpuClip = false
 UiWidget.bakeCount = 4
-UiWidget.writeId = true
 UiWidget.drawClipRect = false
 UiWidget.acceptFocus = true
 UiWidget.show = true
@@ -716,10 +715,15 @@ function UiWidget:ctor(w, h)
 	self.renderDisables = {}
 	
 	self.renderer = Renderer(self, 1|2|4, self.FillVB, self.cached)
-	self.renderer:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
+	self.renderer:SetMaterial(g_mtlUi, self.id)
 	
 	self.rcRenderer = Renderer(self, 1|2|4, self.FillClipRectVB, false)
-	self.rcRenderer:SetMaterial(g_mtlUi, {0, 1}, {self.id, 1})
+	self.rcRenderer:SetMaterial(g_mtlUi, self.id)
+end
+
+function UiWidget:EnableWriteId(flag)
+	self.renderer:EnableWriteId(flag)
+	self.rcRenderer:EnableWriteId(flag)
 end
 
 function UiWidget:GetDrawcall(spId, mergeType, order)
@@ -766,14 +770,14 @@ function UiWidget:ShowOutline(flag, color)
 		self.olLayout = olLayout
 		
 		olLayout.lineTop = UiWidget(0, 1)
-		olLayout.lineTop.writeId = false
+		olLayout.lineTop:EnableWriteId(false)
 		olLayout:AddChild(olLayout.lineTop, nil, 0, 0, true)
 		
 		local midLayout = HBoxLayout()
 		olLayout:AddChild(midLayout, 1, 0, 0, true)
 		
 		olLayout.lineLeft = UiWidget(1, 0)
-		olLayout.lineLeft.writeId = false
+		olLayout.lineLeft:EnableWriteId(false)
 		midLayout:AddChild(olLayout.lineLeft, nil, 0, 0, true)
 		
 		local midWidget = UiWidget()
@@ -784,11 +788,11 @@ function UiWidget:ShowOutline(flag, color)
 		midLayout:AddChild(midWidget, 1, 0, 0, true)
 		
 		olLayout.lineRight = UiWidget(1, 0)
-		olLayout.lineRight.writeId = false
+		olLayout.lineRight:EnableWriteId(false)
 		midLayout:AddChild(olLayout.lineRight, nil, 0, 0, true)
 		
 		olLayout.lineBottom = UiWidget(0, 1)
-		olLayout.lineBottom.writeId = false
+		olLayout.lineBottom:EnableWriteId(false)
 		olLayout:AddChild(olLayout.lineBottom, nil, 0, 0, true)
 		
 		local w = Widget2D()
@@ -863,25 +867,21 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 	end
 	
 	local renderer = self.renderer
-	local changed = renderer.doCache and (renderer.update or self.moved or self.sized or
+	renderer.update = renderer.doCache and (renderer.update or self.moved or self.sized or
 	(crCpuNew and self.cr:diff(crCpuNew)))
 	
 	if (self.cpuClip) then
 		self.cr:copy(crCpuNew)
 	end
 	
-	local d
-	if (not self.drawSelf or not self.writeId) then
-		d = self.renderDisables
-		d[g_rp0[1]] = not self.drawSelf
-		d[g_rp0[2]] = not self.writeId
+	if (self.drawClipRect) then
+		self.rcRenderer:Render(self)
 	end
 	
-	if (self.drawClipRect) then
-		self.rcRenderer:Render(self, d)
+	if (not self.drawSelf) then
+		renderer:EnableSubpass(g_rp0[1], false)
 	end
-	renderer.update = changed
-	renderer:Render(self, d)
+	renderer:Render(self)
 	
 	return true, crCpuNew, crGpuNew
 end
@@ -946,7 +946,7 @@ function UiButton:ctor(w, h, s, font)
 	self.layout = HBoxLayout()
 	self:AddChild(self.layout)
 	self.text = UiText(s, font)
-	self.text.writeId = false
+	self.text:EnableWriteId(false)
 	self.layout:AddChild(self.text, 1)
 	self:SetSize(w or self.text.rect.w, h or self.text.rect.h)
 end
@@ -1055,7 +1055,7 @@ function UiTextInput:ctor(w, h, font)
 	self.selectedColor = Color(0, 130, 255, 100)
 	
 	self.caret = UiWidget(1, self.rect.h)
-	self.caret.writeId = false
+	self.caret:EnableWriteId(false)
 	self.caret:Show(false)
 	self:AddChild(self.caret)
 	
@@ -1574,7 +1574,7 @@ function UiScrollPanel:ctor(widget, w, h)
 	
 	self.pane = UiWidget()
 	self.pane.drawSelf = false
-	self.pane.writeId = false
+	self.pane:EnableWriteId(false)
 	self.pane.gpuClip = true
 	hLayout:AddChild(self.pane, 1, 0, 0, true)
 	
@@ -1913,11 +1913,11 @@ function UiTreeList:AddNode(nodeId, icon, text)
 	node.title:AddChild(node.spacer, nil, 14, 0, false)
 	
 	node.icon = UiPolyIcon(icon, true, 20, 14)
-	node.icon.writeId = false
+	node.icon:EnableWriteId(false)
 	node.title:AddChild(node.icon, nil, 7, 0, false, nil, 4)
 	
 	node.text = UiText(text)
-	node.text.writeId = false
+	node.text:EnableWriteId(false)
 	node.title:AddChild(node.text, nil, 7, 0, false)
 	
 	node.item.box:SetSize()
@@ -1951,7 +1951,7 @@ end
 
 function UiTreeList:OnListSized(e, w, h, list)
 	list = list or self
-	for node in list.children:pairs() do
+	for _, node in list.children:pairs() do
 		node.item.highlight:SetSize(self.rect.w, node.item.box.rect.h)
 		UiTreeList.OnListSized(self, e, w, h, node.list)
 	end
@@ -1991,7 +1991,7 @@ function UiCombo:ctor(w, h)
 	self.layout:AddChild(self.text, 1, 5, 5, false)
 	local iconDown = UiPolyIcon(g_iconTriangleD)
 	iconDown:SetDefaultColor(200, 200, 200, 255)
-	iconDown.writeId = false
+	iconDown:EnableWriteId(false)
 	self.layout:AddChild(iconDown, nil, nil, 5, false)
 
 	self.box = UiScrollPanel()
@@ -2059,7 +2059,7 @@ function UiCombo:AddItem(text)
 	item:AddChild(item.layout)
 	
 	item.text = UiText(text)
-	item.text.writeId = false
+	item.text:EnableWriteId(false)
 	item.layout:AddChild(item.text, nil, 5, 5, false, 1, 2)
 	
 	item.layout:SetSize()
@@ -2070,7 +2070,7 @@ end
 
 function UiCombo:OnListSized(e, w, h)
 	local list = self.list
-	for item in list.children:pairs() do
+	for _, item in list.children:pairs() do
 		item.highlight:SetSize(list.rect.w, item.layout.rect.h)
 	end
 end
@@ -2125,7 +2125,11 @@ function SceneWidget:ctor()
 	self.clearFunc = {}
 	self.clearFunc[g_rp0[1]] = SceneWidget.ClearViewRP0_1
 	self.clearFunc[g_rp0[2]] = SceneWidget.ClearViewRP0_2
-end	
+end
+
+function SceneWidget:EnableWriteId(flag)
+	self.writeId = flag
+end
 
 function SceneWidget:Refresh()
 	if (self.window) then
@@ -2155,8 +2159,8 @@ function SceneWidget:DoUpdate(crCpu, crGpu)
 	for spId, merged in pairs(self.dcLists) do
 		local dcList = g_dcLists[spId]
 		if (dcList) then
-			for _, orderred in pairs(merged) do
-				for order, list in pairs(orderred) do
+			for _, orderred in merged:pairs() do
+				for order, list in orderred:pairs() do
 					list:CommitDrawcall()
 					dcList:AddSubList(list)
 					orderred[order] = nil
@@ -2174,21 +2178,21 @@ function SceneWidget:ClearViewRP0_1(spId, dcList)
 end
 
 function SceneWidget:ClearViewRP0_2(spId, dcList)
-	if (self.writeId and g_writeId[spId]) then
+	if (self.writeId and g_idView[spId]) then
 		local vpNew = self.vpNew
-		dcList:ClearViewUint4(g_writeId[spId], vpNew.x, vpNew.y, vpNew.w, vpNew.h, self.id, 0, 0, 0)
+		dcList:ClearViewUint4(g_idView[spId], vpNew.x, vpNew.y, vpNew.w, vpNew.h, self.id, 0, 0, 0)
 	end
 end
 
 function SceneWidget:GetDrawcall(spId, mergeType, order)
 	local o = self.dcLists[spId]
 	if (not o) then
-		o = {}
+		o = SortedMap()
 		self.dcLists[spId] = o
 	end
 	local s = o[mergeType]
 	if (not s) then
-		s = {}
+		s = SortedMap(mergeType == DC_MTL_MERGED)
 		o[mergeType] = s
 	end
 	local list = s[order]
@@ -2211,12 +2215,14 @@ end
 Scene3D = class(SceneWidget)
 
 function Scene3D:ctor(cmd)
-	self.camera = camera or SceneObject()
-	self.camera.mRoot:Move(0, 0, -7)
+	if (not camera) then
+		camera = SceneObject()
+		camera.mRoot:Move(0, 5, -7)
+	end
+	self.camera = camera
 	self.mProj = CMatrix3D()
 	
-	self.rb = ResBuffer(cmd, CMatrix3D._size)
-	self.rwp = self.rb[1]
+	self.rb = ResBuffer(cmd, CMatrix3D._size, CMatrix3D._size)
 	self.res_set = ResourceSetNew(g_rl3D0)
 	self.res_set:BindResBuffer(self.rb, 0)
 end
@@ -2229,10 +2235,12 @@ function Scene3D:Render()
 	if (self.sized) then
 		self.mProj:Perspective(45, self.rect.w, self.rect.h, 1000, 1)
 	end
-	CMatrixToViewMultiply(self.camera.mRoot, self.mProj, self.rb(), self.rwp)
+	--CMatrixToViewMultiply(self.camera.mRoot, self.mProj, self.rb(), self.rb[1])
+	CMatrixToView(self.camera.mRoot, self.rb(), self.rb[1])
+	CAddMatrix(self.mProj, self.rb(), self.rb[2])
 	g_cameraRes = self.res_set
 	local objects = self:SceneObjects()
-	for obj in objects:pairs(self.Filter) do
+	for _, obj in objects:pairs(self.Filter) do
 		obj:Render(self)
 	end
 end

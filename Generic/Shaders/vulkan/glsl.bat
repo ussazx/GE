@@ -7,4 +7,7 @@
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\object3d.psc object3d.frag
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\object3d_id.vsc object3d_id.vert
 
+..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\plane3d.vsc plane3d.vert
+..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\plane3d.psc plane3d.frag
+
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\id.psc id.frag

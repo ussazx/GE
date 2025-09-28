@@ -155,6 +155,8 @@ bool MyApp::OnInit()
 	Terminal::Lua().SetValue("SYS", "CURSOR_ARROW", wxCURSOR_ARROW);
 	Terminal::Lua().SetValue("SYS", "CURSOR_SIZEWE", wxCURSOR_SIZEWE);
 	Terminal::Lua().SetValue("SYS", "CURSOR_SIZENS", wxCURSOR_SIZENS);
+	Terminal::Lua().SetValue("SYS", "MOUSE_BTN_LEFT", wxMOUSE_BTN_LEFT);
+	Terminal::Lua().SetValue("SYS", "MOUSE_BTN_MIDDLE", wxMOUSE_BTN_MIDDLE);
 	Terminal::Lua().SetValue("EDITOR", true);
 
 	wchar_t s[256]{};

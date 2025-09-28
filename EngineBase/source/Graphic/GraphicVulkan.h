@@ -317,6 +317,8 @@ public:
 
 	void SetScissor(int x, int y, uint32_t width, uint32_t height) override;
 
+	virtual void SetLineWidth(float width) override;
+
 	void SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx) override;
 
 	void SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding) override;

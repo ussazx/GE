@@ -121,7 +121,7 @@ public:
 		Terminal::Lua().SetValue(LuaGetName(), this, self);
 		Terminal::Lua().SetValue(self, Lua_set_cobj(this));
 		int t{};
-		Terminal::Lua().GetValue(LuaGetName(), this, "init", LuaObjCall(clock(), GetHWND(), GetRect().GetWidth(), GetRect().GetHeight()), &t);
+		Terminal::Lua().GetValue(LuaGetName(), this, "init", LuaObjCall(GetHWND(), GetRect().GetWidth(), GetRect().GetHeight()), &t);
 		HandleTimer(t);
 	}
 
@@ -214,14 +214,14 @@ private:
 	void OnTimer(wxTimerEvent&)
 	{
 		int t{};
-		Terminal::Lua().GetValue(LuaGetName(), this, "on_idle", LuaObjCall(clock(), true, IsShown()), &t);
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_idle", LuaObjCall(true, IsShown()), &t);
 		HandleTimer(t);
 	}
 	void OnIdle(wxIdleEvent& e)
 	{
 		int t{};
 		auto i = GetTickCount();
-		Terminal::Lua().GetValue(LuaGetName(), this, "on_idle", LuaObjCall(clock(), false, IsShown()), &t);
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_idle", LuaObjCall(false, IsShown()), &t);
 		//DebugLog(L"idle [ %u ]\n", GetTickCount() - i);
 		Terminal::Lua().SetValue(LuaGetName(), this, "idle_cost", (uint32_t)(GetTickCount() - i));
 		HandleTimer(t);
@@ -277,11 +277,11 @@ private:
 		case 27:  // Ctrl [
 		case 28:  // Ctrl \ 
 		case 29:  // Ctrl ]
-			Terminal::Lua().GetValue(LuaGetName(), this, "on_acc_key", LuaObjCall(clock(), e.GetUnicodeKey()), &t);
+			Terminal::Lua().GetValue(LuaGetName(), this, "on_acc_key", LuaObjCall(e.GetUnicodeKey()), &t);
 			break;
 		default:
 			swprintf_s(c, L"%c", e.GetUnicodeKey());
-			Terminal::Lua().GetValue(LuaGetName(), this, "on_char", LuaObjCall(clock(), conv.to_bytes(c).c_str()), &t);
+			Terminal::Lua().GetValue(LuaGetName(), this, "on_char", LuaObjCall(conv.to_bytes(c).c_str()), &t);
 			break;
 		}
 		HandleTimer(t);
@@ -309,7 +309,7 @@ private:
 			break;
 		}
 		int t{};
-		Terminal::Lua().GetValue(LuaGetName(), this, "on_key_down", LuaObjCall(clock(), k, left, right), &t);
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_key_down", LuaObjCall(k, left, right), &t);
 		HandleTimer(t);
 		e.Skip();
 	}
@@ -317,7 +317,7 @@ private:
 	void OnKeyUp(wxKeyEvent& e)
 	{
 		int t{};
-		Terminal::Lua().GetValue(LuaGetName(), this, "on_key_up", LuaObjCall(clock(), e.GetRawKeyCode()), &t);
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_key_up", LuaObjCall(e.GetRawKeyCode()), &t);
 		HandleTimer(t);
 		e.Skip();
 	}
@@ -325,7 +325,7 @@ private:
 	void OnMouseEvent(wxMouseEvent& e)
 	{
 		int t{}, c{};
-		Terminal::Lua().GetValue(LuaGetName(), this, "on_mouse", LuaObjCall(clock(), GetEventId(e.GetEventType()), e.GetX(), e.GetY(), e.GetWheelRotation()), &t, &c);
+		Terminal::Lua().GetValue(LuaGetName(), this, "on_mouse", LuaObjCall(GetEventId(e.GetEventType()), e.GetX(), e.GetY(), e.GetWheelRotation(), e.MiddleIsDown()), &t, &c);
 		HandleTimer(t);
 		g_cursor = (wxStockCursor)c;
 		wxSetCursor(g_cursor);

@@ -186,6 +186,8 @@ public:
 
 	virtual void SetScissor(int x, int y, uint32_t width, uint32_t height) = 0;
 
+	virtual void SetLineWidth(float width) = 0;
+
 	virtual void SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx) = 0;
 
 	virtual void SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding) = 0;
@@ -213,6 +215,7 @@ public:
 		Lua_mf(ClearDepthStencil),
 		Lua_mf(SetViewport),
 		Lua_mf(SetScissor),
+		Lua_mf(SetLineWidth),
 		Lua_mf(SetResourceSet),
 		Lua_mf(DrawIndexed),
 		Lua_mf(SetVertexBuffers),

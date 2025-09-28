@@ -784,6 +784,11 @@ void VKCommand::SetScissor(int x, int y, uint32_t width, uint32_t height)
 	vkCmdSetScissor(m_cmd, 0, 1, &rect);
 }
 
+void VKCommand::SetLineWidth(float width)
+{
+	vkCmdSetLineWidth(m_cmd, width);
+}
+
 void VKCommand::SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx)
 {
 	if (m_resources.size() <= idx)
