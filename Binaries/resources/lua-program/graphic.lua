@@ -204,52 +204,41 @@ function ResourceSetNew:BindTexelView(v, binding)
 end
 
 ---DrawcallList---
-local function SetViewport(op, cmd)
-	cmd:SetViewport(op.x, op.y, op.w, op.h, 0, 1)
+local CmdFunc = {}
+local function GenCmdFunc(func, n)
+	local s = 'return function(arg, ...) '
+	local f = 'return function(cmd, cmdFunc, arg) cmdFunc(cmd'
+	for i = 1, n do
+		s = s .. string.format('arg[%q]', i)
+		if (i < n) then
+			s = s .. ', '
+		else
+			s = s .. ' = ... '
+		end
+		f = f .. string.format(', arg[%q]', i)
+	end
+	s = s .. 'end'
+	f = f .. ') end'
+	s = load(s, '', 't')()
+	f = load(f, '', 't')()
+	local o = {s, f}
+	CmdFunc[func] = o
+	return o
 end
 
-local function SetScissor(op, cmd)
-	cmd:SetScissor(op.x, op.y, op.w, op.h)
+local function SetupOp(op, func, ...)
+	local o = CmdFunc[func] or GenCmdFunc(func, #{...})
+	o[1](op.arg, ...)
+	op.func = o[2]
+	op.cmdFunc = func
 end
 
-local function SetLineWidth(op, cmd)
-	cmd:SetLineWidth(op.w)
+local function SetResourceSet(cmd, cmdFunc, arg)
+	cmdFunc(cmd, arg[1][cmd.cIdx], arg[2])
 end
 
-local function SetVertexBuffers(op, cmd)
-	cmd:SetVertexBuffers(op.vtxInput, op.slot)
-end
-
-local function SetResourceSet(op, cmd)
-	cmd:SetResourceSet(op.res[cmd.cIdx], op.idx)
-end
-
-local function SetupSubList(op, cmd)
-	op.list:SetupDrawcalls(cmd)
-end
-
-local function DrawIndexed(op, cmd)
-	cmd:DrawIndexed(op.pl, op.ib, 0, op.idxStart, op.idxCount, op.instStart, op.instCount)
-end
-
-local function DrawIndexedIndirect(op, cmd)
-	cmd:DrawIndexedIndirect(op.pl, op.ib, op.indBuf, op.indStart, op.indCount)
-end
-
-local function ClearSwapchain(op, cmd)
-	cmd:ClearSwapchain(op.x, op.y, op.w, op.h, op.r, op.g, op.b, op.a)
-end
-
-local function ClearViewFloat4(op, cmd)
-	cmd:ClearViewFloat4(op.idx, op.x, op.y, op.w, op.h, op.r, op.g, op.b, op.a)
-end
-
-local function ClearViewUint4(op, cmd)
-	cmd:ClearViewUint4(op.idx, op.x, op.y, op.w, op.h, op.r, op.g, op.b, op.a)
-end
-
-local function ClearDepthStencil(op, cmd)
-	cmd:ClearDepthStencil(op.idx, op.x, op.y, op.w, op.h, op.d, op.s)
+local function SetupSubList(cmd, cmdFunc, arg)
+	arg[1]:SetupDrawcalls(cmd)
 end
 
 DrawcallList = class()
@@ -291,7 +280,7 @@ function DrawcallList:NewOP()
 	self.opIdx = self.opIdx + 1
 	local op = self.opList[self.opIdx]
 	if (not op) then
-		op = {}
+		op = {arg = {}}
 		self.opList[self.opIdx] = op
 	end
 	return op
@@ -300,58 +289,25 @@ end
 function DrawcallList:ClearSwapchain(x, y, w, h, r, g, b, a)
 	self:CommitDrawcall()
 	op = self:NewOP()
-	op.func = ClearSwapchain
-	op.x = x
-	op.y = y
-	op.w = w
-	op.h = h
-	op.r = r
-	op.g = g
-	op.b = b
-	op.a = a
+	SetupOp(op, Command.ClearSwapchain, x, y, w, h, r, g, b, a)
 end
 
 function DrawcallList:ClearViewFloat4(idx, x, y, w, h, r, g, b, a)
 	self:CommitDrawcall()
 	op = self:NewOP()
-	op.func = ClearViewFloat4
-	op.idx = idx
-	op.x = x
-	op.y = y
-	op.w = w
-	op.h = h
-	op.r = r
-	op.g = g
-	op.b = b
-	op.a = a
+	SetupOp(op, Command.ClearViewFloat4, idx, x, y, w, h, r, g, b, a)
 end
 
 function DrawcallList:ClearViewUint4(idx, x, y, w, h, r, g, b, a)
 	self:CommitDrawcall()
 	op = self:NewOP()
-	op.func = ClearViewUint4
-	op.idx = idx
-	op.x = x
-	op.y = y
-	op.w = w
-	op.h = h
-	op.r = r
-	op.g = g
-	op.b = b
-	op.a = a
+	SetupOp(op, Command.ClearViewUint4, idx, x, y, w, h, r, g, b, a)
 end
 
 function DrawcallList:ClearDepthStencil(idx, x, y, w, h, d, s)
 	self:CommitDrawcall()
 	op = self:NewOP()
-	op.func = ClearDepthStencil
-	op.idx = idx
-	op.x = x
-	op.y = y
-	op.w = w
-	op.h = h
-	op.d = d
-	op.s = s
+	SetupOp(op, Command.ClearDepthStencil, idx, x, y, w, h, d, s)
 end
 
 function DrawcallList:SetViewport(x, y, w, h)
@@ -360,11 +316,7 @@ function DrawcallList:SetViewport(x, y, w, h)
 	if (not op or op.x ~= x or op.y ~= y or op.w ~= w or op.h ~= h) then
 		self:CommitDrawcall()
 		op = self:NewOP()
-		op.func = SetViewport
-		op.x = x
-		op.y = y
-		op.w = w
-		op.h = h
+		SetupOp(op, Command.SetViewport, x, y, w, h, 0, 1)
 		rs.vp = op
 	end
 end
@@ -375,11 +327,7 @@ function DrawcallList:SetScissor(x, y, w, h)
 	if (not op or op.x ~= x or op.y ~= y or op.w ~= w or op.h ~= h) then
 		self:CommitDrawcall()
 		op = self:NewOP()
-		op.func = SetScissor
-		op.x = x
-		op.y = y
-		op.w = w
-		op.h = h
+		SetupOp(op, Command.SetScissor, x, y, w, h)
 		rs.sc = op
 	end
 end
@@ -389,8 +337,7 @@ function DrawcallList:SetLineWidth(w)
 	if (not op or op.w ~= w) then
 		self:CommitDrawcall()
 		op = self:NewOP()
-		op.func = SetLineWidth
-		op.w = w
+		SetupOp(op, Command.SetLineWidth, w)
 		self.rs.lw = op
 	end
 end
@@ -407,9 +354,7 @@ function DrawcallList:SetPipeline(pl, vbLayout, slot)
 	if (not op or op.vtxInput ~= vtxInput or op.slot ~= slot) then
 		self:CommitDrawcall()
 		op = self:NewOP()
-		op.func = SetVertexBuffers
-		op.vtxInput = vtxInput
-		op.slot = slot
+		SetupOp(op, Command.SetVertexBuffers, vtxInput, slot)
 		rs.vbMain = op
 	end
 end
@@ -420,9 +365,7 @@ function DrawcallList:SetInsVB(vbSet, slot)
 	if (not op or op.vtxInput ~= vbSet) then
 		self:CommitDrawcall()
 		op = self:NewOP()
-		op.func = SetVertexBuffers
-		op.vtxInput = vbSet
-		op.slot = slot
+		SetupOp(op, Command.SetVertexBuffers, vbSet, slot)
 		insVbSets[slot] = op
 	end
 end
@@ -436,8 +379,9 @@ function DrawcallList:AddResourceSet(res)
 		self:CommitDrawcall()
 		op = self:NewOP()
 		op.func = SetResourceSet
-		op.res = res
-		op.idx = resIdx
+		op.cmdFunc = Command.SetResourceSet
+		op.arg[1] = res
+		op.arg[2] = resIdx
 		resSet[resIdx] = op
 	end
 end
@@ -449,43 +393,34 @@ function DrawcallList:AddSubList(dcList)
 	self.insVbSets = dcList.insVbSets
 	local op = self:NewOP()
 	op.func = SetupSubList
-	op.list = dcList
+	op.arg[1] = dcList
 end
 
 function DrawcallList:SetupDrawcalls(cmd)
 	self:CommitDrawcall()
 	for i = 1, self.opIdx do
 		local op = self.opList[i]
-		op:func(cmd)
+		op.func(cmd, op.cmdFunc, op.arg)
 	end
 end
 
 function DrawcallList:CommitDrawcall()
+	local pl = self.rs.pl
+	local ib = self.input.ib
 	local op
 	if (self.indCount > 0) then
 		self:CommitIndBuffer()
 		op = self:NewOP()
-		op.func = DrawIndexedIndirect
-		op.indStart = self.indStart
-		op.indCount = self.indCount
-		op.indBuf = self.indBuf
+		SetupOp(op, Command.DrawIndexedIndirect, pl, ib, self.indBuf, self.indStart, self.indCount)
 		
 		self.indStart = self.indStart + self.indCount
 		self.indCount = 0
 	elseif (self.idxCount > 0) then
 		op = self:NewOP()
-		op.func = DrawIndexed
-		op.idxStart = self.idxStart
-		op.idxCount = self.idxCount
-		op.instStart = self.instStart
-		op.instCount = self.instCount
-		op.func = DrawIndexed
+		SetupOp(op, Command.DrawIndexed, pl, ib, 0, self.idxStart, self.idxCount, self.instStart, self.instCount)
 		
 		self.idxCount = 0
-	else
-	return end
-	op.pl = self.rs.pl
-	op.ib = self.input.ib
+	end
 end
 
 function DrawcallList:CommitIndBuffer()
