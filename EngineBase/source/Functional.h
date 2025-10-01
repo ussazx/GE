@@ -758,6 +758,14 @@ inline void CAddMatrix(LuacObj<CMatrix3D> m, LuacObj<CBuffer> vb, int wp)
 }
 Lua_global_add_cfunc(CAddMatrix)
 
+inline void CMatrixMultiply(LuacObj<CMatrix3D> m1, LuacObj<CMatrix3D> m2, LuacObj<CBuffer> vb, int wp)
+{
+	BufferWriter<CMatrix3D> bw(*vb, 1, wp);
+	CMatrix3D& m = bw[0];
+	m.SetByMultiplied(m1, m2);
+}
+Lua_global_add_cfunc(CMatrixMultiply)
+
 inline void CMatrixToView(LuacObj<CMatrix3D> m, LuacObj<CBuffer> vb, int wp)
 {
 	BufferWriter<CMatrix3D> bw(*vb, 1, wp);

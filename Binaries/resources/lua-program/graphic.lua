@@ -82,22 +82,16 @@ function Command.NewRenderCmd()
 	cmd = RenderCommand()
 	cmd.rIdx = 0
 	cmd.cIdx = 0
-	cmd.rbPos = 0
 	
 	cmd.input = {[0] = {vtx = {}, idxCount = 0, ib = cGI:NewBuffer(SIZE_INDEX), indUsed = 0, indCap = 0, indBuf = {}, GetIndBuf = GetIndBuf},
 				 [1] = {vtx = {}, idxCount = 0, ib = cGI:NewBuffer(SIZE_INDEX), indUsed = 0, indCap = 0, indBuf = {}, GetIndBuf = GetIndBuf}}
 	
 	
 	cmd[0] = cGI:NewCommand(false)
-	cmd[0].gb = cGI:NewBuffer(128)
-	cmd[0].cIdx = 0
 	
 	cmd[1] = cGI:NewCommand(false)
-	cmd[1].gb = cGI:NewBuffer(128)
-	cmd[1].cIdx = 1
 	
 	cmd.cmd = cmd[0]
-	cmd.gb = cmd.cmd.gb
 
 	for _, layout in pairs(g_vbLayouts) do
 		local wp = {idxAddOn = 0}
@@ -146,12 +140,7 @@ function RenderCommand:Execute()
 	local cmd1 = self[self.cIdx]
 	cmd0:Execute()
 	cmd1:Wait()
-	if (cmd0.gb.updated) then
-		CBufferCopy(cmd0.gb, 0, self.rbPos, cmd1.gb, 0)
-		cmd0.gb.updated = false
-	end
 	self.cmd = cmd1
-	self.gb = self.cmd.gb
 	self.rendered = true
 end
 
@@ -164,43 +153,42 @@ end
 
 ---ResBuffer---
 local ResBufferMT = {__call = 
-function(b)
-	local gb = b.cmd.gb
-	gb.updated = true
-	return gb
+function (b)
+	b.set.updated = true
+	return b.set.mb
 end}
 
-function ResBuffer(cmd, ...)
+function ResBuffer(set, ...)
 	local b = setmetatable({}, ResBufferMT)
-	b.cmd = cmd
+	b.set = set
 	b.size = 0
-	b.offset = cmd.rbPos
+	b.offset = set.rbPos
 	for k, v in pairs({...}) do
 		b[k] = b.offset + b.size
 		b.size = b.size + v
 	end
-	cmd.rbPos = cmd.rbPos + (b.size + 0xFF) // 0x100 * 0x100
-	cmd[0].gb:Resize(cmd.rbPos)
-	cmd[1].gb:Resize(cmd.rbPos)
+	set.rbPos = set.rbPos + (b.size + 0xFF) // 0x100 * 0x100
+	set.mb:Resize(set.rbPos)
+	set.gb:Resize(set.rbPos)
 	return b
 end
 
----ResourceSetNew---
-ResourceSetNew = class()
-
-function ResourceSetNew:ctor(rl)
-	self[0] = rl:NewResourceSet()
-	self[1] = rl:NewResourceSet()
+---ResourceSet---
+function ResourceSet:BindResBuffer(binding, ...)
+	if (not self.mb) then
+		self.mb = CMBuffer(128)
+		self.gb = cGI:NewBuffer(128)
+		self.buf = {}
+		self.rbPos = 0
+	end
+	local b = ResBuffer(self, ...)
+	self:BindBuffer(self.gb, b.offset, b.size, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
+	self.buf[binding] = b
+	return b
 end
 
-function ResourceSetNew:BindResBuffer(b, binding)
-	self[0]:BindBuffer(b.cmd[0].gb, b.offset, b.size, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
-	self[1]:BindBuffer(b.cmd[1].gb, b.offset, b.size, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
-end
-
-function ResourceSetNew:BindTexelView(v, binding)
-	self[0]:BindBuffer(v, 0, cGI.WHOLE_SIZE, 0, cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER)
-	self[1]:BindBuffer(v, 0, cGI.WHOLE_SIZE, 0, cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER)
+function ResourceSet:BindTexelView(v, binding)
+	self:BindBuffer(v, 0, cGI.WHOLE_SIZE, 0, cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER)
 end
 
 ---DrawcallList---
@@ -231,10 +219,6 @@ local function SetupOp(op, func, ...)
 	o[1](op.arg, ...)
 	op.func = o[2]
 	op.cmdFunc = func
-end
-
-local function SetResourceSet(cmd, cmdFunc, arg)
-	cmdFunc(cmd, arg[1][cmd.cIdx], arg[2])
 end
 
 local function SetupSubList(cmd, cmdFunc, arg)
@@ -378,11 +362,13 @@ function DrawcallList:AddResourceSet(res)
 	if (not op or op.res ~= res) then
 		self:CommitDrawcall()
 		op = self:NewOP()
-		op.func = SetResourceSet
-		op.cmdFunc = Command.SetResourceSet
-		op.arg[1] = res
-		op.arg[2] = resIdx
+		SetupOp(op, Command.SetResourceSet, res, resIdx)
+		
 		resSet[resIdx] = op
+		if (res.updated) then
+			CBufferCopy(res.mb, 0, res.rbPos, res.gb, 0)
+			res.updated = false
+		end
 	end
 end
 
@@ -443,6 +429,11 @@ function DrawcallList:Draw(idxStart, idxCount, instStart, instCount)
 	self.idxCount = self.idxCount + idxCount
 	
 	self.resIdx = 0
+end
+
+---Material---
+function Material(mtl)
+	return setmetatable({}, {__index = mtl})
 end
 
 ---Geometry---
@@ -630,7 +621,7 @@ function Renderer:Render(scene)
 	for spId, func in pairs(mtl.func) do
 		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
 		if (not self.disables[spId] and dcList) then
-			func.func(dcList)
+			func.func(mtl, dcList)
 			if (draw) then
 				self.vtxHandler()
 				draw = false
@@ -659,7 +650,7 @@ function Renderer:RenderCached(scene)
 	for spId, func in pairs(mtl.func) do
 		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
 		if (not self.disables[spId] and dcList) then
-			func.func(dcList)
+			func.func(mtl, dcList)
 			local insArgs = self.insArgs[spId]
 			dcList:Draw(g_input.idxCount, self.n_idx, insArgs[1], insArgs[2])
 			draw = true
@@ -678,6 +669,7 @@ function Renderer:SetMaterial(mtl, id, ...)
 		return
 	end
 	self.mtl = mtl
+	self.id = id or self.id
 	self.strides = mtl.vbLayout.strides
 	local strides = self.strides
 	local insArgs = {...}
@@ -685,7 +677,7 @@ function Renderer:SetMaterial(mtl, id, ...)
 		self.insArgs[v[1]] = insArgs[k] or {v[2], v[3]}
 	end
 	for k, spId in pairs(mtl.idSlot) do
-		self.insArgs[spId] = {id, 1}
+		self.insArgs[spId] = {self.id, 1}
 		if (not self.writeId) then
 			self.disables[spId] = true
 		end

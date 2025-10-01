@@ -874,16 +874,20 @@ function UiWidget:DoUpdate(crCpu, crGpu)
 		self.cr:copy(crCpuNew)
 	end
 	
-	if (self.drawClipRect) then
-		self.rcRenderer:Render(self)
-	end
-	
 	if (not self.drawSelf) then
 		renderer:EnableSubpass(g_rp0[1], false)
 	end
-	renderer:Render(self)
+	
+	self:Render()
 	
 	return true, crCpuNew, crGpuNew
+end
+
+function UiWidget:Render()
+	if (self.drawClipRect) then
+		self.rcRenderer:Render(self)
+	end
+	self.renderer:Render(self)
 end
 
 -----UiButtonBase-----
@@ -2214,17 +2218,17 @@ end
 -----Scene3D-----
 Scene3D = class(SceneWidget)
 
-function Scene3D:ctor(cmd)
+function Scene3D:ctor()
 	if (not camera) then
 		camera = SceneObject()
 		camera.mRoot:Move(0, 5, -7)
 	end
 	self.camera = camera
 	self.mProj = CMatrix3D()
+	self.mViewProj = CMatrix3D()
 	
-	self.rb = ResBuffer(cmd, CMatrix3D._size, CMatrix3D._size)
-	self.res_set = ResourceSetNew(g_rl3D0)
-	self.res_set:BindResBuffer(self.rb, 0)
+	self.res_set = g_rl3dMVP:NewResourceSet()
+	self.rb = self.res_set:BindResBuffer(0, CMatrix3D._size, CMatrix3D._size)
 end
 
 function Scene3D:SceneObjects()
@@ -2233,12 +2237,13 @@ end
 
 function Scene3D:Render()
 	if (self.sized) then
-		self.mProj:Perspective(45, self.rect.w, self.rect.h, 1000, 1)
+		self.mProj:Perspective(45, self.rect.w, self.rect.h, 1000, 0.001)
 	end
+	self.mViewProj:SetByMultiplied(self.camera.mRoot, self.mProj)
 	--CMatrixToViewMultiply(self.camera.mRoot, self.mProj, self.rb(), self.rb[1])
 	CMatrixToView(self.camera.mRoot, self.rb(), self.rb[1])
 	CAddMatrix(self.mProj, self.rb(), self.rb[2])
-	g_cameraRes = self.res_set
+	g_resCamera = self.res_set
 	local objects = self:SceneObjects()
 	for _, obj in objects:pairs(self.Filter) do
 		obj:Render(self)

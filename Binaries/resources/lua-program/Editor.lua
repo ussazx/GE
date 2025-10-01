@@ -344,7 +344,7 @@ end
 SceneWindow = class(PaneWindow)
 function SceneWindow:ctor()
 	self.drawSelf = false
-	self.scene = SceneView(Scene3D(self.cmd))
+	self.scene = SceneView()
 	self.scene.fColor:set(0.25, 0.25, 0.25, 1)
 	local v = VBoxLayout()
 	v:AddChild(self.scene, 1, 0, 0, true)

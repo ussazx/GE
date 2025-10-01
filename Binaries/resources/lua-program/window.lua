@@ -20,9 +20,8 @@ function Window:ctor()
 	self.renderQueue = self.defaultRQ
 	self.cmd = Command.NewRenderCmd()
 	 
-	self.rbWnd = ResBuffer(self.cmd, SIZE_FLOAT3)
-	self.res_set = ResourceSetNew(g_rlUi0)
-	self.res_set:BindResBuffer(self.rbWnd, 0)
+	self.res_set = g_rlUiWnd:NewResourceSet()
+	self.rbWnd = self.res_set:BindResBuffer(0, SIZE_FLOAT3)
 	
 	--self.cmdList = CmdList()
 	
@@ -232,7 +231,7 @@ function Window:render()
 	
 	if(self.update or self.sized) then
 		
-		ui_resourceSet = self.res_set
+		g_resWnd = self.res_set
 		
 		self.update = true
 		while (self.update) do

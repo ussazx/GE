@@ -43,6 +43,7 @@ void Engine::LuaRegister(lua_State* L)
 	lua.SetValue("SIZE_FLOAT3", 12);
 	lua.SetValue("SIZE_FLOAT4", 16);
 	lua.SetValue("SIZE_USHORT1", 2);
+	lua.SetValue("SIZE_INT1", 4);
 	lua.SetValue("SIZE_UINT1", 4);
 
 #ifdef WIN32

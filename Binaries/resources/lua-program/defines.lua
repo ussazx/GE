@@ -41,7 +41,7 @@ VB_ELEM_ID = VB_ELEM_UINT1_0
 
 APPEND = -1
 
-Z_2D = 0
+Z_2D = 1
 
 g_sizeFunc = {}
 g_sizeFunc[CAddFloat1] = 4
