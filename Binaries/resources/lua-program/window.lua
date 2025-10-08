@@ -20,7 +20,7 @@ function Window:ctor()
 	self.renderQueue = self.defaultRQ
 	self.cmd = Command.NewRenderCmd()
 	 
-	self.res_set = g_rlUiWnd:NewResourceSet()
+	self.res_set = g_rlUB:NewResourceSet()
 	self.rbWnd = self.res_set:BindResBuffer(0, SIZE_FLOAT3)
 	
 	--self.cmdList = CmdList()

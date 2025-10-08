@@ -111,21 +111,26 @@ function LoadAssets(path)
 end
 
 SceneView = class(Scene3D)
-function SceneView:ctor()
+function SceneView:ctor(scene)
+	self.scene = scene
+	self.focus = SceneObject(scene)
+	self.focus:Move(0, 5, 0)
+	self.camera:Attach(self.focus)
+	self.camera:Move(0, 0, -10)
+
 	self:bind_event(EVT.LEFT_DOWN, self, SceneView.OnSceneMouse)
 	self:bind_event(EVT.LEFT_UP, self, SceneView.OnSceneMouse)
 	self:bind_event(EVT.MOTION, self, SceneView.OnSceneMouse)
 	self:bind_event(EVT.MIDDLE_DOWN, self, SceneView.OnSceneMouse)
 	self:bind_event(EVT.MOUSEWHEEL, self, SceneView.OnSceneMouse)
-	g_sceneObjects:insert(Model(g_grid3d))
 end
 
 function SceneView:RotateView(yaw, pitch)
 	yaw = yaw / 2
 	pitch = pitch / 2
-	local m = self.camera.mRoot
-	m:Rotate(0, 1, 0, yaw, true)
-	m:RotateLocalX(pitch, true)
+	local m = self.focus
+	m:Rotate(0, 1, 0, yaw, false)
+	m:RotateLocalX(pitch, false)
 end
 
 function SceneView:MoveView(x, y, z)
@@ -136,7 +141,7 @@ function SceneView:MoveView(x, y, z)
 	elseif (z < 0) then
 		z = -1
 	end
-	local m = self.camera.mRoot
+	local m = self.focus
 	m:MoveLocal(x, y, z)
 end
 
@@ -344,12 +349,71 @@ end
 SceneWindow = class(PaneWindow)
 function SceneWindow:ctor()
 	self.drawSelf = false
-	self.scene = SceneView()
-	self.scene.fColor:set(0.25, 0.25, 0.25, 1)
+	self.scene = SceneObject()
+	self.sceneView = SceneView(self.scene)
+	self.sceneView.fColor:set(0.25, 0.25, 0.25, 1)
+	self.sceneView:bind_event(EVT.KEY_DOWN, self, SceneWindow.OnKeyDown)
+	
 	local v = VBoxLayout()
-	v:AddChild(self.scene, 1, 0, 0, true)
+	v:AddChild(self.sceneView, 1, 0, 0, true)
 	self:AddChild(v)
 	self:EnableDrop(PresetsWindow, true)
+	
+	self.grid = Model(g_grid3d)
+	self.grid:Attach(self.scene)
+	
+	Model(g_w3d):Attach(self.scene)
+	
+	self.o = Model(g_cube)
+	self.o:Attach(self.scene)
+	
+	self.o1 = Model(g_cube)
+	self.o1:Move(-2.5, 0, 0)
+	self.o1:Attach(self.scene)
+	self.a = true
+	
+	--local w = UiPolyIcon(g_iconLine1)
+	local w = UiText('abcdef')
+	w:EnableWriteId(false)
+	self.w = w
+	w.mRoot = CMatrix3D()
+	w.mtl = Material(g_mtlUi2)
+	w.mtl.resModel = g_rlUB:NewResourceSet()
+	local buf = w.mtl.resModel:BindResBuffer(0, CMatrix3D._size)
+	CAddMatrix(w.mRoot, buf(), buf[1])
+	w.renderer:SetMaterial(w.mtl)
+	
+	--self.scene:AddChild(w, 100, 50)
+end
+
+function SceneWindow:OnKeyDown(e, k)
+	if (k == SYS.VK_UP) then
+		self.o:Move(0, 0, 0.1)
+	elseif (k == SYS.VK_DOWN) then
+		self.o:Move(0, 0, -0.1)
+	elseif (k == SYS.VK_LEFT) then
+		self.o:Move(-0.1, 0, 0)
+	elseif (k == SYS.VK_RIGHT) then
+		self.o:Move(0.1, 0, 0)
+	elseif (k == SYS.VK_A) then
+		if (self.a) then
+			self.o1:Attach(self.o, self.o1.ATTACH_ROT_AFFECT_POS_ROT, self.o1.ATTACH_WORLD)
+		else
+			self.o1:Detach()
+		end
+		self.a = not self.a
+	elseif (k == SYS.VK_Q) then
+		self.o:Rotate(0, 1, 0, 2, false)
+	elseif (k == SYS.VK_E) then
+		self.o:Rotate(0, 1, 0, -2, false)
+	end
+	self:Refresh()
+end
+
+function SceneWindow:Render(...)
+	local x, y, z = self.sceneView.camera.mWorld:GetPosition()
+	--self.grid.mRoot:SetPosition(x, 0, z)
+	return SceneWindow._base.Render(self, ...)
 end
 
 function SceneWindow:UpdateDragging(x, y, m)
@@ -359,9 +423,9 @@ function SceneWindow:UpdateDragging(x, y, m)
 	self.x, self.y, self.dragging = x, y, m
 	local z
 	x, y, z = CScreenToViewPos(x, y, 45, self.rect.w, self.rect.h)
-	x, y, z = CNormalizeScale3D(x, y, z, 20)
-	x, y, z = CTransform3D(x, y, z, self.scene.camera.mRoot)
-	m.matrix:SetPosition(x, y, z)
+	x, y, z = CVec3NormalizeScale(x, y, z, 20)
+	x, y, z = CVec3Transform(x, y, z, self.sceneView.camera.mWorld)
+	m:SetPosition(x, y, z)
 	return true
 end
 
@@ -372,7 +436,7 @@ function SceneWindow:OnInnerDragEnter(x, y, id, data)
 	local m = g_previews[data]
 	if (self.dragging ~= m) then
 		m:EnableWriteId(false)
-		g_sceneObjects:insert(m)
+		m:Attach(self.scene)
 	end
 	if (self:UpdateDragging(x, y, m)) then
 		self:Refresh()
@@ -389,7 +453,7 @@ function SceneWindow:OnInnerDragging(x, y)
 end
 
 function SceneWindow:OnInnerDragLeave()
-	g_sceneObjects:remove_obj(self.dragging)
+	self.dragging:Detach(true)
 	self.dragging = nil
 	self:Refresh()
 	self:render()
@@ -410,7 +474,7 @@ function PresetsWindow:ctor()
 	self.vLayout = VBoxLayout()
 	sp:SetWidget(self.vLayout)
 	self:AddPresetItem(g_cube, _('立方体'))
-	self:AddPresetItem(g_plane, _('平面'))
+	self:AddPresetItem(g_plane3d, _('平面'))
 end
 
 function PresetsWindow:AddPresetItem(item, text)

@@ -524,7 +524,7 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, size_t vnum, BufferWriter<
 			v0 = float3::Vector(p1, p2);
 			v1 = float3::Vector(p2, p3);
 
-			if (Cross2D(v0.x, v0.y, v1.x, v1.y) < 0)
+			if (Vec2Cross(v0.x, v0.y, v1.x, v1.y) < 0)
 				concaveFound = true;
 			else
 				firstConvexFound = true;
@@ -546,8 +546,8 @@ inline size_t AddPolyIndex(BufferWriter<float3>& vbw, size_t vnum, BufferWriter<
 			v0 = float3::Vector(p1, p2);
 			v1 = float3::Vector(p2, p3);
 
-			concaveFound = Cross2D(v0.x, v0.y, v1.x, v1.y) < 0;
-			if (!concaveFound && Cross2D(v.x, v.y, v1.x, v1.y) < 0)
+			concaveFound = Vec2Cross(v0.x, v0.y, v1.x, v1.y) < 0;
+			if (!concaveFound && Vec2Cross(v.x, v.y, v1.x, v1.y) < 0)
 			{
 				v = v0;
 				i0 = i1;

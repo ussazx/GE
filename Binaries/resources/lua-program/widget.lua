@@ -703,7 +703,6 @@ UiWidget.gpuClip = false
 UiWidget.bakeCount = 4
 UiWidget.drawClipRect = false
 UiWidget.acceptFocus = true
-UiWidget.show = true
 UiWidget.drawSelf = true
 
 function UiWidget:ctor(w, h)
@@ -2103,21 +2102,14 @@ function UiLine:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ib
 	-- return 8, CAddLine2D(vbPos, wpPos, 4, true, 2, 1, vbPos, wpPos, ib, iwp, ibStart)
 end
 
------SceneObject-----
-SceneObject = class(Object)
-
-function SceneObject:ctor()
-	self.mRoot = CMatrix3D()
-end
-
 -----Camera-----
 Camera = class(SceneObject)
-
 function Camera:ctor()
 end
 
 -----SceneWidget-----
 SceneWidget = class(Widget2D)
+SceneWidget.acceptFocus = true
 SceneWidget.drawSelf = true
 SceneWidget.writeId = true
 
@@ -2218,34 +2210,38 @@ end
 -----Scene3D-----
 Scene3D = class(SceneWidget)
 
-function Scene3D:ctor()
+function Scene3D:ctor(camera)
 	if (not camera) then
 		camera = SceneObject()
-		camera.mRoot:Move(0, 5, -7)
 	end
 	self.camera = camera
 	self.mProj = CMatrix3D()
-	self.mViewProj = CMatrix3D()
 	
-	self.res_set = g_rl3dMVP:NewResourceSet()
+	self.res_set = g_rlUB:NewResourceSet()
 	self.rb = self.res_set:BindResBuffer(0, CMatrix3D._size, CMatrix3D._size)
-end
-
-function Scene3D:SceneObjects()
-	return g_sceneObjects
 end
 
 function Scene3D:Render()
 	if (self.sized) then
 		self.mProj:Perspective(45, self.rect.w, self.rect.h, 1000, 0.001)
 	end
-	self.mViewProj:SetByMultiplied(self.camera.mRoot, self.mProj)
 	--CMatrixToViewMultiply(self.camera.mRoot, self.mProj, self.rb(), self.rb[1])
-	CMatrixToView(self.camera.mRoot, self.rb(), self.rb[1])
+	
+	Scene3D.view = self
+	local scene = self.scene
+	if (scene.update) then
+		scene:Update()
+	end
+	CMatrixToView(self.camera.mWorld, self.rb(), self.rb[1])
 	CAddMatrix(self.mProj, self.rb(), self.rb[2])
 	g_resCamera = self.res_set
-	local objects = self:SceneObjects()
-	for _, obj in objects:pairs(self.Filter) do
-		obj:Render(self)
+	
+	scene:Handle(Scene3D.RenderObject)
+end
+
+function Scene3D.RenderObject(obj)
+	if (obj.Render) then
+		obj:Render(Scene3D.view)
 	end
+	return true
 end

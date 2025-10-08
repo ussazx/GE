@@ -1,6 +1,7 @@
 ---graphic.lua---
 require 'defines'
 require 'class'
+require 'geometry'
 
 ---SubpassId---
 local subpassId = 0
@@ -487,11 +488,10 @@ function Mesh:Write(...)
 end
 
 ---Model---
-Model = class(Object)
+Model = class(SceneObject)
 Model.Renderer = {}
 function Model:ctor(geom)
 	self.geom = geom
-	self.matrix = CMatrix3D()
 	self.meshes = {}
 	self.writeId = true
 	for _, v in pairs(geom.meshes) do
@@ -532,7 +532,7 @@ end
 
 function Model:Render(scene)
 	self:RenderMeshes(scene)
-	self.geom.trans:MatrixTransform(self.matrix)
+	self.geom.trans:MatrixTransform(self.mWorld)
 end
 
 function Model:Reschedule()
