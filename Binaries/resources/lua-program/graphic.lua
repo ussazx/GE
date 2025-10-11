@@ -156,15 +156,20 @@ end
 ---ResBuffer---
 local ResBufferMT = {__call = 
 function (b)
-	local set = b.set
-	set.rbUpdate = set.rbUpdate + 1
-	set.rb.update = set.rbUpdate
-	return set.rb
+	local hub = b.hub
+	local rb = hub.rb
+	if (hub.rbUpdate ~= rb.update) then
+		CBufferCopy(hub.rbSrc, 0, hub.rbPos, rb, 0)
+		hub.rbSrc = rb
+	end
+	hub.rbUpdate = hub.rbUpdate + 1
+	rb.update = hub.rbUpdate
+	return rb
 end}
 
-local function ResBuffer(set, offset, ...)
+local function ResBuffer(hub, offset, ...)
 	local b = setmetatable({}, ResBufferMT)
-	b.set = set
+	b.hub = hub
 	b.size = 0
 	b.offset = offset
 	for k, v in pairs({...}) do
@@ -206,6 +211,7 @@ function ResourceHub:BindResBuffer(binding, ...)
 	if (not self.rb) then
 		self.rb = cGI:NewBuffer(128)
 		self.rb0 = self.rb
+		self.rbSrc = self.rb
 		self.rbPos = 0
 		self.rbUpdate = 0
 	end
@@ -259,9 +265,15 @@ function ResourceHub:BindCommand(cmd, slot)
 			local rb = self.rbCmd[cmd]
 			if (not rb) then
 				rb = {}
-				rb[0] = self.rb0 or cGI:NewBuffer(math.max(256, self.rbPos))
-				self.rb0 = nil
+				if (self.rb0) then
+					rb[0] = self.rb0
+					self.rb0 = nil
+				else
+					rb[0] = cGI:NewBuffer(math.max(256, self.rbPos))
+					rb[0].update = 0
+				end
 				rb[1] = cGI:NewBuffer(math.max(256, self.rbPos))
+				rb[1].update = 0
 				self.rbCmd[cmd] = rb
 			end
 			self.rbBind = rb[cIdx]
@@ -273,12 +285,13 @@ function ResourceHub:BindCommand(cmd, slot)
 	end
 	
 	if (rbUpdate) then
-		rb = self.rbCmd[cmd][~cIdx & 1]
+		local rbCmd = self.rbCmd[cmd]
+		local rb = rbCmd[cIdx]
 		if (rb.update ~= rbUpdate) then
-			CBufferCopy(self.rb, 0, self.rbPos, rb, 0)
+			CBufferCopy(self.rbSrc, 0, self.rbPos, rb, 0)
 			rb.update = self.rbUpdate
 		end
-		self.rb = rb
+		self.rb = rbCmd[~cIdx & 1]
 	end
 	cmd[cIdx]:SetResourceSet(set, slot)
 end
