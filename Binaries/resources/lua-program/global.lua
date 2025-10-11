@@ -288,8 +288,8 @@ g_plId2D = cGI:NewPipeline(g_rp0, 1, 1, ui_id_vs, 'main', id_ps, 'main', cParamP
 
 --ui materal
 g_mtlUi = {}
-g_mtlUi.resFont = g_rlTB:NewResourceSet()
-g_mtlUi.resFont:BindTexelView(uiFont.view)
+g_mtlUi.resFont = ResourceHub(g_rlTB)
+g_mtlUi.resFont:BindTexelView(uiFont.view, 0)
 
 g_mtlUi.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT3, SIZE_UINT1)
 g_mtlUi.insSlot = {{g_rp0[1], 0, 1}}
@@ -312,11 +312,11 @@ end, mergeType = DC_DEFAULT}
 --ui2 material
 g_mtlUi2 = {}
 g_mtlUi2.matModel = CMatrix3D()
-g_mtlUi2.resModel = g_rlUB:NewResourceSet()
+g_mtlUi2.resModel = ResourceHub(g_rlUB)
 local buf = g_mtlUi2.resModel:BindResBuffer(0, CMatrix3D._size)
 CAddMatrix(g_mtlUi2.matModel, buf(), buf[1])
-g_mtlUi2.resFont = g_rlTB:NewResourceSet()
-g_mtlUi2.resFont:BindTexelView(uiFont.view)
+g_mtlUi2.resFont = ResourceHub(g_rlTB)
+g_mtlUi2.resFont:BindTexelView(uiFont.view, 0)
 
 g_mtlUi2.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT3, SIZE_UINT1)
 g_mtlUi2.insSlot = {{g_rp0[1], 0, 1}}

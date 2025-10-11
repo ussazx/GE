@@ -89,8 +89,9 @@ function Command.NewRenderCmd()
 	
 	
 	cmd[0] = cGI:NewCommand(false)
-	
+	cmd[0].main = cmd
 	cmd[1] = cGI:NewCommand(false)
+	cmd[1].main = cmd
 	
 	cmd.cmd = cmd[0]
 
@@ -155,41 +156,139 @@ end
 ---ResBuffer---
 local ResBufferMT = {__call = 
 function (b)
-	b.set.updated = true
-	return b.set.mb
+	local set = b.set
+	set.rbUpdate = set.rbUpdate + 1
+	set.rb.update = set.rbUpdate
+	return set.rb
 end}
 
-function ResBuffer(set, ...)
+local function ResBuffer(set, offset, ...)
 	local b = setmetatable({}, ResBufferMT)
 	b.set = set
 	b.size = 0
-	b.offset = set.rbPos
+	b.offset = offset
 	for k, v in pairs({...}) do
 		b[k] = b.offset + b.size
 		b.size = b.size + v
 	end
-	set.rbPos = set.rbPos + (b.size + 0xFF) // 0x100 * 0x100
-	set.mb:Resize(set.rbPos)
-	set.gb:Resize(set.rbPos)
+	b.rbPos = offset + (b.size + 0xFF) // 0x100 * 0x100
 	return b
 end
 
----ResourceSet---
-function ResourceSet:BindResBuffer(binding, ...)
-	if (not self.mb) then
-		self.mb = CMBuffer(128)
-		self.gb = cGI:NewBuffer(128)
-		self.buf = {}
-		self.rbPos = 0
+---ResourceHub---
+ResourceHub = class()
+
+function ResourceHub:ctor(layout)
+	self.layout = layout
+	self.bindings = {}
+	self.setCmd = {}
+	self.rbCmd = {}
+end
+
+function ResourceHub:NewBind(binding, o, func)
+	o.func = func
+	self.bindings[binding] = o
+	for _, set in pairs(self.setCmd) do
+		set[0].bound = false
+		set[1].bound = false
 	end
-	local b = ResBuffer(self, ...)
-	self:BindBuffer(self.gb, b.offset, b.size, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
-	self.buf[binding] = b
+end
+
+function ResourceHub:_BindResBuffer(set, b, binding)
+	set:BindBuffer(self.rbBind, b.offset, b.size, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
+end
+
+function ResourceHub:_BindTexelView(set, v, binding)
+	set:BindBuffer(v, 0, cGI.WHOLE_SIZE, 0, cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER)
+end
+
+function ResourceHub:BindResBuffer(binding, ...)
+	if (not self.rb) then
+		self.rb = cGI:NewBuffer(128)
+		self.rb0 = self.rb
+		self.rbPos = 0
+		self.rbUpdate = 1
+	end
+	local offset = self.rbPos
+	local b0 = self.bindings[binding]
+	if (b0 and b0.offset) then
+		offset = b0.offset
+	end
+	local b = ResBuffer(self, offset, ...)
+	if (b0 and b0.rbPos and b0.rbPos ~= b.rbPos) then
+		offset = self.rbPos
+		local diff = b.rbPos - b0.rbPos
+		for binding, bn in pairs(self.buf) do
+			if (bn.offset > b0.offset) then
+				offset = math.min(offset, bn.offset)
+				bn.offset = bn.offset + diff
+			end
+		end
+		CBufferCopy(self.rb, offset, self.rbPos - offset + 1, self.rb, offset + diff)
+		self.rbUpdate = self.rbUpdate + 1
+		self.rb.update = self.rbUpdate
+	end
+	if (self.rbPos < b.rbPos) then
+		self.rbPos = b.rbPos
+		self.rb:Resize(self.rbPos)
+	end
+	--self:BindBuffer(self.gb, b.offset, b.size, binding, cGI.RESOURCE_TYPE_UNIFORM_BUFFER)
+	self:NewBind(binding, b, ResourceHub._BindResBuffer)
 	return b
 end
 
-function ResourceSet:BindTexelView(v, binding)
-	self:BindBuffer(v, 0, cGI.WHOLE_SIZE, 0, cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER)
+function ResourceHub:BindTexelView(v, binding)
+	--self:BindBuffer(v, 0, cGI.WHOLE_SIZE, 0, cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER)
+	self:NewBind(binding, v, ResourceHub._BindTexelView)
+end
+
+function ResourceHub:BindCommand(cmd, slot)
+	local set = self.setCmd[cmd]
+	if (not set) then
+		set = {}
+		self.setCmd[cmd] = set
+		set[0] = self.layout:NewResourceSet()
+		set[1] = self.layout:NewResourceSet()
+	end
+	local cIdx = cmd.cIdx
+	local set = set[cIdx]
+	local rbUpdate = self.rbUpdate
+	
+	if (not set.bound) then
+		if (rbUpdate) then
+			local rb = self.rbCmd[cmd]
+			if (not rb) then
+				rb = {}
+				rb[0] = self.rb0 or cGI:NewBuffer(math.max(256, self.rbPos))
+				rb[0].update = 0
+				self.rb0 = nil
+				rb[1] = cGI:NewBuffer(math.max(256, self.rbPos))
+				rb[1].update = 0
+				self.rbCmd[cmd] = rb
+			end
+			self.rbBind = rb[cIdx]
+		end
+		for binding, o in pairs(self.bindings) do
+			o.func(self, set, o, binding)
+		end
+		set.bound = true
+	end
+	
+	if (rbUpdate) then
+		local rbCmd = self.rbCmd[cmd]
+		local rb = rbCmd[cIdx]
+		if (rb.update ~= rbUpdate) then
+			CBufferCopy(self.rb, 0, self.rbPos, rb, 0)
+			rb.update = self.rbUpdate
+		end
+		rb = rbCmd[~cIdx & 1]
+		if (rb.update ~= rbUpdate) then
+			CBufferCopy(self.rb, 0, self.rbPos, rb, 0)
+			rb.update = self.rbUpdate
+		end
+		self.rb = rb
+	end
+	cmd[cIdx]:SetResourceSet(set, slot)
 end
 
 ---DrawcallList---
@@ -220,6 +319,10 @@ local function SetupOp(op, func, ...)
 	o[1](op.arg, ...)
 	op.func = o[2]
 	op.cmdFunc = func
+end
+
+local function SetResourceSet(cmd, cmdFunc, arg)
+	arg[1]:BindCommand(cmd.main, arg[2])
 end
 
 local function SetupSubList(cmd, cmdFunc, arg)
@@ -363,13 +466,10 @@ function DrawcallList:AddResourceSet(res)
 	if (not op or op.res ~= res) then
 		self:CommitDrawcall()
 		op = self:NewOP()
-		SetupOp(op, Command.SetResourceSet, res, resIdx)
-		
+		op.func = SetResourceSet
+		op.arg[1] = res
+		op.arg[2] = resIdx
 		resSet[resIdx] = op
-		if (res.updated) then
-			CBufferCopy(res.mb, 0, res.rbPos, res.gb, 0)
-			res.updated = false
-		end
 	end
 end
 

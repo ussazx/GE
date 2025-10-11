@@ -20,8 +20,8 @@ function Window:ctor()
 	self.renderQueue = self.defaultRQ
 	self.cmd = Command.NewRenderCmd()
 	 
-	self.res_set = g_rlUB:NewResourceSet()
-	self.rbWnd = self.res_set:BindResBuffer(0, SIZE_FLOAT3)
+	self.res = ResourceHub(g_rlUB)
+	self.rbWnd = self.res:BindResBuffer(0, SIZE_FLOAT3)
 	
 	--self.cmdList = CmdList()
 	
@@ -231,7 +231,7 @@ function Window:render()
 	
 	if(self.update or self.sized) then
 		
-		g_resWnd = self.res_set
+		g_resWnd = self.res
 		
 		self.update = true
 		while (self.update) do

@@ -2217,8 +2217,8 @@ function Scene3D:ctor(camera)
 	self.camera = camera
 	self.mProj = CMatrix3D()
 	
-	self.res_set = g_rlUB:NewResourceSet()
-	self.rb = self.res_set:BindResBuffer(0, CMatrix3D._size, CMatrix3D._size)
+	self.res = ResourceHub(g_rlUB)
+	self.rb = self.res:BindResBuffer(0, CMatrix3D._size, CMatrix3D._size)
 end
 
 function Scene3D:Render()
@@ -2234,7 +2234,7 @@ function Scene3D:Render()
 	end
 	CMatrixToView(self.camera.mWorld, self.rb(), self.rb[1])
 	CAddMatrix(self.mProj, self.rb(), self.rb[2])
-	g_resCamera = self.res_set
+	g_resCamera = self.res
 	
 	scene:Handle(Scene3D.RenderObject)
 end

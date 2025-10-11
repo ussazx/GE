@@ -378,7 +378,7 @@ function SceneWindow:ctor()
 	self.w = w
 	w.mRoot = CMatrix3D()
 	w.mtl = Material(g_mtlUi2)
-	w.mtl.resModel = g_rlUB:NewResourceSet()
+	w.mtl.resModel = ResourceHub(g_rlUB)
 	local buf = w.mtl.resModel:BindResBuffer(0, CMatrix3D._size)
 	CAddMatrix(w.mRoot, buf(), buf[1])
 	w.renderer:SetMaterial(w.mtl)
