@@ -207,7 +207,7 @@ function ResourceHub:BindResBuffer(binding, ...)
 		self.rb = cGI:NewBuffer(128)
 		self.rb0 = self.rb
 		self.rbPos = 0
-		self.rbUpdate = 1
+		self.rbUpdate = 0
 	end
 	local offset = self.rbPos
 	local b0 = self.bindings[binding]
@@ -260,10 +260,8 @@ function ResourceHub:BindCommand(cmd, slot)
 			if (not rb) then
 				rb = {}
 				rb[0] = self.rb0 or cGI:NewBuffer(math.max(256, self.rbPos))
-				rb[0].update = 0
 				self.rb0 = nil
 				rb[1] = cGI:NewBuffer(math.max(256, self.rbPos))
-				rb[1].update = 0
 				self.rbCmd[cmd] = rb
 			end
 			self.rbBind = rb[cIdx]
@@ -275,13 +273,7 @@ function ResourceHub:BindCommand(cmd, slot)
 	end
 	
 	if (rbUpdate) then
-		local rbCmd = self.rbCmd[cmd]
-		local rb = rbCmd[cIdx]
-		if (rb.update ~= rbUpdate) then
-			CBufferCopy(self.rb, 0, self.rbPos, rb, 0)
-			rb.update = self.rbUpdate
-		end
-		rb = rbCmd[~cIdx & 1]
+		rb = self.rbCmd[cmd][~cIdx & 1]
 		if (rb.update ~= rbUpdate) then
 			CBufferCopy(self.rb, 0, self.rbPos, rb, 0)
 			rb.update = self.rbUpdate
