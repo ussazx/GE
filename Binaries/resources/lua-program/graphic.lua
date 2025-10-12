@@ -248,34 +248,38 @@ function ResourceHub:BindTexelView(v, binding)
 	self:NewBind(binding, v, ResourceHub._BindTexelView)
 end
 
-function ResourceHub:BindCommand(cmd, slot)
-	local set = self.setCmd[cmd]
-	if (not set) then
-		set = {}
-		self.setCmd[cmd] = set
-		set[0] = self.layout:NewResourceSet()
-		set[1] = self.layout:NewResourceSet()
+function ResourceHub:NewCmdResourceSet(cmd)
+	local set = {}
+	self.setCmd[cmd] = set
+	set[0] = self.layout:NewResourceSet()
+	set[1] = self.layout:NewResourceSet()
+	return set
+end
+
+function ResourceHub:NewCmdResBuffer(cmd)
+	rb = {}
+	if (self.rb0) then
+		rb[0] = self.rb0
+		self.rb0 = nil
+	else
+		rb[0] = cGI:NewBuffer(math.max(256, self.rbPos))
+		rb[0].update = 0
 	end
+	rb[1] = cGI:NewBuffer(math.max(256, self.rbPos))
+	rb[1].update = 0
+	self.rbCmd[cmd] = rb
+	return rb
+end	
+
+function ResourceHub:BindCommand(cmd, slot)
+	local set = self.setCmd[cmd] or self:NewCmdResourceSet(cmd)
 	local cIdx = cmd.cIdx
 	local set = set[cIdx]
 	local rbUpdate = self.rbUpdate
 	
 	if (not set.bound) then
 		if (rbUpdate) then
-			local rb = self.rbCmd[cmd]
-			if (not rb) then
-				rb = {}
-				if (self.rb0) then
-					rb[0] = self.rb0
-					self.rb0 = nil
-				else
-					rb[0] = cGI:NewBuffer(math.max(256, self.rbPos))
-					rb[0].update = 0
-				end
-				rb[1] = cGI:NewBuffer(math.max(256, self.rbPos))
-				rb[1].update = 0
-				self.rbCmd[cmd] = rb
-			end
+			local rb = self.rbCmd[cmd] or self:NewCmdResBuffer(cmd)
 			self.rbBind = rb[cIdx]
 		end
 		for binding, o in pairs(self.bindings) do
