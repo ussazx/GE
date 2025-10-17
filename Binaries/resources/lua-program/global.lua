@@ -430,10 +430,11 @@ CAddUByte4(0, 255, 255, 255, cb, APPEND, 4)
 
 local geoInfo = {}
 geoInfo.layout = 1|2|4
-geoInfo.vb = {}
-geoInfo.vb[1] = {vb, Geometry.TRANS_DEFAULT}
-geoInfo.vb[2] = {ub, Geometry.TRANS_NONE}
-geoInfo.vb[4] = {cb, Geometry.TRANS_NONE}
+geoInfo.vbInfo = {}
+geoInfo.vbInfo[1] = {Geometry.TRANS_DEFAULT}
+geoInfo.vbInfo[2] = {Geometry.TRANS_NONE, SIZE_FLOAT2}
+geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_UINT1}
+geoInfo.vb = {vb, ub, cb}
 geoInfo.ib = ib
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 36, g_mtl3d}
@@ -456,10 +457,11 @@ CAddUByte4(150, 150, 150, 255, cb, APPEND, 4)
 CAddConvexPolyIndex(0, 4, ib, APPEND, 1)
 geoInfo = {}
 geoInfo.layout = 1|2|4
-geoInfo.vb = {}
-geoInfo.vb[1] = {vb, Geometry.TRANS_DEFAULT}
-geoInfo.vb[2] = {ub, Geometry.TRANS_NONE}
-geoInfo.vb[4] = {cb, Geometry.TRANS_NONE}
+geoInfo.vbInfo = {}
+geoInfo.vbInfo[1] = {Geometry.TRANS_DEFAULT}
+geoInfo.vbInfo[2] = {Geometry.TRANS_NONE, SIZE_FLOAT2}
+geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_UINT1}
+geoInfo.vb = {vb, ub, cb}
 geoInfo.ib = ib
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 6, g_mtlPlane3d}
@@ -484,12 +486,13 @@ CAddUInt1(1, ib, APPEND, 1)
 CAddUInt1(2, ib, APPEND, 1)
 CAddUInt1(3, ib, APPEND, 1)
 geoInfo = {}
-geoInfo.layout = 1|2|4
-geoInfo.vb = {}
-geoInfo.vb[1] = {vb, Geometry.TRANS_DEFAULT}
-geoInfo.vb[2] = {ub, Geometry.TRANS_NONE}
-geoInfo.vb[4] = {cb, Geometry.TRANS_NONE}
+geoInfo.vb = {vb, ub, cb}
 geoInfo.ib = ib
+geoInfo.layout = 1|2|4
+geoInfo.vbInfo = {}
+geoInfo.vbInfo[1] = {Geometry.TRANS_DEFAULT}
+geoInfo.vbInfo[2] = {Geometry.TRANS_NONE, SIZE_FLOAT2}
+geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_UINT1}
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 4, g_mtlGrid3d}
 g_grid3d = Geometry(geoInfo)
@@ -511,14 +514,25 @@ CAddUByte4(150, 150, 150, 255, cb, APPEND, 4)
 CAddConvexPolyIndex(0, 4, ib, APPEND, 1)
 geoInfo = {}
 geoInfo.layout = 1|2|4
-geoInfo.vb = {}
-geoInfo.vb[1] = {vb, Geometry.TRANS_DEFAULT}
-geoInfo.vb[2] = {ub, Geometry.TRANS_NONE}
-geoInfo.vb[4] = {cb, Geometry.TRANS_NONE}
+geoInfo.vbInfo = {}
+geoInfo.vbInfo[1] = {Geometry.TRANS_DEFAULT}
+geoInfo.vbInfo[2] = {Geometry.TRANS_NONE, SIZE_FLOAT2}
+geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_UINT1}
+geoInfo.vb = {vb, ub, cb}
 geoInfo.ib = ib
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 6, g_mtlPlane3d}
 g_w3d = Geometry(geoInfo)
+
+geoInfo = {}
+geoInfo.layout = 1|2|4
+geoInfo.vbInfo = {}
+geoInfo.vbInfo[1] = {Geometry.TRANS_DEFAULT}
+geoInfo.vbInfo[2] = {Geometry.TRANS_NONE, SIZE_FLOAT2}
+geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_UINT1}
+geoInfo.meshes = {}
+geoInfo.meshes[1] = {0, 0, g_mtlGrid3d}
+g_w3d2 = Geometry(geoInfo)
 
 -- cParamResourceLayout:Reset()
 -- cParamResourceLayout:Add(RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, SHADER_STAGE_VERTEX_BIT)

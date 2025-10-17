@@ -551,74 +551,113 @@ Geometry = class()
 Geometry.TRANS_NONE = 0
 Geometry.TRANS_DEFAULT = 1
 Geometry.TRANS_NORMAL = 2
-
 function Geometry:ctor(o)
-	self.layout = o.layout
-	self.vb = o.vb
-	self.ib = o.ib
+	self.info = o
 	self.meshes = o.meshes
-	self.trans = CTransformer()
-	local write = 'return function(self, vbStart, vbCount, idxOffset, idxCount'
-	for k, v in pairs(o.vb) do
-		write = write .. string.format(', vbDst%q, wp%q', k, k)
+	local s = 'return function(model, scene) local m = model.meshes'
+	for k, m in pairs(o.meshes) do
+		if (o.ib) then
+			m.vbStart, m.vbEnd = CGetIndicesSegment(o.ib, 0, m[1], m[2])
+		end
+		s = string.format('%s m[%q].renderer:Render(scene)', s, k)
 	end
-	write = write .. ', ib, iwp, ibStart) local vbSrc = self.vb '
-	for k, v in pairs(o.vb) do
-		if (v[2] == Geometry.TRANS_DEFAULT or v[2] == Geometry.TRANS_NORMAL) then
-			local isNormal = v[2] == Geometry.TRANS_NORMAL
-			write = write .. string.format('self.trans:AddFactors(vbSrc[%q][1], 0, vbStart, vbCount, vbDst%q, wp%q, %q) ', k, k, k, isNormal)
+	self.renderFunc = load(s .. ' end', 'renderer', 't')()
+	
+	self.trans = CTransformer()
+	local write = 'return function(model, vbStart, vbCount, idxOffset, idxCount'
+	local write_d = 'return function(model, vbCount'
+	for k, v in pairs(o.vbInfo) do
+		local s = string.format(', vbDst%q, wp%q', k, k)
+		write = write .. s
+		write_d = write_d .. s
+	end
+	s = ', ib, iwp, ibStart) '
+	write = write .. s .. 'local vb '
+	write_d = write_d .. s
+	for k, v in pairs(o.vbInfo) do
+		write = write .. string.format('vb = model.vb[%q] ', k)
+		if (v[1] == Geometry.TRANS_DEFAULT or v[1] == Geometry.TRANS_NORMAL) then
+			local isNormal = v[1] == Geometry.TRANS_NORMAL
+			write = write .. string.format('model.trans:AddFactors(vb, 0, vbStart, vbCount, vbDst%q, wp%q, %q) ', k, k, isNormal)
+			write_d = write_d .. string.format('model.trans:AddFactors(vbDst%q, wp%q, 0, vbCount, vbDst%q, wp%q, %q) ', k, k, k, k, isNormal)
 		else
 			write = write .. 
-			string.format('CBufferCopy(vbSrc[%q][1], vbStart * SIZE_FLOAT3, vbCount * SIZE_FLOAT3, vbDst%q, wp%q) ', k, k, k)
+			string.format(' CBufferCopy(vb, vbStart * %q, vbCount * %q, vbDst%q, wp%q) ', v[2], v[2], k, k)
 		end
 	end
-	write = write .. 'CCopyIndexBuffer(self.ib, idxOffset, idxCount, ibStart - vbStart, ib, iwp) end '
+	write = write .. 'CCopyIndexBuffer(model.ib, idxOffset, idxCount, ibStart - vbStart, ib, iwp) end'
+	write_d = write_d .. 'end'
 	self.Write = load(write, 'Write', 't')()
+	self.WriteDynamic = load(write_d, 'WriteD', 't')()
 end
 
 ---Mesh---
 Mesh = class()
 
-function Mesh:ctor(geom, idxOffset, idxCount)
-	self.geom = geom
-	self.vbStart, self.vbEnd = CGetIndicesSegment(geom.ib, 0, idxOffset, idxCount)
-	self.idxOffset = idxOffset
-	self.idxCount = idxCount
-	self.renderer = Renderer(self, self.geom.layout, self.Write)
+function Mesh:ctor(model, layout, vbStart, vbEnd, idxOffset, idxCount)
+	self.model = model
+	self.vbStart = vbStart or 0
+	self.vbEnd = vbEnd or 0
+	self.idxOffset = idxOffset or 0
+	self.idxCount = idxCount or 0
+	self.renderer = Renderer(self, layout, self.Write)
 end
 
 function Mesh:Write(...)
-	local vbCount = self.vbEndNew - self.vbStartNew
-	if (vbCount > 0) then
-		vbCount = vbCount + 1
-		self.geom:Write(self.vbStartNew, vbCount, self.idxOffset, self.idxCountNew, ...)
+	local vbCount = self.vbEndNew - self.vbStartNew + 1
+	if (vbCount > 1) then
+		self.model:Write(self.vbStartNew, vbCount, self.idxOffset, self.idxCountNew, ...)
 	end
 	return vbCount, self.idxCount
 end
 
 ---Model---
 Model = class(SceneObject)
-Model.Renderer = {}
+Model.writeId = true
 function Model:ctor(geom)
-	self.geom = geom
+	self.trans = geom.trans
+	self.Write = geom.Write
+	self.WriteDynamic = geom.WriteDynamic
+	self.layout = geom.layout
 	self.meshes = {}
-	self.writeId = true
-	for _, v in pairs(geom.meshes) do
-		local mesh = Mesh(geom, v[1], v[2])
+	self.vb = geom.info.vb
+	self.ib = geom.info.ib
+	for _, m in pairs(geom.meshes) do
+		local mesh = Mesh(self, geom.info.layout, m.vbStart, m.vbEnd, m[1], m[2])
 		table.insert(self.meshes, mesh)
-		mesh.renderer:SetMaterial(v[3], self.id)
+		mesh.renderer:SetMaterial(m[3], self.id)
 	end
-	self.RenderMeshes = Model.Renderer[geom]
-	if (not self.RenderMeshes) then
-		local renderer = 'return function(self, scene) local m = self.meshes'
-		for k, v in pairs(self.meshes) do
-			renderer = string.format('%s m[%q].renderer:Render(scene)', renderer, k)
-		end
-		renderer = load(renderer .. ' end', 'renderer', 't')()
-		Model.Renderer[geom] = renderer
-		self.RenderMeshes = renderer
-	end
+	self.RenderMeshes = geom.renderFunc
 	self:Reschedule()
+end
+
+function Model.MeshDynamic1(mesh, ...)
+	local vbCount, idxCount = mesh.dynamicFunc(mesh.dynamicData, ...)
+	mesh.model:WriteDynamic(vbCount, ...)
+	return vbCount, idxCount
+end
+
+function Model.MeshDynamic2(mesh, ...)
+	local vbCount, idxCount = mesh.dynamicFunc(...)
+	mesh.model:WriteDynamic(vbCount, ...)
+	return vbCount, idxCount
+end
+
+function Model:SetCustomMesh(idx, func, data)
+	local m = self.meshes[idx] 
+	if (m) then
+		local b = not func == not m.dynamicFunc
+		m.dynamicFunc = func
+		m.dynamicData = data
+		if (data) then
+			m.renderer.reader = Model.MeshDynamic1
+		else
+			m.renderer.reader = Model.MeshDynamic2
+		end
+		if (b) then
+			self:Reschedule()
+		end
+	end
 end
 
 function Model:SetMaterial(idx, mtl, ...)
@@ -641,7 +680,7 @@ end
 
 function Model:Render(scene)
 	self:RenderMeshes(scene)
-	self.geom.trans:MatrixTransform(self.mWorld)
+	self.trans:MatrixTransform(self.mWorld)
 end
 
 function Model:Reschedule()
@@ -654,20 +693,28 @@ function Model:Reschedule()
 		if (not k) then
 			break
 		end
-		if (m.renderer.mtl.vbLayout == n.renderer.mtl.vbLayout) then
-			m.vbStartNew = math.min(m.vbStartNew, n.vbStart)
-			m.vbEndNew = math.max(m.vbEndNew, n.vbEnd)
-			m.idxCountNew = m.idxCountNew + n.idxCount
-			n.vbStartNew = 0
-			n.vbEndNew = 0
-			n.idxCountNew = 0
-		else
-			m = n
-			m.vbStartNew = m.vbStart
-			m.vbEndNew = m.vbEnd
-			m.idxCountNew = m.idxCount
+		if (not m.dynamicFunc) then
+			if (m.renderer.mtl.vbLayout == n.renderer.mtl.vbLayout) then
+				m.vbStartNew = math.min(m.vbStartNew, n.vbStart)
+				m.vbEndNew = math.max(m.vbEndNew, n.vbEnd)
+				m.idxCountNew = m.idxCountNew + n.idxCount
+				n.vbStartNew = 0
+				n.vbEndNew = 0
+				n.idxCountNew = 0
+			else
+				m = n
+				m.vbStartNew = m.vbStart
+				m.vbEndNew = m.vbEnd
+				m.idxCountNew = m.idxCount
+			end
 		end
 	end
+end
+
+---DynamicModel---
+DynamicModel = class(SceneObject)
+function DynamicModel:ctor(geom)
+	self.vb = CMBuffer(1)
 end
 
 ---Renderer---

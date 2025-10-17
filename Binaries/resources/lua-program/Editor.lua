@@ -346,12 +346,59 @@ function PaneWindow:ctor()
 	self.color:set(70, 70, 70, 255)
 end
 
+local gridLineLen = 10
+local function GridFunc(grid, vb, vwp, ub, uwp, cb, cwp, ib, iwp, ibStart)
+	local x, y, z = grid.camera.mWorld:GetPosition()
+	local len = gridLineLen
+	local lenH = len / 2
+	
+	local front = z + lenH
+	local back = z - lenH
+	local left = x - lenH
+	local right = x + lenH
+	
+	local xLineZ = 0
+	local zLineX = 0
+	
+	if (back > xLineZ) then
+		local d = back - xLineZ
+		xLineZ = front - (d - d // len * len)
+	elseif (front < xLineZ) then
+		local d = xLineZ - front
+		xLineZ = back + d - d // len * len
+	end
+	if (left > zLineX) then
+		local d = left - zLineX
+		zLineX = right - (d - d // len * len)
+	elseif (right < zLineX) then
+		local d = zLineX - right
+		zLineX = left + d - d // len * len
+	end
+
+	CAddFloat3(left, 0, xLineZ, vb, vwp, 1)
+	CAddFloat3(right, 0, xLineZ, vb, APPEND, 1)
+	CAddFloat3(zLineX, 0, front, vb, APPEND, 1)
+	CAddFloat3(zLineX, 0, back, vb, APPEND, 1)
+	CAddFloat2(0, 0, ub, uwp, 1)
+	CAddFloat2(1, 0, ub, APPEND, 1)
+	CAddFloat2(1, 1, ub, APPEND, 1)
+	CAddFloat2(0, 1, ub, APPEND, 1)
+	CAddUByte4(150, 150, 150, 100, cb, cwp, 4)
+	CAddUInt1(ibStart, ib, iwp, 1)
+	CAddUInt1(ibStart + 1, ib, APPEND, 1)
+	CAddUInt1(ibStart + 2, ib, APPEND, 1)
+	CAddUInt1(ibStart + 3, ib, APPEND, 1)
+	return 4, 4
+end
+
 SceneWindow = class(PaneWindow)
 function SceneWindow:ctor()
 	self.drawSelf = false
 	self.scene = SceneObject()
 	self.sceneView = SceneView(self.scene)
 	self.sceneView.fColor:set(0.25, 0.25, 0.25, 1)
+	self.sceneView.camera._Update = self.sceneView.camera.Update
+	self.sceneView.camera.Update = SceneCameraUpdate
 	self.sceneView:bind_event(EVT.KEY_DOWN, self, SceneWindow.OnKeyDown)
 	
 	local v = VBoxLayout()
@@ -359,10 +406,10 @@ function SceneWindow:ctor()
 	self:AddChild(v)
 	self:EnableDrop(PresetsWindow, true)
 	
-	self.grid = Model(g_grid3d)
+	self.grid = Model(g_w3d2)
+	self.grid:SetCustomMesh(1, GridFunc, self.grid)
+	self.grid.camera = self.sceneView.camera
 	self.grid:Attach(self.scene)
-	
-	Model(g_w3d):Attach(self.scene)
 	
 	self.o = Model(g_cube)
 	self.o:Attach(self.scene)
@@ -408,12 +455,6 @@ function SceneWindow:OnKeyDown(e, k)
 		self.o:Rotate(0, 1, 0, -2, false)
 	end
 	self:Refresh()
-end
-
-function SceneWindow:Render(...)
-	local x, y, z = self.sceneView.camera.mWorld:GetPosition()
-	--self.grid.mRoot:SetPosition(x, 0, z)
-	return SceneWindow._base.Render(self, ...)
 end
 
 function SceneWindow:UpdateDragging(x, y, m)
