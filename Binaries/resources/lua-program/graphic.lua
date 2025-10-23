@@ -160,8 +160,8 @@ function (b)
 	local rb = hub.rb
 	if (hub.rbUpdate ~= rb.update) then
 		CBufferCopy(hub.rbSrc, 0, hub.rbPos, rb, 0)
-		hub.rbSrc = rb
 	end
+	hub.rbSrc = rb
 	hub.rbUpdate = hub.rbUpdate + 1
 	rb.update = hub.rbUpdate
 	return rb
@@ -229,6 +229,10 @@ function ResourceHub:BindResBuffer(binding, ...)
 				offset = math.min(offset, bn.offset)
 				bn.offset = bn.offset + diff
 			end
+		end
+		if (hub.rbUpdate ~= rb.update) then
+			CBufferCopy(hub.rbSrc, 0, hub.rbPos, rb, 0)
+			rb.update = hub.rbUpdate
 		end
 		CBufferCopy(self.rb, offset, self.rbPos - offset + 1, self.rb, offset + diff)
 		self.rbUpdate = self.rbUpdate + 1

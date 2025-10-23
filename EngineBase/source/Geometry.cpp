@@ -54,6 +54,23 @@ std::tuple<size_t, size_t> CAddCube(LuacObj<CBuffer> pos, int vwp, LuacObj<CBuff
 }
 Lua_global_add_cfunc(CAddCube);
 
+size_t CAddLineListIndex(size_t num, LuacObj<CBuffer> ib, int wp, int idx_offset)
+{
+	BufferWriter<uint1> bw(*ib, num, wp);
+	for (size_t i = 0; i < num; i++)
+		bw[i] = i + idx_offset;
+	return num;
+}
+Lua_global_add_cfunc(CAddLineListIndex);
+
+void CAddLine(float x0, float y0, float z0, float x1, float y1, float z1, LuacObj<CBuffer> vb, int wp)
+{
+	BufferWriter<float3> bw(*vb, 2, wp);
+	bw[0] = { x0, y0, z0 };
+	bw[1] = { x1, y1, z1 };
+}
+Lua_global_add_cfunc(CAddLine);
+
 std::tuple<size_t, size_t> CGetIndicesSegment(LuacObj<CBuffer> ib, int wp, size_t offset, size_t count)
 {
 	BufferWriter<uint1> bw(*ib, offset + count, wp);

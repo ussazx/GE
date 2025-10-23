@@ -141,8 +141,9 @@ function SceneView:MoveView(x, y, z)
 	elseif (z < 0) then
 		z = -1
 	end
-	local m = self.focus
-	m:MoveLocal(x, y, z)
+	local _, d, _ = self.camera.mWorld:GetPosition()
+	local d = 1 + math.min(math.abs(d) * 0.1, 10)
+	self.focus:MoveLocal(x * d, y * d, z * d)
 end
 
 function SceneView:OnSceneMouse(e, x, y, w, m)
@@ -346,20 +347,13 @@ function PaneWindow:ctor()
 	self.color:set(70, 70, 70, 255)
 end
 
-local gridLineLen = 10
-local function GridFunc(grid, vb, vwp, ub, uwp, cb, cwp, ib, iwp, ibStart)
-	local x, y, z = grid.camera.mWorld:GetPosition()
-	local len = gridLineLen
-	local lenH = len / 2
-	
-	local front = z + lenH
-	local back = z - lenH
-	local left = x - lenH
-	local right = x + lenH
-	
-	local xLineZ = 0
-	local zLineX = 0
-	
+local gridLineLen = 1000
+local lineSpace = 1
+local fadePerCount = 10 
+--local minPixelHLen = 1
+local fov = 45
+
+local function CacGridLinePos(len, front, back, left, right, xLineZ, zLineX)
 	if (back > xLineZ) then
 		local d = back - xLineZ
 		xLineZ = front - (d - d // len * len)
@@ -374,21 +368,80 @@ local function GridFunc(grid, vb, vwp, ub, uwp, cb, cwp, ib, iwp, ibStart)
 		local d = zLineX - right
 		zLineX = left + d - d // len * len
 	end
+	return xLineZ, zLineX
+end
 
-	CAddFloat3(left, 0, xLineZ, vb, vwp, 1)
-	CAddFloat3(right, 0, xLineZ, vb, APPEND, 1)
-	CAddFloat3(zLineX, 0, front, vb, APPEND, 1)
-	CAddFloat3(zLineX, 0, back, vb, APPEND, 1)
-	CAddFloat2(0, 0, ub, uwp, 1)
-	CAddFloat2(1, 0, ub, APPEND, 1)
-	CAddFloat2(1, 1, ub, APPEND, 1)
-	CAddFloat2(0, 1, ub, APPEND, 1)
-	CAddUByte4(150, 150, 150, 100, cb, cwp, 4)
-	CAddUInt1(ibStart, ib, iwp, 1)
-	CAddUInt1(ibStart + 1, ib, APPEND, 1)
-	CAddUInt1(ibStart + 2, ib, APPEND, 1)
-	CAddUInt1(ibStart + 3, ib, APPEND, 1)
-	return 4, 4
+local function GetLineFade(noneFadeCount, fadeCount, fade, pos, space)
+	local i = math.abs(pos) // space
+	if (fadeCount == 0 or i % noneFadeCount == 0) then
+		return 1
+	elseif (i % fadeCount == 0) then
+		return fade
+	end
+	return 0
+end
+	
+local function GridFunc(grid, vb, vwp, cb, cwp, ib, iwp, ibStart)
+	local x, y, z = grid.camera.mWorld:GetPosition()
+	y = math.abs(y)
+	local count = math.ceil(gridLineLen / 2 / lineSpace)
+	local lineSpaceH = lineSpace / 2
+	local lenH = lineSpace * count + lineSpaceH
+	local len = lenH * 2
+	
+	local front = z + lenH
+	local back = z - lenH
+	local left = x - lenH
+	local right = x + lenH
+
+	local t = math.tan(fov * 0.5 * degToArc)
+	local n = math.ceil(y * t * 2 / lineSpace)
+	local fadeLevel = math.floor(math.log(n, fadePerCount))
+	local noneFadeCount = fadePerCount ^ fadeLevel
+	local fadeCount = 0
+	local fade = 0
+	if (fadeLevel > 0) then
+		fadeCount = noneFadeCount / fadePerCount
+		local y0 = noneFadeCount * 0.5 / t
+		local y1 = math.max(y, y0 * fadePerCount * lineSpace * 0.25)
+		fade = 1 - (y - y0) / (y1 - y0)
+	end
+	
+	--0, 0 lines
+	local xLineZ, zLineX = CacGridLinePos(len, front, back, left, right, 0, 0)
+	CAddLine(left, 0, xLineZ, right, 0, xLineZ, vb, vwp)
+	vwp = APPEND
+	CAddLine(zLineX, 0, front, zLineX, 0, back, vb, vwp)
+	local f = GetLineFade(noneFadeCount, fadeCount, fade, xLineZ, lineSpace)
+	CAddUByte4(150, 150, 150, 80 * f, cb, cwp, 2)
+	cwp = APPEND
+	f = GetLineFade(noneFadeCount, fadeCount, fade, zLineX, lineSpace)
+	CAddUByte4(150, 150, 150, 80 * f, cb, cwp, 2)
+	
+	local d = lineSpace
+	for i = 1, count do
+		local xLineZ1, zLineX1 = CacGridLinePos(len, front, back, left, right, d, d)
+		local xLineZ2, zLineX2 = CacGridLinePos(len, front, back, left, right, -d, -d)
+		
+		CAddLine(left, 0, xLineZ1, right, 0, xLineZ1, vb, vwp)
+		CAddLine(zLineX1, 0, front, zLineX1, 0, back, vb, vwp)
+		CAddLine(left, 0, xLineZ2, right, 0, xLineZ2, vb, vwp)
+		CAddLine(zLineX2, 0, front, zLineX2, 0, back, vb, vwp)
+		
+		f = GetLineFade(noneFadeCount, fadeCount, fade, xLineZ1, lineSpace)
+		CAddUByte4(150, 150, 150, 80 * f, cb, cwp, 2)
+		f = GetLineFade(noneFadeCount, fadeCount, fade, zLineX1, lineSpace)
+		CAddUByte4(150, 150, 150, 80 * f, cb, cwp, 2)
+		f = GetLineFade(noneFadeCount, fadeCount, fade, xLineZ2, lineSpace)
+		CAddUByte4(150, 150, 150, 80 * f, cb, cwp, 2)
+		f = GetLineFade(noneFadeCount, fadeCount, fade, zLineX2, lineSpace)
+		CAddUByte4(150, 150, 150, 80 * f, cb, cwp, 2)
+		d = d + lineSpace
+	end
+	
+	count = (count * 4 + 2) * 2
+	CAddLineListIndex(count, ib, iwp, ibStart)
+	return count, count
 end
 
 SceneWindow = class(PaneWindow)
@@ -406,7 +459,8 @@ function SceneWindow:ctor()
 	self:AddChild(v)
 	self:EnableDrop(PresetsWindow, true)
 	
-	self.grid = Model(g_w3d2)
+	self.grid = Model(g_grid3d)
+	self.grid:EnableWriteId(false)
 	self.grid:SetCustomMesh(1, GridFunc, self.grid)
 	self.grid.camera = self.sceneView.camera
 	self.grid:Attach(self.scene)

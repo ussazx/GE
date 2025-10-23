@@ -462,7 +462,7 @@ inline size_t AddConvexPolyIndex(BufferWriter<uint1>& ibw, std::vector<uint1>& v
 	return n;
 }
 
-inline size_t CAddConvexPolyIndex(int idx_offset, uint32_t num_vtx, LuacObj<CBuffer> ib, int wp, int count)
+inline size_t CAddConvexPolyIndex(uint32_t num_vtx, LuacObj<CBuffer> ib, int wp, int idx_offset, int count)
 {
 	if (num_vtx < 3)
 		return 0;

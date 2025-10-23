@@ -822,7 +822,7 @@ function UiWidget:FillRectVB(color, vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor
 	end
 	CAddFloat3(self.font.pixels, 0, 0, vbUVW, wpUVW, 4)
 	CAddUByte4(color.r, color.g, color.b, color.a, vbColor, wpColor, 4)
-	return 4, CAddConvexPolyIndex(ibStart, 4, ib, iwp, 1)
+	return 4, CAddConvexPolyIndex(4, ib, iwp, ibStart, 1)
 end
 
 function UiWidget:FillClipRectVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
@@ -1023,7 +1023,7 @@ function UiText:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ib
 	end
 	
 	CAddUByte4(self.color.r, self.color.g, self.color.b, self.color.a, vbColor, wpColor, 4 * n)
-	return 4 * n, CAddConvexPolyIndex(ibStart, 4, ib, iwp, n)
+	return 4 * n, CAddConvexPolyIndex(4, ib, iwp, ibStart, n)
 end
 
 -----TextInput-----
@@ -1443,7 +1443,7 @@ function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iw
 	n = n + CAddTextClip(self.textOffset, self.rect.h + self.font.descender, 
 	rect.x, rect.y, rect.w, rect.h, Z_2D, self.text, self.font, vbPos, wpPos, vbUVW, wpUVW)
 	CAddUByte4(self.color.r, self.color.g, self.color.b, self.color.a, vbColor, wpColor, 4 * n)
-	return 4 * n, CAddConvexPolyIndex(ibStart, 4, ib, iwp, n)
+	return 4 * n, CAddConvexPolyIndex(4, ib, iwp, ibStart, n)
 end
 
 UiSlideBar = class(UiWidget)
@@ -2218,7 +2218,7 @@ function Scene3D:ctor(camera)
 	self.mProj = CMatrix3D()
 	
 	self.res = ResourceHub(g_rlUB)
-	self.rb = self.res:BindResBuffer(0, CMatrix3D._size, CMatrix3D._size)
+	self.rb = self.res:BindResBuffer(0, CMatrix3D._size, CMatrix3D._size, CMatrix3D._size)
 end
 
 function Scene3D:Render()

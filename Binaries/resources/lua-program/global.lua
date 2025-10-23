@@ -6,6 +6,7 @@ require 'geometry'
 g_recorder = Recorder()
 
 g_content = {}
+g_previews = {}
 
 g_scene = SceneObject()
 
@@ -207,6 +208,8 @@ plane3d_ps = cGI:NewShaderModule(f)
 
 f:Open('Resources/shaders/'..cGI:Type()..'/grid3d.vsc', true)
 grid3d_vs = cGI:NewShaderModule(f)
+f:Open('Resources/shaders/'..cGI:Type()..'/grid3d.psc', true)
+grid3d_ps = cGI:NewShaderModule(f)
 
 f:Open('Resources/shaders/'..cGI:Type()..'/ui2.vsc', true)
 ui2_vs = cGI:NewShaderModule(f)
@@ -352,13 +355,6 @@ cParamPipeline:AddVertexElement(1, 1, cGI.FORMAT_R32G32_SFLOAT, SIZE_FLOAT2)
 cParamPipeline:AddVertexElement(2, 2, cGI.FORMAT_R8G8B8A8_UNORM, SIZE_UINT1)
 g_pl3D = cGI:NewPipeline(g_rp0, 0, 1, object3d_vs, 'main', object3d_ps, 'main', cParamPipeline)
 
-cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_NONE, true, false, false, false)
-cParamPipeline:SetDethStencilStates(true, false, false, cGI.COMPARE_OP_GREATER_OR_EQUAL, false)
-g_plPlane3D = cGI:NewPipeline(g_rp0, 0, 1, plane3d_vs, 'main', plane3d_ps, 'main', cParamPipeline)
-
-cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_LINE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_NONE, true, false, false, false)
-g_plGrid3D = cGI:NewPipeline(g_rp0, 0, 1, grid3d_vs, 'main', object3d_ps, 'main', cParamPipeline)
-
 cParamPipeline:Reset()
 cParamPipeline:AddResourceLayout(g_rlUB)
 cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_BACK_BIT, true, false, false, false)
@@ -367,6 +363,17 @@ cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
 cParamPipeline:AddVertexElement(3, 1, cGI.FORMAT_WRITE_ID, SIZE_WRITE_ID)
 cParamPipeline:SetVertexInputRate(3, true)
 g_plId3D = cGI:NewPipeline(g_rp0, 1, 1, object3d_id_vs, 'main', id_ps, 'main', cParamPipeline)
+
+--grid3d pipeline
+cParamPipeline:Reset()
+cParamPipeline:AddResourceLayout(g_rlUB)
+cParamPipeline:SetDethStencilStates(true, false, false, cGI.COMPARE_OP_GREATER_OR_EQUAL, false)
+cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_LINE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_NONE, true, false, false, false)
+cParamPipeline:SetBlendState(0, true)
+cParamPipeline:SetBsColorBlendOp(0, cGI.BLEND_FACTOR_SRC_ALPHA, cGI.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, cGI.BLEND_OP_ADD)
+cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
+cParamPipeline:AddVertexElement(1, 1, cGI.FORMAT_R8G8B8A8_UNORM, SIZE_UINT1)
+g_plGrid3D = cGI:NewPipeline(g_rp0, 0, 1, grid3d_vs, 'main', grid3d_ps, 'main', cParamPipeline)
 
 --3d material
 g_mtl3d = {}
@@ -387,22 +394,9 @@ g_mtl3d.func[g_rp0[2]] = {func = function(mtl, dcList)
 	dcList:SetInsVB(g_idVbSet, 3)
 end, mergeType = DC_MTL_MERGED, order = g_mtl3d}
 
---plane3d material
-g_mtlPlane3d = {}
-g_mtlPlane3d.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT2, SIZE_UINT1)
-g_mtlPlane3d.insSlot = {{g_rp0[1], 0, 1}}
-g_mtlPlane3d.idSlot = {}
-
-g_mtlPlane3d.func = {}
-
-g_mtlPlane3d.func[g_rp0[1]] = {func = function(mtl, dcList)
-	dcList:AddResourceSet(g_resCamera)
-	dcList:SetPipeline(g_plPlane3D, g_mtlPlane3d.vbLayout, 0)
-end, mergeType = DC_SORTED_2, order = 1}
-
 --grid3d material
 g_mtlGrid3d = {}
-g_mtlGrid3d.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT2, SIZE_UINT1)
+g_mtlGrid3d.vbLayout = NewVBLayout(1|2, SIZE_FLOAT3, SIZE_UINT1)
 g_mtlGrid3d.insSlot = {{g_rp0[1], 0, 1}}
 g_mtlGrid3d.idSlot = {}
 
@@ -412,8 +406,6 @@ g_mtlGrid3d.func[g_rp0[1]] = {func = function(mtl, dcList)
 	dcList:SetLineWidth(2)
 	dcList:SetPipeline(g_plGrid3D, g_mtlGrid3d.vbLayout, 0)
 end, mergeType = DC_SORTED_2, order = 1}
-
-g_previews = {}
 
 ---Cube---
 local vb = CMBuffer(1)
@@ -454,7 +446,7 @@ CAddFloat2(1, 0, ub, APPEND, 1)
 CAddFloat2(1, 1, ub, APPEND, 1)
 CAddFloat2(0, 1, ub, APPEND, 1)
 CAddUByte4(150, 150, 150, 255, cb, APPEND, 4)
-CAddConvexPolyIndex(0, 4, ib, APPEND, 1)
+CAddConvexPolyIndex(4, ib, APPEND, 0, 1)
 geoInfo = {}
 geoInfo.layout = 1|2|4
 geoInfo.vbInfo = {}
@@ -464,75 +456,18 @@ geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_UINT1}
 geoInfo.vb = {vb, ub, cb}
 geoInfo.ib = ib
 geoInfo.meshes = {}
-geoInfo.meshes[1] = {0, 6, g_mtlPlane3d}
+geoInfo.meshes[1] = {0, 6, g_mtl3d}
 g_plane3d = Geometry(geoInfo)
 
 ---Grid3d---
-local vb = CMBuffer(1)
-local ub = CMBuffer(1)
-local cb = CMBuffer(1)
-local ib = CMBuffer(1)
-CAddFloat3(-10, 0, 0, vb, APPEND, 1)
-CAddFloat3(10, 0, 0, vb, APPEND, 1)
-CAddFloat3(0, 0, -10, vb, APPEND, 1)
-CAddFloat3(0, 0, 10, vb, APPEND, 1)
-CAddFloat2(0, 0, ub, APPEND, 1)
-CAddFloat2(1, 0, ub, APPEND, 1)
-CAddFloat2(1, 1, ub, APPEND, 1)
-CAddFloat2(0, 1, ub, APPEND, 1)
-CAddUByte4(150, 150, 150, 100, cb, APPEND, 4)
-CAddUInt1(0, ib, APPEND, 1)
-CAddUInt1(1, ib, APPEND, 1)
-CAddUInt1(2, ib, APPEND, 1)
-CAddUInt1(3, ib, APPEND, 1)
 geoInfo = {}
-geoInfo.vb = {vb, ub, cb}
-geoInfo.ib = ib
-geoInfo.layout = 1|2|4
+geoInfo.layout = 1|2
 geoInfo.vbInfo = {}
 geoInfo.vbInfo[1] = {Geometry.TRANS_DEFAULT}
-geoInfo.vbInfo[2] = {Geometry.TRANS_NONE, SIZE_FLOAT2}
-geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_UINT1}
-geoInfo.meshes = {}
-geoInfo.meshes[1] = {0, 4, g_mtlGrid3d}
-g_grid3d = Geometry(geoInfo)
-
----w3d---
-local vb = CMBuffer(1)
-local ub = CMBuffer(1)
-local cb = CMBuffer(1)
-local ib = CMBuffer(1)
-CAddFloat3(-1, 0.35, 0, vb, APPEND, 1)
-CAddFloat3(-0.5, 0.35, 0, vb, APPEND, 1)
-CAddFloat3(-0.5, 0.3, -0, vb, APPEND, 1)
-CAddFloat3(-1, 0.3, -0, vb, APPEND, 1)
-CAddFloat2(0, 0, ub, APPEND, 1)
-CAddFloat2(1, 0, ub, APPEND, 1)
-CAddFloat2(1, 1, ub, APPEND, 1)
-CAddFloat2(0, 1, ub, APPEND, 1)
-CAddUByte4(150, 150, 150, 255, cb, APPEND, 4)
-CAddConvexPolyIndex(0, 4, ib, APPEND, 1)
-geoInfo = {}
-geoInfo.layout = 1|2|4
-geoInfo.vbInfo = {}
-geoInfo.vbInfo[1] = {Geometry.TRANS_DEFAULT}
-geoInfo.vbInfo[2] = {Geometry.TRANS_NONE, SIZE_FLOAT2}
-geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_UINT1}
-geoInfo.vb = {vb, ub, cb}
-geoInfo.ib = ib
-geoInfo.meshes = {}
-geoInfo.meshes[1] = {0, 6, g_mtlPlane3d}
-g_w3d = Geometry(geoInfo)
-
-geoInfo = {}
-geoInfo.layout = 1|2|4
-geoInfo.vbInfo = {}
-geoInfo.vbInfo[1] = {Geometry.TRANS_DEFAULT}
-geoInfo.vbInfo[2] = {Geometry.TRANS_NONE, SIZE_FLOAT2}
-geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_UINT1}
+geoInfo.vbInfo[2] = {Geometry.TRANS_NONE, SIZE_UINT1}
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 0, g_mtlGrid3d}
-g_w3d2 = Geometry(geoInfo)
+g_grid3d = Geometry(geoInfo)
 
 -- cParamResourceLayout:Reset()
 -- cParamResourceLayout:Add(RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, SHADER_STAGE_VERTEX_BIT)
