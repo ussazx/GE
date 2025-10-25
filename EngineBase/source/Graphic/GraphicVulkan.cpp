@@ -796,6 +796,13 @@ void VKCommand::SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx)
 	m_resources[idx] = ((VKResourceSet*)set)->m_set;
 }
 
+void VKCommand::SetVertexBuffer(LuacObj<CBuffer> vb, uint32_t binding, uint32_t offset)
+{
+	VKBuffer* b = (VKBuffer*)vb;
+	VkDeviceSize d = offset;
+	vkCmdBindVertexBuffers(m_cmd, binding, 1, &b->m_buffer, &d);
+}
+
 void VKCommand::SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding)
 {
 	VKBufferSet* s = (VKBufferSet*)vbSet;

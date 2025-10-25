@@ -153,6 +153,58 @@ function RenderCommand.Recycle(cmd)
 	end
 end
 
+---InstanceBuffer---
+InstanceBuffer = class()
+		
+function InstanceBuffer:ctor(size)
+	getmetatable(self).__call = InstanceBuffer.Get
+	self.gb = cGI:NewBuffer(size)
+	self.gb.update = 0
+	self.gb0 = self.gb
+	self.src = self.gb
+	self.size = size
+	self.update = 0
+	self.cmd = {}
+end
+
+function InstanceBuffer:Get()
+	local gb = self.gb
+	if (self.update ~= gb.update) then
+		CBufferCopy(self.src, 0, APPEND, gb, 0)
+	end
+	self.src = gb
+	self.update = self.update + 1
+	gb.update = self.update
+	return gb
+end
+
+function InstanceBuffer:NewBuffer(cmd)
+	gb = {}
+	if (self.gb0) then
+		gb[0] = self.gb0
+		self.gb0 = nil
+	else
+		gb[0] = cGI:NewBuffer(math.max(256, self.size))
+		gb[0].update = 0
+	end
+	gb[1] = cGI:NewBuffer(math.max(256, self.size))
+	gb[1].update = 0
+	self.cmd[cmd] = gb
+	return gb
+end	
+
+function InstanceBuffer:BindCommand(cmd, slot)
+	local cIdx = cmd.cIdx
+	local gbCmd = self.cmd[cmd] or self:NewBuffer(cmd)
+	local gb = gbCmd[cIdx]
+	if (gb.update ~= self.update) then
+		CBufferCopy(self.src, 0, APPEND, gb, 0)
+		gb.update = self.update
+	end
+	cmd[cIdx]:SetVertexBuffer(gb, slot, 0)
+	self.gb = gbCmd[~cIdx & 1]
+end
+
 ---ResBuffer---
 local ResBufferMT = {__call = 
 function (b)
@@ -210,6 +262,7 @@ end
 function ResourceHub:BindResBuffer(binding, ...)
 	if (not self.rb) then
 		self.rb = cGI:NewBuffer(128)
+		self.rb.update = 0
 		self.rb0 = self.rb
 		self.rbSrc = self.rb
 		self.rbPos = 0
@@ -338,6 +391,10 @@ local function SetResourceSet(cmd, cmdFunc, arg)
 	arg[1]:BindCommand(cmd.main, arg[2])
 end
 
+local function SetInstanceBuffer(cmd, cmdFunc, arg)
+	arg[1]:BindCommand(cmd.main, arg[2])
+end
+
 local function SetupSubList(cmd, cmdFunc, arg)
 	arg[1]:SetupDrawcalls(cmd)
 end
@@ -347,7 +404,7 @@ DrawcallList = class()
 function DrawcallList:ctor()
 	self.d_rs = {}
 	self.d_res = {}
-	self.d_insVbSets = {}
+	self.d_instVb = {}
 	self.opList = {}
 end
 
@@ -371,9 +428,9 @@ function DrawcallList:Reset(input)
 	for k, _ in pairs(self.res) do
 		self.res[k] = nil
 	end
-	self.insVbSets = self.d_insVbSets
-	for k, _ in pairs(self.insVbSets) do
-		self.insVbSets[k] = nil
+	self.instVb = self.d_instVb
+	for k, _ in pairs(self.instVb) do
+		self.instVb[k] = nil
 	end
 end
 
@@ -417,6 +474,7 @@ function DrawcallList:SetViewport(x, y, w, h)
 	if (not op or op.x ~= x or op.y ~= y or op.w ~= w or op.h ~= h) then
 		self:CommitDrawcall()
 		op = self:NewOP()
+		op.x, op.y, op.w, op.h = x, y, w, h
 		SetupOp(op, Command.SetViewport, x, y, w, h, 0, 1)
 		rs.vp = op
 	end
@@ -428,6 +486,7 @@ function DrawcallList:SetScissor(x, y, w, h)
 	if (not op or op.x ~= x or op.y ~= y or op.w ~= w or op.h ~= h) then
 		self:CommitDrawcall()
 		op = self:NewOP()
+		op.x, op.y, op.w, op.h = x, y, w, h
 		SetupOp(op, Command.SetScissor, x, y, w, h)
 		rs.sc = op
 	end
@@ -438,6 +497,7 @@ function DrawcallList:SetLineWidth(w)
 	if (not op or op.w ~= w) then
 		self:CommitDrawcall()
 		op = self:NewOP()
+		op.w = w
 		SetupOp(op, Command.SetLineWidth, w)
 		self.rs.lw = op
 	end
@@ -455,19 +515,9 @@ function DrawcallList:SetPipeline(pl, vbLayout, slot)
 	if (not op or op.vtxInput ~= vtxInput or op.slot ~= slot) then
 		self:CommitDrawcall()
 		op = self:NewOP()
+		op.vtxInput, op.slot = vtxInput, slot
 		SetupOp(op, Command.SetVertexBuffers, vtxInput, slot)
 		rs.vbMain = op
-	end
-end
-
-function DrawcallList:SetInsVB(vbSet, slot)
-	local insVbSets = self.insVbSets
-	local op = insVbSets[slot]
-	if (not op or op.vtxInput ~= vbSet) then
-		self:CommitDrawcall()
-		op = self:NewOP()
-		SetupOp(op, Command.SetVertexBuffers, vbSet, slot)
-		insVbSets[slot] = op
 	end
 end
 
@@ -476,7 +526,7 @@ function DrawcallList:AddResourceSet(res)
 	self.resIdx = self.resIdx + 1
 	local resSet = self.res
 	local op = resSet[resIdx]
-	if (not op or op.res ~= res) then
+	if (not op or op.arg[1] ~= res) then
 		self:CommitDrawcall()
 		op = self:NewOP()
 		op.func = SetResourceSet
@@ -486,11 +536,24 @@ function DrawcallList:AddResourceSet(res)
 	end
 end
 
+function DrawcallList:SetInstVB(vb, slot)
+	local instVb = self.instVb
+	local op = instVb[slot]
+	if (not op or op.arg[1] ~= vb) then
+		self:CommitDrawcall()
+		op = self:NewOP()
+		op.func = SetInstanceBuffer
+		op.arg[1] = vb
+		op.arg[2] = slot
+		instVb[slot] = op
+	end
+end
+
 function DrawcallList:AddSubList(dcList)
 	self:CommitDrawcall()
 	self.rs = dcList.rs
 	self.res = dcList.res
-	self.insVbSets = dcList.insVbSets
+	self.instVb = dcList.instVb
 	local op = self:NewOP()
 	op.func = SetupSubList
 	op.arg[1] = dcList
@@ -825,13 +888,7 @@ function Renderer:RenderCached(scene)
 end
 
 function Renderer:SetMaterial(mtl, id, ...)
-	if (self.mtl == mtl) then
-		return
-	end
-	self.mtl = mtl
 	self.id = id or self.id
-	self.strides = mtl.vbLayout.strides
-	local strides = self.strides
 	local insArgs = {...}
 	for k, v in pairs(mtl.insSlot) do
 		self.insArgs[v[1]] = insArgs[k] or {v[2], v[3]}
@@ -843,6 +900,13 @@ function Renderer:SetMaterial(mtl, id, ...)
 		end
 	end
 	
+	if (self.mtl == mtl) then
+		return
+	end
+	self.mtl = mtl
+	self.strides = mtl.vbLayout.strides
+	
+	local strides = self.strides
 	local srcFields = self.fields
 	local dstFields = mtl.vbLayout.fields
 	local f

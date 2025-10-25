@@ -350,50 +350,25 @@ end
 local gridLineLen = 1000
 local lineSpace = 1
 local fadePerCount = 10 
---local minPixelHLen = 1
 local fov = 45
 
-local function CacGridLinePos(len, front, back, left, right, xLineZ, zLineX)
-	if (back > xLineZ) then
-		local d = back - xLineZ
-		xLineZ = front - (d - d // len * len)
-	elseif (front < xLineZ) then
-		local d = xLineZ - front
-		xLineZ = back + d - d // len * len
-	end
-	if (left > zLineX) then
-		local d = left - zLineX
-		zLineX = right - (d - d // len * len)
-	elseif (right < zLineX) then
-		local d = zLineX - right
-		zLineX = left + d - d // len * len
-	end
-	return xLineZ, zLineX
-end
-
-local function GetLineFade(noneFadeCount, fadeCount, fade, pos, space)
-	local i = math.abs(pos) // space
-	if (fadeCount == 0 or i % noneFadeCount == 0) then
-		return 1
-	elseif (i % fadeCount == 0) then
-		return fade
-	end
-	return 0
-end
-	
-local function GridFunc(grid, vb, vwp, cb, cwp, ib, iwp, ibStart)
-	local x, y, z = grid.camera.mWorld:GetPosition()
-	y = math.abs(y)
+local function GridFunc(grid, vbLineInfo, lwp, vbFadeInfo, fwp,  vbColor, cwp, ib, iwp, ibStart)
 	local count = math.ceil(gridLineLen / 2 / lineSpace)
-	local lineSpaceH = lineSpace / 2
-	local lenH = lineSpace * count + lineSpaceH
+	local lenH = lineSpace * count + lineSpace / 2
 	local len = lenH * 2
 	
-	local front = z + lenH
-	local back = z - lenH
-	local left = x - lenH
-	local right = x + lenH
+	if (count ~= grid.count) then
+		local b = g_gridSeq()
+		b:SetWritePos(0)
+		for i = -count, count do
+			CAddInt1(i, b, APPEND, 1)
+		end
+		grid:SetMaterial(1, g_mtlGrid3d, {0, count * 2 + 1})
+		grid.count = count
+	end
 
+	local x, y, z = grid.camera.mWorld:GetPosition()
+	y = math.abs(y)
 	local t = math.tan(fov * 0.5 * degToArc)
 	local n = math.ceil(y * t * 2 / lineSpace)
 	local fadeLevel = math.floor(math.log(n, fadePerCount))
@@ -407,41 +382,15 @@ local function GridFunc(grid, vb, vwp, cb, cwp, ib, iwp, ibStart)
 		fade = 1 - (y - y0) / (y1 - y0)
 	end
 	
-	--0, 0 lines
-	local xLineZ, zLineX = CacGridLinePos(len, front, back, left, right, 0, 0)
-	CAddLine(left, 0, xLineZ, right, 0, xLineZ, vb, vwp)
-	vwp = APPEND
-	CAddLine(zLineX, 0, front, zLineX, 0, back, vb, vwp)
-	local f = GetLineFade(noneFadeCount, fadeCount, fade, xLineZ, lineSpace)
-	CAddUByte4(150, 150, 150, 80 * f, cb, cwp, 2)
-	cwp = APPEND
-	f = GetLineFade(noneFadeCount, fadeCount, fade, zLineX, lineSpace)
-	CAddUByte4(150, 150, 150, 80 * f, cb, cwp, 2)
+	CAddFloat4(-lenH, x, z, 1, vbLineInfo, lwp, 1)
+	CAddFloat4(lenH, x, z, 1, vbLineInfo, APPEND, 1)
+	CAddFloat4(lenH, x, z, 0, vbLineInfo, APPEND, 1)
+	CAddFloat4(-lenH, x, z, 0, vbLineInfo, APPEND, 1)
+	CAddFloat4(lineSpace, fadeCount, noneFadeCount, fade, vbFadeInfo, fwp, 4)
+	CAddUByte4(150, 150, 150, 80, vbColor, cwp, 4)
 	
-	local d = lineSpace
-	for i = 1, count do
-		local xLineZ1, zLineX1 = CacGridLinePos(len, front, back, left, right, d, d)
-		local xLineZ2, zLineX2 = CacGridLinePos(len, front, back, left, right, -d, -d)
-		
-		CAddLine(left, 0, xLineZ1, right, 0, xLineZ1, vb, vwp)
-		CAddLine(zLineX1, 0, front, zLineX1, 0, back, vb, vwp)
-		CAddLine(left, 0, xLineZ2, right, 0, xLineZ2, vb, vwp)
-		CAddLine(zLineX2, 0, front, zLineX2, 0, back, vb, vwp)
-		
-		f = GetLineFade(noneFadeCount, fadeCount, fade, xLineZ1, lineSpace)
-		CAddUByte4(150, 150, 150, 80 * f, cb, cwp, 2)
-		f = GetLineFade(noneFadeCount, fadeCount, fade, zLineX1, lineSpace)
-		CAddUByte4(150, 150, 150, 80 * f, cb, cwp, 2)
-		f = GetLineFade(noneFadeCount, fadeCount, fade, xLineZ2, lineSpace)
-		CAddUByte4(150, 150, 150, 80 * f, cb, cwp, 2)
-		f = GetLineFade(noneFadeCount, fadeCount, fade, zLineX2, lineSpace)
-		CAddUByte4(150, 150, 150, 80 * f, cb, cwp, 2)
-		d = d + lineSpace
-	end
-	
-	count = (count * 4 + 2) * 2
-	CAddLineListIndex(count, ib, iwp, ibStart)
-	return count, count
+	CAddLineListIndex(4, ib, iwp, ibStart)
+	return 4, 4
 end
 
 SceneWindow = class(PaneWindow)

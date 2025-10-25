@@ -648,8 +648,10 @@ inline size_t PrepareCopy(CBuffer& src, uint32_t src_pos, uint32_t stride, uint3
 	return count;
 }
 
-inline void CBufferCopy(LuacObj<CBuffer> src, uint32_t src_pos, uint32_t size, LuacObj<CBuffer> dst, int dst_wp)
+inline void CBufferCopy(LuacObj<CBuffer> src, int src_pos, int size, LuacObj<CBuffer> dst, int dst_wp)
 {
+	if (size < 0)
+		size = src->GetSize();
 	size = PrepareCopy(*src, src_pos, 1, size, *dst, dst_wp);
 	if (size == 0)
 		return;

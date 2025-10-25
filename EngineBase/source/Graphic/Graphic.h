@@ -190,6 +190,8 @@ public:
 
 	virtual void SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx) = 0;
 
+	virtual void SetVertexBuffer(LuacObj<CBuffer> buffer, uint32_t binding, uint32_t offset) = 0;
+
 	virtual void SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding) = 0;
 
 	virtual void DrawIndexed(LuacObj<Pipeline> pipeline, LuacObj<CBuffer> ib, int32_t vtxOffset, uint32_t firstIndex, uint32_t indexCount, uint32_t firstInst, uint32_t instCount) = 0;
@@ -218,6 +220,7 @@ public:
 		Lua_mf(SetLineWidth),
 		Lua_mf(SetResourceSet),
 		Lua_mf(DrawIndexed),
+		Lua_mf(SetVertexBuffer),
 		Lua_mf(SetVertexBuffers),
 		Lua_mf(DrawIndexedIndirect),
 		Lua_mf(CopyImage));

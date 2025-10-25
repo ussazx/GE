@@ -321,6 +321,8 @@ public:
 
 	void SetResourceSet(LuacObj<ResourceSet> set, uint32_t idx) override;
 
+	void SetVertexBuffer(LuacObj<CBuffer> buffer, uint32_t binding, uint32_t offset) override;
+
 	void SetVertexBuffers(LuacObj<BufferSet> vbSet, uint32_t firstBinding) override;
 
 

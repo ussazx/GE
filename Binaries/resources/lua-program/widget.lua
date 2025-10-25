@@ -2223,7 +2223,7 @@ end
 
 function Scene3D:Render()
 	if (self.sized) then
-		self.mProj:Perspective(45, self.rect.w, self.rect.h, 1000, 0.001)
+		self.mProj:Perspective(45, self.rect.w, self.rect.h, 10000, 0.001)
 	end
 	--CMatrixToViewMultiply(self.camera.mRoot, self.mProj, self.rb(), self.rb[1])
 	
