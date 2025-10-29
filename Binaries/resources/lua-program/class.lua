@@ -8,7 +8,7 @@ end
 
 local function ctor(o, c, ...)
 	if (c._base) then
-		ctor(o, c._base)
+		c._bctor(o, c._base, c._bargs)
 	end
 	if (c.ctor and (c._base == nil or c.ctor ~= c._base.ctor)) then
 		c.ctor(o, ...)
@@ -41,9 +41,26 @@ local function instantiate(c, base, ...)
 	return o
 end
 
-function class(base_class)
-	local c = setmetatable({_base = base_class}, {__index = base_class, __call = instantiate})
+function class(base_class, ...)
+	local c = setmetatable({_ctor = ctor, _base = base_class}, {__index = base_class, __call = instantiate})
 	c._class = {__index = c, __gc = dtor}
+	local args = {...}
+	local n = #args
+	if (n > 0) then
+		c._bargs = args
+		local s = [[return function (o, c, args)
+			if (c._base) then
+				c._ctor(o, c._base)
+			end
+			c._ctor(o, c]]
+		for i = 1, n do
+			s = s .. string.format(', args[%q]', i)
+		end
+		s = s .. ') end'
+		c._bctor = load(s, '', 't')()
+	else
+		c._bctor = ctor
+	end
 	c[c] = true
 	return c
 end

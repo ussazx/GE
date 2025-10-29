@@ -1,5 +1,6 @@
 ---Editor---
 require 'window'
+require 'presets'
 
 function WindowRecord(w, redo, o)
 	if (redo) then
@@ -358,12 +359,12 @@ local function GridFunc(grid, vbLineInfo, lwp, vbFadeInfo, fwp,  vbColor, cwp, i
 	local len = lenH * 2
 	
 	if (count ~= grid.count) then
-		local b = g_gridSeq()
+		local b = g_gridSeqInst()
 		b:SetWritePos(0)
 		for i = -count, count do
 			CAddInt1(i, b, APPEND, 1)
 		end
-		grid:SetMaterial(1, g_mtlGrid3d, {0, count * 2 + 1})
+		grid:SetInstArgs(1, g_gridInstGroup, 0, count * 2 + 1)
 		grid.count = count
 	end
 
@@ -415,24 +416,25 @@ function SceneWindow:ctor()
 	self.grid:Attach(self.scene)
 	
 	self.o = Model(g_cube)
-	self.o:Attach(self.scene)
-	
+	--self.o:Attach(self.scene)
 	self.o1 = Model(g_cube)
 	self.o1:Move(-2.5, 0, 0)
 	self.o1:Attach(self.scene)
 	self.a = true
 	
+	local arrow = SceneObjCoord()
+	arrow:Attach(self.scene)
+	
 	--local w = UiPolyIcon(g_iconLine1)
 	local w = UiText('abcdef')
 	w:EnableWriteId(false)
 	self.w = w
-	w.mRoot = CMatrix3D()
+	w.mRoot = CMatrix()
 	w.mtl = Material(g_mtlUi2)
 	w.mtl.resModel = ResourceHub(g_rlUB)
-	local buf = w.mtl.resModel:BindResBuffer(0, CMatrix3D._size)
+	local buf = w.mtl.resModel:BindResBuffer(0, CMatrix._size)
 	CAddMatrix(w.mRoot, buf(), buf[1])
 	w.renderer:SetMaterial(w.mtl)
-	
 	--self.scene:AddChild(w, 100, 50)
 end
 

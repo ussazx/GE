@@ -4,14 +4,16 @@ require 'class'
 require 'geometry'
 
 ---SubpassId---
+local idPass = {}
 local subpassId = 0
 local passTable = {}
-function SubpassId(pass, subIdx)
+function SubpassId(pass, subIdx, isId)
 	local p = passTable[pass] or {}
 	passTable[pass] = p
 	local id = p[subIdx] or subpassId
 	p[subIdx] = id
 	subpassId = subpassId + 1
+	idPass[id] = isId
 	return id
 end
 
@@ -645,8 +647,8 @@ function Geometry:ctor(o)
 		write = write .. string.format('vb = model.vb[%q] ', k)
 		if (v[1] == Geometry.TRANS_DEFAULT or v[1] == Geometry.TRANS_NORMAL) then
 			local isNormal = v[1] == Geometry.TRANS_NORMAL
-			write = write .. string.format('model.trans:AddFactors(vb, 0, vbStart, vbCount, vbDst%q, wp%q, %q) ', k, k, isNormal)
-			write_d = write_d .. string.format('model.trans:AddFactors(vbDst%q, wp%q, 0, vbCount, vbDst%q, wp%q, %q) ', k, k, k, k, isNormal)
+			write = write .. string.format('model:Trans(vb, 0, vbStart, vbCount, vbDst%q, wp%q, %q) ', k, k, isNormal)
+			write_d = write_d .. string.format('model:Trans(vbDst%q, wp%q, 0, vbCount, vbDst%q, wp%q, %q) ', k, k, k, k, isNormal)
 		else
 			write = write .. 
 			string.format(' CBufferCopy(vb, vbStart * %q, vbCount * %q, vbDst%q, wp%q) ', v[2], v[2], k, k)
@@ -663,11 +665,20 @@ Mesh = class()
 
 function Mesh:ctor(model, layout, vbStart, vbEnd, idxOffset, idxCount)
 	self.model = model
+	self.id = self.model.id
 	self.vbStart = vbStart or 0
 	self.vbEnd = vbEnd or 0
 	self.idxOffset = idxOffset or 0
 	self.idxCount = idxCount or 0
+	self.instArgs = {}
+	self:SetInstArgs(g_idInstGroup, self.id, 1)
 	self.renderer = Renderer(self, layout, self.Write)
+end
+
+function Mesh:SetInstArgs(instGroup, start, count)
+	local o = self.instArgs[instGroup] or {}
+	o[1], o[2] = start, count
+	self.instArgs[instGroup] = o
 end
 
 function Mesh:Write(...)
@@ -689,13 +700,22 @@ function Model:ctor(geom)
 	self.meshes = {}
 	self.vb = geom.info.vb
 	self.ib = geom.info.ib
+	self.Trans = Model.CPUTrans
 	for _, m in pairs(geom.meshes) do
 		local mesh = Mesh(self, geom.info.layout, m.vbStart, m.vbEnd, m[1], m[2])
 		table.insert(self.meshes, mesh)
-		mesh.renderer:SetMaterial(m[3], self.id)
+		mesh.renderer:SetMaterial(m[3])
 	end
 	self.RenderMeshes = geom.renderFunc
 	self:Reschedule()
+end
+
+function Model:CPUTrans(...)
+	self.trans:AddFactors(...)
+end
+
+function Model:GPUTrans(src, wpSrc, start, count, dst, wpDst)
+	CBufferCopy(src, start * SIZE_FLOAT3, count * SIZE_FLOAT3, dst, wpDst)
 end
 
 function Model.MeshDynamic1(mesh, ...)
@@ -727,12 +747,19 @@ function Model:SetCustomMesh(idx, func, data)
 	end
 end
 
-function Model:SetMaterial(idx, mtl, ...)
+function Model:SetMaterial(idx, mtl)
 	local m = self.meshes[idx]
 	if (m) then
-		m.renderer:SetMaterial(mtl, self.id, ...)
+		m.renderer:SetMaterial(mtl)
 		m.renderer:EnableWriteId(self.writeId)
 		self:Reschedule()
+	end	
+end
+
+function Model:SetInstArgs(idx, instGroup, start, count)
+	local m = self.meshes[idx]
+	if (m) then
+		m:SetInstArgs(instGroup, start, count)
 	end	
 end
 
@@ -778,12 +805,6 @@ function Model:Reschedule()
 	end
 end
 
----DynamicModel---
-DynamicModel = class(SceneObject)
-function DynamicModel:ctor(geom)
-	self.vb = CMBuffer(1)
-end
-
 ---Renderer---
 Renderer = class()
 Renderer.UpdateCached = {}
@@ -796,7 +817,8 @@ function Renderer:ctor(mesh, fields, reader, doCache)
 	self.fields = fields
 	self.doCache = doCache
 	self.disables = {}
-	self.insArgs = {}
+	self.instArgs = mesh.instArgs
+	self.defaultInst = {0, 1}
 	self.n_vtx = 0
 	self.n_idx = 0
 	self.writeId = true
@@ -849,8 +871,8 @@ function Renderer:Render(scene)
 				self.vtxHandler()
 				draw = false
 			end
-			local insArgs = self.insArgs[spId]
-			dcList:Draw(g_input.idxCount, self.n_idx, insArgs[1], insArgs[2])
+			local instArgs = self.instArgs[func.instGroup] or self.defaultInst
+			dcList:Draw(g_input.idxCount, self.n_idx, instArgs[1], instArgs[2])
 		end
 	end
 	self.vwp.idxAddOn = self.vwp.idxAddOn + self.n_vtx
@@ -874,8 +896,8 @@ function Renderer:RenderCached(scene)
 		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
 		if (not self.disables[spId] and dcList) then
 			func.func(mtl, dcList)
-			local insArgs = self.insArgs[spId]
-			dcList:Draw(g_input.idxCount, self.n_idx, insArgs[1], insArgs[2])
+			local instArgs = self.instArgs[func.instGroup] or self.defaultInst
+			dcList:Draw(g_input.idxCount, self.n_idx, instArgs[1], instArgs[2])
 			draw = true
 		end
 	end
@@ -887,19 +909,7 @@ function Renderer:RenderCached(scene)
 	end
 end
 
-function Renderer:SetMaterial(mtl, id, ...)
-	self.id = id or self.id
-	local insArgs = {...}
-	for k, v in pairs(mtl.insSlot) do
-		self.insArgs[v[1]] = insArgs[k] or {v[2], v[3]}
-	end
-	for k, spId in pairs(mtl.idSlot) do
-		self.insArgs[spId] = {self.id, 1}
-		if (not self.writeId) then
-			self.disables[spId] = true
-		end
-	end
-	
+function Renderer:SetMaterial(mtl)
 	if (self.mtl == mtl) then
 		return
 	end
@@ -979,8 +989,10 @@ end
 
 function Renderer:EnableWriteId(flag)
 	if (self.writeId ~= flag) then
-		for _, spId in pairs(self.mtl.idSlot) do
-			self.disables[spId] = not flag
+		for spId, _ in pairs(self.mtl.func) do
+			if (idPass[spId]) then
+				self.disables[spId] = not flag
+			end
 		end
 		self.writeId = flag
 	end

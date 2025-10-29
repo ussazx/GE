@@ -52,7 +52,7 @@ g_sizeFunc[CAddInt1] = 4
 g_sizeFunc[CAddUInt1] = 4
 g_sizeFunc[CAddUShort1] = 2
 g_sizeFunc[CAddUByte4] = 4
-g_sizeFunc[CAddMatrix] = CMatrix3D._size
+g_sizeFunc[CAddMatrix] = CMatrix._size
 
 DC_DEFAULT = 1
 DC_SORTED_1 = 2

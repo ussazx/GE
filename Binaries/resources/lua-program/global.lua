@@ -195,10 +195,21 @@ ui_id_vs = cGI:NewShaderModule(f)
 
 f:Open('Resources/shaders/'..cGI:Type()..'/object3d.vsc', true)
 object3d_vs = cGI:NewShaderModule(f)
+f:Open('Resources/shaders/'..cGI:Type()..'/object3dInst.vsc', true)
+object3dInst_vs = cGI:NewShaderModule(f)
 f:Open('Resources/shaders/'..cGI:Type()..'/object3d.psc', true)
 object3d_ps = cGI:NewShaderModule(f)
 f:Open('Resources/shaders/'..cGI:Type()..'/object3d_id.vsc', true)
 object3d_id_vs = cGI:NewShaderModule(f)
+f:Open('Resources/shaders/'..cGI:Type()..'/object3dInst_id.vsc', true)
+object3dInst_id_vs = cGI:NewShaderModule(f)
+
+f:Open('Resources/shaders/'..cGI:Type()..'/arrow3d.vsc', true)
+arrow3d_vs = cGI:NewShaderModule(f)
+f:Open('Resources/shaders/'..cGI:Type()..'/arrow3d.psc', true)
+arrow3d_ps = cGI:NewShaderModule(f)
+f:Open('Resources/shaders/'..cGI:Type()..'/arrow3d_id.vsc', true)
+arrow3d_id_vs = cGI:NewShaderModule(f)
 
 f:Open('Resources/shaders/'..cGI:Type()..'/plane3d.vsc', true)
 plane3d_vs = cGI:NewShaderModule(f)
@@ -247,7 +258,7 @@ cParamRenderPass:SetDepthStencilOutput(1, 1)
 
 g_rp0 = cGI:NewRenderPass(cParamRenderPass)
 g_rp0[1] = SubpassId(g_rp0, 1)
-g_rp0[2] = SubpassId(g_rp0, 2)
+g_rp0[2] = SubpassId(g_rp0, 2, true)
 
 g_idView = {}
 g_idView[g_rp0[2]] = 0
@@ -288,14 +299,16 @@ cParamPipeline:AddVertexElement(3, 1, cGI.FORMAT_WRITE_ID, SIZE_WRITE_ID)
 cParamPipeline:SetVertexInputRate(3, true)
 g_plId2D = cGI:NewPipeline(g_rp0, 1, 1, ui_id_vs, 'main', id_ps, 'main', cParamPipeline)
 
+--instance group
+g_idInstGroup = {}
+g_gridInstGroup = {}
+
 --ui materal
 g_mtlUi = {}
 g_mtlUi.resFont = ResourceHub(g_rlTB)
 g_mtlUi.resFont:BindTexelView(uiFont.view, 0)
 
 g_mtlUi.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT3, SIZE_UINT1)
-g_mtlUi.insSlot = {{g_rp0[1], 0, 1}}
-g_mtlUi.idSlot = {g_rp0[2]}
 
 g_mtlUi.func = {}
 
@@ -309,20 +322,18 @@ g_mtlUi.func[g_rp0[2]] = {func = function(mtl, dcList)
 	dcList:AddResourceSet(g_resWnd)
 	dcList:SetPipeline(g_plId2D, g_mtlUi.vbLayout, 0)
 	dcList:SetInstVB(g_idVb, 3)
-end, mergeType = DC_DEFAULT}
+end, mergeType = DC_DEFAULT, instGroup = g_idInstGroup}
 
 --ui2 material
 g_mtlUi2 = {}
-g_mtlUi2.matModel = CMatrix3D()
+g_mtlUi2.matModel = CMatrix()
 g_mtlUi2.resModel = ResourceHub(g_rlUB)
-local buf = g_mtlUi2.resModel:BindResBuffer(0, CMatrix3D._size)
+local buf = g_mtlUi2.resModel:BindResBuffer(0, CMatrix._size)
 CAddMatrix(g_mtlUi2.matModel, buf(), buf[1])
 g_mtlUi2.resFont = ResourceHub(g_rlTB)
 g_mtlUi2.resFont:BindTexelView(uiFont.view, 0)
 
 g_mtlUi2.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT3, SIZE_UINT1)
-g_mtlUi2.insSlot = {{g_rp0[1], 0, 1}}
-g_mtlUi2.idSlot = {g_rp0[2]}
 
 g_mtlUi2.func = {}
 
@@ -340,7 +351,7 @@ g_mtlUi2.func[g_rp0[2]] = {func = function(mtl, dcList)
 	dcList:AddResourceSet(g_resCamera)
 	dcList:SetPipeline(g_plId2D, g_mtlUi2.vbLayout, 0)
 	dcList:SetInsVB(g_idVbSet, 3)
-end, mergeType = DC_DEFAULT}
+end, mergeType = DC_DEFAULT, instGroup = g_idInstGroup}
 
 --3d pipeline
 cParamPipeline:Reset()
@@ -354,6 +365,13 @@ cParamPipeline:AddVertexElement(1, 1, cGI.FORMAT_R32G32_SFLOAT, SIZE_FLOAT2)
 cParamPipeline:AddVertexElement(2, 2, cGI.FORMAT_R8G8B8A8_UNORM, SIZE_UINT1)
 g_pl3D = cGI:NewPipeline(g_rp0, 0, 1, object3d_vs, 'main', object3d_ps, 'main', cParamPipeline)
 
+cParamPipeline:AddVertexElement(3, 3, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
+cParamPipeline:AddVertexElement(3, 4, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
+cParamPipeline:AddVertexElement(3, 5, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
+cParamPipeline:AddVertexElement(3, 6, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
+cParamPipeline:SetVertexInputRate(3, true)
+g_pl3DInst = cGI:NewPipeline(g_rp0, 0, 1, object3dInst_vs, 'main', object3d_ps, 'main', cParamPipeline)
+
 cParamPipeline:Reset()
 cParamPipeline:AddResourceLayout(g_rlUB)
 cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_BACK_BIT, true, false, false, false)
@@ -362,6 +380,13 @@ cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
 cParamPipeline:AddVertexElement(3, 1, cGI.FORMAT_WRITE_ID, SIZE_WRITE_ID)
 cParamPipeline:SetVertexInputRate(3, true)
 g_plId3D = cGI:NewPipeline(g_rp0, 1, 1, object3d_id_vs, 'main', id_ps, 'main', cParamPipeline)
+
+cParamPipeline:AddVertexElement(4, 2, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
+cParamPipeline:AddVertexElement(4, 3, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
+cParamPipeline:AddVertexElement(4, 4, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
+cParamPipeline:AddVertexElement(4, 5, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
+cParamPipeline:SetVertexInputRate(4, true)
+g_plId3DInst = cGI:NewPipeline(g_rp0, 1, 1, object3dInst_id_vs, 'main', id_ps, 'main', cParamPipeline)
 
 --grid3d pipeline
 cParamPipeline:Reset()
@@ -377,11 +402,32 @@ cParamPipeline:AddVertexElement(3, 3, cGI.FORMAT_R32_SINT, SIZE_INT1)
 cParamPipeline:SetVertexInputRate(3, true)
 g_plGrid3D = cGI:NewPipeline(g_rp0, 0, 1, grid3d_vs, 'main', grid3d_ps, 'main', cParamPipeline)
 
+--arrow3d pipeline
+cParamPipeline:Reset()
+cParamPipeline:AddResourceLayout(g_rlUB)
+cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_BACK_BIT, true, false, false, false)
+cParamPipeline:SetDethStencilStates(true, false, false, cGI.COMPARE_OP_GREATER_OR_EQUAL, false)
+cParamPipeline:SetBlendState(0, true)
+cParamPipeline:SetBsColorBlendOp(0, cGI.BLEND_FACTOR_SRC_ALPHA, cGI.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, cGI.BLEND_OP_ADD)
+cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
+cParamPipeline:AddVertexElement(1, 1, cGI.FORMAT_R8G8B8A8_UNORM, SIZE_UINT1)
+cParamPipeline:SetVertexInputRate(1, true)
+g_plArrow3D = cGI:NewPipeline(g_rp0, 0, 1, arrow3d_vs, 'main', arrow3d_ps, 'main', cParamPipeline)
+
+cParamPipeline:Reset()
+cParamPipeline:AddResourceLayout(g_rlUB)
+cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_BACK_BIT, true, false, false, false)
+cParamPipeline:SetDethStencilStates(true, false, true, cGI.COMPARE_OP_GREATER_OR_EQUAL, false)
+cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
+cParamPipeline:AddVertexElement(2, 1, cGI.FORMAT_WRITE_ID, SIZE_WRITE_ID)
+cParamPipeline:SetVertexInputRate(2, true)
+g_plArrow3DId = cGI:NewPipeline(g_rp0, 1, 1, arrow3d_id_vs, 'main', id_ps, 'main', cParamPipeline)
+
 --3d material
+g_3dInstMatrix = InstanceBuffer(CMatrix._size)
+
 g_mtl3d = {}
 g_mtl3d.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT3, SIZE_FLOAT2, SIZE_UINT1)
-g_mtl3d.insSlot = {{g_rp0[1], 0, 1}}
-g_mtl3d.idSlot = {g_rp0[2]}
 
 g_mtl3d.func = {}
 
@@ -394,23 +440,42 @@ g_mtl3d.func[g_rp0[2]] = {func = function(mtl, dcList)
 	dcList:AddResourceSet(g_resCamera)
 	dcList:SetPipeline(g_plId3D, g_mtl3d.vbLayout, 0)
 	dcList:SetInstVB(g_idVb, 3)
-end, mergeType = DC_MTL_MERGED, order = g_mtl3d}
+end, mergeType = DC_MTL_MERGED, order = g_mtl3d, instGroup = g_idInstGroup}
 
 --grid3d material
-g_gridSeq = InstanceBuffer(1000 * SIZE_INT1)
+g_gridSeqInst = InstanceBuffer(1000 * SIZE_INT1)
 
 g_mtlGrid3d = {}
 g_mtlGrid3d.vbLayout = NewVBLayout(1|2|4, SIZE_FLOAT4, SIZE_FLOAT4, SIZE_UINT1)
-g_mtlGrid3d.insSlot = {{g_rp0[1], 0, 1}}
-g_mtlGrid3d.idSlot = {}
 
 g_mtlGrid3d.func = {}
 g_mtlGrid3d.func[g_rp0[1]] = {func = function(mtl, dcList)
 	dcList:AddResourceSet(g_resCamera)
 	dcList:SetLineWidth(2)
 	dcList:SetPipeline(g_plGrid3D, g_mtlGrid3d.vbLayout, 0)
-	dcList:SetInstVB(g_gridSeq, 3)
+	dcList:SetInstVB(g_gridSeqInst, 3)
+end, mergeType = DC_SORTED_2, order = 1, instGroup = g_gridInstGroup}
+
+--arrow3d material
+g_arrow3dColors = InstanceBuffer(3 * SIZE_UINT1)
+CAddUByte4(0, 255, 0, 150, g_arrow3dColors(), APPEND, 1)
+
+g_mtlArrow3d = {}
+g_mtlArrow3d.vbLayout = NewVBLayout(1|2, SIZE_FLOAT3, SIZE_UINT1)
+
+g_mtlArrow3d.func = {}
+
+g_mtlArrow3d.func[g_rp0[1]] = {func = function(mtl, dcList)
+	dcList:AddResourceSet(g_resCamera)
+	dcList:SetPipeline(g_plArrow3D, g_mtlArrow3d.vbLayout, 0)
+	dcList:SetInstVB(g_arrow3dColors, 1)
 end, mergeType = DC_SORTED_2, order = 1}
+
+g_mtlArrow3d.func[g_rp0[2]] = {func = function(mtl, dcList)
+	dcList:AddResourceSet(g_resCamera)
+	dcList:SetPipeline(g_plArrow3DId, g_mtlArrow3d.vbLayout, 0)
+	dcList:SetInstVB(g_idVb, 2)
+end, mergeType = DC_MTL_MERGED, order = g_mtlArrow3d, instGroup = g_idInstGroup}
 
 ---Cube---
 local vb = CMBuffer(1)
@@ -475,6 +540,55 @@ geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 0, g_mtlGrid3d}
 g_grid3d = Geometry(geoInfo)
 
+---arrow3d---
+local vb = CMBuffer(1)
+local ib = CMBuffer(1)
+CAddFloat3(0, 5, 0, vb, APPEND, 1)
+
+CAddFloat3(-1.1, 1.7, 1.1, vb, APPEND, 1)
+CAddFloat3(1.1, 1.7, 1.1, vb, APPEND, 1)
+CAddFloat3(1.1, 1.7, -1.1, vb, APPEND, 1)
+CAddFloat3(-1.1, 1.7, -1.1, vb, APPEND, 1)
+
+CAddFloat3(-0.05, 1.7, 0.05, vb, APPEND, 1)
+CAddFloat3(0.05, 1.7, 0.05, vb, APPEND, 1)
+CAddFloat3(0.05, 1.7, -0.05, vb, APPEND, 1)
+CAddFloat3(-0.05, 1.7, -0.05, vb, APPEND, 1)
+
+CAddFloat3(-0.05, 0, 0.05, vb, APPEND, 1)
+CAddFloat3(0.05, 0, 0.05, vb, APPEND, 1)
+CAddFloat3(0.05, 0, -0.05, vb, APPEND, 1)
+CAddFloat3(-0.05, 0, -0.05, vb, APPEND, 1)
+
+CAddUInt3(0, 1, 2, ib, APPEND, 1)
+CAddUInt3(0, 2, 3, ib, APPEND, 1)
+CAddUInt3(0, 3, 4, ib, APPEND, 1)
+CAddUInt3(0, 4, 1, ib, APPEND, 1)
+
+CAddUInt3(1, 4, 3, ib, APPEND, 1)
+CAddUInt3(1, 3, 2, ib, APPEND, 1)
+
+CAddUInt3(5, 9, 10, ib, APPEND, 1)
+CAddUInt3(5, 10, 6, ib, APPEND, 1)
+CAddUInt3(6, 10, 11, ib, APPEND, 1)
+CAddUInt3(6, 11, 7, ib, APPEND, 1)
+CAddUInt3(7, 11, 12, ib, APPEND, 1)
+CAddUInt3(7, 12, 8, ib, APPEND, 1)
+CAddUInt3(8, 12, 9, ib, APPEND, 1)
+CAddUInt3(8, 9, 5, ib, APPEND, 1)
+
+CAddUInt3(9, 12, 11, ib, APPEND, 1)
+CAddUInt3(9, 11, 10, ib, APPEND, 1)
+
+geoInfo = {}
+geoInfo.layout = 1
+geoInfo.vbInfo = {}
+geoInfo.vbInfo[1] = {Geometry.TRANS_DEFAULT}
+geoInfo.vb = {vb}
+geoInfo.ib = ib
+geoInfo.meshes = {}
+geoInfo.meshes[1] = {0, 3 * 16, g_mtlArrow3d}
+g_arrow3d = Geometry(geoInfo)
 -- cParamResourceLayout:Reset()
 -- cParamResourceLayout:Add(RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, SHADER_STAGE_VERTEX_BIT)
 -- self.resourceLayout = cGI:NewResourceLayout(cParamResourceLayout)

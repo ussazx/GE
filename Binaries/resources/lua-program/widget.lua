@@ -712,12 +712,14 @@ function UiWidget:ctor(w, h)
 	self.crColor = Color()
 	self.color = Color(255, 255, 255, 255)
 	self.renderDisables = {}
+	self.instArgs = {}
+	self.instArgs[g_idInstGroup] = {self.id, 1}
 	
 	self.renderer = Renderer(self, 1|2|4, self.FillVB, self.cached)
-	self.renderer:SetMaterial(g_mtlUi, self.id)
+	self.renderer:SetMaterial(g_mtlUi)
 	
 	self.rcRenderer = Renderer(self, 1|2|4, self.FillClipRectVB, false)
-	self.rcRenderer:SetMaterial(g_mtlUi, self.id)
+	self.rcRenderer:SetMaterial(g_mtlUi)
 end
 
 function UiWidget:EnableWriteId(flag)
@@ -1643,7 +1645,7 @@ function UiPolyIcon:ctor(iconPoly, stretch, w, h)
 	self.colors = self.colors0
 	self.scale = stretch
 	if (stretch) then
-		self.mat3d = CMatrix3D()
+		self.mat3d = CMatrix()
 		self:SetSize(w, h)
 	else
 		self:SetSize(math.ceil(iconPoly.w), math.ceil(iconPoly.h))
@@ -2215,10 +2217,10 @@ function Scene3D:ctor(camera)
 		camera = SceneObject()
 	end
 	self.camera = camera
-	self.mProj = CMatrix3D()
+	self.mProj = CMatrix()
 	
 	self.res = ResourceHub(g_rlUB)
-	self.rb = self.res:BindResBuffer(0, CMatrix3D._size, CMatrix3D._size, CMatrix3D._size)
+	self.rb = self.res:BindResBuffer(0, CMatrix._size, CMatrix._size, CMatrix._size)
 end
 
 function Scene3D:Render()
