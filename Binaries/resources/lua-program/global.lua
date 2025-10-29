@@ -19,7 +19,7 @@ local function AddPolyVertex2D(o, t, i, x, y, nv, nvc)
 	local v = t[i]
 	nv = nv + 1
 	nvc = nvc + 1
-	CAddFloat3(v[1], v[2], Z_2D, g_innerPolyVB, APPEND, 1)
+	CMulAddFloat3(1, g_innerPolyVB, APPEND, v[1], v[2], Z_2D)
 	local replaces = {}
 	if (v.combined and i ~= v.combined[1]) then
 		table.insert(replaces, {i - 1, v.combined[1] - 1})
@@ -121,7 +121,7 @@ function AddPoly2D(antiAlias, ...)
 		else
 			y = 0
 		end
-		CMoveFloat3(g_innerPolyVB, g_innerPolyVB.offset, o.vtx_count, x, y, 0, g_innerPolyVB, g_innerPolyVB.offset)
+		CMoveFloat3(g_innerPolyVB, g_innerPolyVB.offset, g_innerPolyVB, g_innerPolyVB.offset, o.vtx_count, x, y, 0)
 	end
 	g_innerPolyVB.offset = g_innerPolyVB.offset + SIZE_FLOAT3 * o.vtx_count
 	g_innerPolyIB.offset = g_innerPolyIB.offset + SIZE_UINT1 * o.idx_count
@@ -182,7 +182,7 @@ g_iconLine1 = AddPoly2D(false, DrawLine(10, false, false, {100, 100}, {100, 300}
 
 g_idVb = InstanceBuffer(SIZE_WRITE_ID * ID_NUM_MAX)
 for i = 0, ID_NUM_MAX do
-	AddVertexID(i, g_idVb(), APPEND, 1)
+	AddVertexID(1, g_idVb(), APPEND, i)
 end
 
 local f = CNewFileInput(false)
@@ -329,7 +329,7 @@ g_mtlUi2 = {}
 g_mtlUi2.matModel = CMatrix()
 g_mtlUi2.resModel = ResourceHub(g_rlUB)
 local buf = g_mtlUi2.resModel:BindResBuffer(0, CMatrix._size)
-CAddMatrix(g_mtlUi2.matModel, buf(), buf[1])
+CAddMatrix(buf(), buf[1], g_mtlUi2.matModel)
 g_mtlUi2.resFont = ResourceHub(g_rlTB)
 g_mtlUi2.resFont:BindTexelView(uiFont.view, 0)
 
@@ -458,7 +458,7 @@ end, mergeType = DC_SORTED_2, order = 1, instGroup = g_gridInstGroup}
 
 --arrow3d material
 g_arrow3dColors = InstanceBuffer(3 * SIZE_UINT1)
-CAddUByte4(0, 255, 0, 150, g_arrow3dColors(), APPEND, 1)
+CMulAddUByte4(1, g_arrow3dColors(), APPEND, 0, 255, 0, 150)
 
 g_mtlArrow3d = {}
 g_mtlArrow3d.vbLayout = NewVBLayout(1|2, SIZE_FLOAT3, SIZE_UINT1)
@@ -483,12 +483,12 @@ local ub = CMBuffer(1)
 local cb = CMBuffer(1)
 local ib = CMBuffer(1)
 CAddCube(vb, 0, ub, 0, ib, 0)
-CAddUByte4(255, 0, 0, 255, cb, APPEND, 4)
-CAddUByte4(0, 255, 0, 255, cb, APPEND, 4)
-CAddUByte4(0, 0, 255, 255, cb, APPEND, 4)
-CAddUByte4(255, 255, 0, 255, cb, APPEND, 4)
-CAddUByte4(255, 0, 255, 255, cb, APPEND, 4)
-CAddUByte4(0, 255, 255, 255, cb, APPEND, 4)
+CMulAddUByte4(4, cb, APPEND, 255, 0, 0, 255)
+CMulAddUByte4(4, cb, APPEND, 0, 255, 0, 255)
+CMulAddUByte4(4, cb, APPEND, 0, 0, 255, 255)
+CMulAddUByte4(4, cb, APPEND, 255, 255, 0, 255)
+CMulAddUByte4(4, cb, APPEND, 255, 0, 255, 255)
+CMulAddUByte4(4, cb, APPEND, 0, 255, 255, 255)
 
 local geoInfo = {}
 geoInfo.layout = 1|2|4
@@ -507,15 +507,15 @@ local vb = CMBuffer(1)
 local ub = CMBuffer(1)
 local cb = CMBuffer(1)
 local ib = CMBuffer(1)
-CAddFloat3(-10, 0, 10, vb, APPEND, 1)
-CAddFloat3(10, 0, 10, vb, APPEND, 1)
-CAddFloat3(10, 0, -10, vb, APPEND, 1)
-CAddFloat3(-10, 0, -10, vb, APPEND, 1)
-CAddFloat2(0, 0, ub, APPEND, 1)
-CAddFloat2(1, 0, ub, APPEND, 1)
-CAddFloat2(1, 1, ub, APPEND, 1)
-CAddFloat2(0, 1, ub, APPEND, 1)
-CAddUByte4(150, 150, 150, 255, cb, APPEND, 4)
+CMulAddFloat3(1, vb, APPEND, -10, 0, 10)
+CMulAddFloat3(1, vb, APPEND, 10, 0, 10)
+CMulAddFloat3(1, vb, APPEND, 10, 0, -10)
+CMulAddFloat3(1, vb, APPEND, -10, 0, -10)
+CMulAddFloat2(1, ub, APPEND, 0, 0)
+CMulAddFloat2(1, ub, APPEND, 1, 0)
+CMulAddFloat2(1, ub, APPEND, 1, 1)
+CMulAddFloat2(1, ub, APPEND, 0, 1)
+CMulAddUByte4(4, cb, APPEND, 150, 150, 150, 255)
 CAddConvexPolyIndex(4, ib, APPEND, 0, 1)
 geoInfo = {}
 geoInfo.layout = 1|2|4
@@ -543,42 +543,42 @@ g_grid3d = Geometry(geoInfo)
 ---arrow3d---
 local vb = CMBuffer(1)
 local ib = CMBuffer(1)
-CAddFloat3(0, 5, 0, vb, APPEND, 1)
+CMulAddFloat3(1, vb, APPEND, 0, 5, 0)
 
-CAddFloat3(-1.1, 1.7, 1.1, vb, APPEND, 1)
-CAddFloat3(1.1, 1.7, 1.1, vb, APPEND, 1)
-CAddFloat3(1.1, 1.7, -1.1, vb, APPEND, 1)
-CAddFloat3(-1.1, 1.7, -1.1, vb, APPEND, 1)
+CMulAddFloat3(1, vb, APPEND, -1.1, 1.7, 1.1)
+CMulAddFloat3(1, vb, APPEND, 1.1, 1.7, 1.1)
+CMulAddFloat3(1, vb, APPEND, 1.1, 1.7, -1.1)
+CMulAddFloat3(1, vb, APPEND, -1.1, 1.7, -1.1)
 
-CAddFloat3(-0.05, 1.7, 0.05, vb, APPEND, 1)
-CAddFloat3(0.05, 1.7, 0.05, vb, APPEND, 1)
-CAddFloat3(0.05, 1.7, -0.05, vb, APPEND, 1)
-CAddFloat3(-0.05, 1.7, -0.05, vb, APPEND, 1)
+CMulAddFloat3(1, vb, APPEND, -0.05, 1.7, 0.05)
+CMulAddFloat3(1, vb, APPEND, 0.05, 1.7, 0.05)
+CMulAddFloat3(1, vb, APPEND, 0.05, 1.7, -0.05)
+CMulAddFloat3(1, vb, APPEND, -0.05, 1.7, -0.05)
 
-CAddFloat3(-0.05, 0, 0.05, vb, APPEND, 1)
-CAddFloat3(0.05, 0, 0.05, vb, APPEND, 1)
-CAddFloat3(0.05, 0, -0.05, vb, APPEND, 1)
-CAddFloat3(-0.05, 0, -0.05, vb, APPEND, 1)
+CMulAddFloat3(1, vb, APPEND, -0.05, 0, 0.05)
+CMulAddFloat3(1, vb, APPEND, 0.05, 0, 0.05)
+CMulAddFloat3(1, vb, APPEND, 0.05, 0, -0.05)
+CMulAddFloat3(1, vb, APPEND, -0.05, 0, -0.05)
 
-CAddUInt3(0, 1, 2, ib, APPEND, 1)
-CAddUInt3(0, 2, 3, ib, APPEND, 1)
-CAddUInt3(0, 3, 4, ib, APPEND, 1)
-CAddUInt3(0, 4, 1, ib, APPEND, 1)
+CMulAddUInt3(1, ib, APPEND, 0, 1, 2)
+CMulAddUInt3(1, ib, APPEND, 0, 2, 3)
+CMulAddUInt3(1, ib, APPEND, 0, 3, 4)
+CMulAddUInt3(1, ib, APPEND, 0, 4, 1)
 
-CAddUInt3(1, 4, 3, ib, APPEND, 1)
-CAddUInt3(1, 3, 2, ib, APPEND, 1)
+CMulAddUInt3(1, ib, APPEND, 1, 4, 3)
+CMulAddUInt3(1, ib, APPEND, 1, 3, 2)
 
-CAddUInt3(5, 9, 10, ib, APPEND, 1)
-CAddUInt3(5, 10, 6, ib, APPEND, 1)
-CAddUInt3(6, 10, 11, ib, APPEND, 1)
-CAddUInt3(6, 11, 7, ib, APPEND, 1)
-CAddUInt3(7, 11, 12, ib, APPEND, 1)
-CAddUInt3(7, 12, 8, ib, APPEND, 1)
-CAddUInt3(8, 12, 9, ib, APPEND, 1)
-CAddUInt3(8, 9, 5, ib, APPEND, 1)
+CMulAddUInt3(1, ib, APPEND, 5, 9, 10)
+CMulAddUInt3(1, ib, APPEND, 5, 10, 6)
+CMulAddUInt3(1, ib, APPEND, 6, 10, 11)
+CMulAddUInt3(1, ib, APPEND, 6, 11, 7)
+CMulAddUInt3(1, ib, APPEND, 7, 11, 12)
+CMulAddUInt3(1, ib, APPEND, 7, 12, 8)
+CMulAddUInt3(1, ib, APPEND, 8, 12, 9)
+CMulAddUInt3(1, ib, APPEND, 8, 9, 5)
 
-CAddUInt3(9, 12, 11, ib, APPEND, 1)
-CAddUInt3(9, 11, 10, ib, APPEND, 1)
+CMulAddUInt3(1, ib, APPEND, 9, 12, 11)
+CMulAddUInt3(1, ib, APPEND, 9, 11, 10)
 
 geoInfo = {}
 geoInfo.layout = 1

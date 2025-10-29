@@ -32,7 +32,7 @@ cGI.FORMAT_WRITE_ID = cGI.FORMAT_R16_UINT
 
 cGI.FORMAT_PICK_ID = cGI.FORMAT_R16_UINT
 
-AddVertexID = CAddUShort1
+AddVertexID = CMulAddUShort1
 
 PickByTexture = CPickByTextureU16
 --PickByTexture = CPickByTexture
@@ -44,14 +44,14 @@ APPEND = -1
 Z_2D = 1
 
 g_sizeFunc = {}
-g_sizeFunc[CAddFloat1] = 4
+g_sizeFunc[CMulAddFloat1] = 4
 --g_sizeFunc[CAddFloat2] = 8
-g_sizeFunc[CAddFloat3] = 12
-g_sizeFunc[CAddFloat4] = 16
-g_sizeFunc[CAddInt1] = 4
-g_sizeFunc[CAddUInt1] = 4
-g_sizeFunc[CAddUShort1] = 2
-g_sizeFunc[CAddUByte4] = 4
+g_sizeFunc[CMulAddFloat3] = 12
+g_sizeFunc[CMulAddFloat4] = 16
+g_sizeFunc[CMulAddInt1] = 4
+g_sizeFunc[CMulAddUInt1] = 4
+g_sizeFunc[CMulAddUShort1] = 2
+g_sizeFunc[CMulAddUByte4] = 4
 g_sizeFunc[CAddMatrix] = CMatrix._size
 
 DC_DEFAULT = 1

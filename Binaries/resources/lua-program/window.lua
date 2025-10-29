@@ -213,7 +213,7 @@ function Window:resize(w, h)
 	--end
 	
 	cGI:DeviceWaitIdle()
-	CAddFloat3(self.rect.w, self.rect.h, 1, self.rbWnd(), self.rbWnd[1], 1)
+	CMulAddFloat3(1, self.rbWnd(), self.rbWnd[1], self.rect.w, self.rect.h, 1)
 	self.sizegroup:resize(w, h)
 	
 	self.copyParam.w = w

@@ -172,7 +172,7 @@ end
 function InstanceBuffer:Get()
 	local gb = self.gb
 	if (self.update ~= gb.update) then
-		CBufferCopy(self.src, 0, APPEND, gb, 0)
+		CBufferCopy(gb, 0, self.src, 0, APPEND)
 	end
 	self.src = gb
 	self.update = self.update + 1
@@ -200,7 +200,7 @@ function InstanceBuffer:BindCommand(cmd, slot)
 	local gbCmd = self.cmd[cmd] or self:NewBuffer(cmd)
 	local gb = gbCmd[cIdx]
 	if (gb.update ~= self.update) then
-		CBufferCopy(self.src, 0, APPEND, gb, 0)
+		CBufferCopy(gb, 0, self.src, 0, APPEND)
 		gb.update = self.update
 	end
 	cmd[cIdx]:SetVertexBuffer(gb, slot, 0)
@@ -213,7 +213,7 @@ function (b)
 	local hub = b.hub
 	local rb = hub.rb
 	if (hub.rbUpdate ~= rb.update) then
-		CBufferCopy(hub.rbSrc, 0, hub.rbPos, rb, 0)
+		CBufferCopy(rb, 0, hub.rbSrc, 0, hub.rbPos)
 	end
 	hub.rbSrc = rb
 	hub.rbUpdate = hub.rbUpdate + 1
@@ -286,10 +286,10 @@ function ResourceHub:BindResBuffer(binding, ...)
 			end
 		end
 		if (hub.rbUpdate ~= rb.update) then
-			CBufferCopy(hub.rbSrc, 0, hub.rbPos, rb, 0)
+			CBufferCopy(rb, 0, hub.rbSrc, 0, hub.rbPos)
 			rb.update = hub.rbUpdate
 		end
-		CBufferCopy(self.rb, offset, self.rbPos - offset + 1, self.rb, offset + diff)
+		CBufferCopy(self.rb, offset + diff, self.rb, offset, self.rbPos - offset + 1)
 		self.rbUpdate = self.rbUpdate + 1
 		self.rb.update = self.rbUpdate
 	end
@@ -351,7 +351,7 @@ function ResourceHub:BindCommand(cmd, slot)
 		local rbCmd = self.rbCmd[cmd]
 		local rb = rbCmd[cIdx]
 		if (rb.update ~= rbUpdate) then
-			CBufferCopy(self.rbSrc, 0, self.rbPos, rb, 0)
+			CBufferCopy(rb, 0, self.rbSrc, 0, self.rbPos)
 			rb.update = self.rbUpdate
 		end
 		self.rb = rbCmd[~cIdx & 1]
@@ -651,10 +651,10 @@ function Geometry:ctor(o)
 			write_d = write_d .. string.format('model:Trans(vbDst%q, wp%q, 0, vbCount, vbDst%q, wp%q, %q) ', k, k, k, k, isNormal)
 		else
 			write = write .. 
-			string.format(' CBufferCopy(vb, vbStart * %q, vbCount * %q, vbDst%q, wp%q) ', v[2], v[2], k, k)
+			string.format(' CBufferCopy(vbDst%q, wp%q, vb, vbStart * %q, vbCount * %q) ', k, k, v[2], v[2])
 		end
 	end
-	write = write .. 'CCopyIndexBuffer(model.ib, idxOffset, idxCount, ibStart - vbStart, ib, iwp) end'
+	write = write .. 'CCopyIndexBuffer(ib, iwp, model.ib, idxOffset, idxCount, ibStart - vbStart) end'
 	write_d = write_d .. 'end'
 	self.Write = load(write, 'Write', 't')()
 	self.WriteDynamic = load(write_d, 'WriteD', 't')()
@@ -715,7 +715,7 @@ function Model:CPUTrans(...)
 end
 
 function Model:GPUTrans(src, wpSrc, start, count, dst, wpDst)
-	CBufferCopy(src, start * SIZE_FLOAT3, count * SIZE_FLOAT3, dst, wpDst)
+	CBufferCopy(dst, wpDst, src, start * SIZE_FLOAT3, count * SIZE_FLOAT3)
 end
 
 function Model.MeshDynamic1(mesh, ...)
@@ -903,7 +903,7 @@ function Renderer:RenderCached(scene)
 	end
 	if (draw) then
 		self.vtxHandler()
-		CCopyIndexBuffer(self.ib, 0, self.n_idx, self.vwp.idxAddOn, g_input.ib, iwp)
+		CCopyIndexBuffer(g_input.ib, iwp, self.ib, 0, self.n_idx, self.vwp.idxAddOn)
 		self.vwp.idxAddOn = self.vwp.idxAddOn + self.n_vtx
 		g_input.idxCount = g_input.idxCount + self.n_idx
 	end
@@ -935,7 +935,7 @@ function Renderer:SetMaterial(mtl)
 				if (i & srcFields ~= 0) then
 					if (strides[i]) then
 						c = c .. 'local n_vtx'..i..' = n_vtx * strides['..i..']'
-						c = c .. 'copy(vb['..i..'], 0, n_vtx'..i..', vbDst['..i..'], vwp['..i..'])'
+						c = c .. 'copy(vbDst['..i..'], vwp['..i..'], vb['..i..'], 0, n_vtx'..i..')'
 						c1 = c1 .. 'vwp['..i..'] = vwp['..i..'] + n_vtx'..i..' '
 					end
 				end

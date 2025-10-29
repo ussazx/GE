@@ -362,7 +362,7 @@ local function GridFunc(grid, vbLineInfo, lwp, vbFadeInfo, fwp,  vbColor, cwp, i
 		local b = g_gridSeqInst()
 		b:SetWritePos(0)
 		for i = -count, count do
-			CAddInt1(i, b, APPEND, 1)
+			CMulAddInt1(1, b, APPEND, i)
 		end
 		grid:SetInstArgs(1, g_gridInstGroup, 0, count * 2 + 1)
 		grid.count = count
@@ -383,12 +383,12 @@ local function GridFunc(grid, vbLineInfo, lwp, vbFadeInfo, fwp,  vbColor, cwp, i
 		fade = 1 - (y - y0) / (y1 - y0)
 	end
 	
-	CAddFloat4(-lenH, x, z, 1, vbLineInfo, lwp, 1)
-	CAddFloat4(lenH, x, z, 1, vbLineInfo, APPEND, 1)
-	CAddFloat4(lenH, x, z, 0, vbLineInfo, APPEND, 1)
-	CAddFloat4(-lenH, x, z, 0, vbLineInfo, APPEND, 1)
-	CAddFloat4(lineSpace, fadeCount, noneFadeCount, fade, vbFadeInfo, fwp, 4)
-	CAddUByte4(150, 150, 150, 80, vbColor, cwp, 4)
+	CMulAddFloat4(1, vbLineInfo, lwp, -lenH, x, z, 1)
+	CMulAddFloat4(1, vbLineInfo, APPEND, lenH, x, z, 1)
+	CMulAddFloat4(1, vbLineInfo, APPEND, lenH, x, z, 0)
+	CMulAddFloat4(1, vbLineInfo, APPEND, -lenH, x, z, 0)
+	CMulAddFloat4(4, vbFadeInfo, fwp, lineSpace, fadeCount, noneFadeCount, fade)
+	CMulAddUByte4(4, vbColor, cwp, 150, 150, 150, 80)
 	
 	CAddLineListIndex(4, ib, iwp, ibStart)
 	return 4, 4
@@ -433,7 +433,7 @@ function SceneWindow:ctor()
 	w.mtl = Material(g_mtlUi2)
 	w.mtl.resModel = ResourceHub(g_rlUB)
 	local buf = w.mtl.resModel:BindResBuffer(0, CMatrix._size)
-	CAddMatrix(w.mRoot, buf(), buf[1])
+	CAddMatrix(buf(), buf[1], w.mRoot)
 	w.renderer:SetMaterial(w.mtl)
 	--self.scene:AddChild(w, 100, 50)
 end
