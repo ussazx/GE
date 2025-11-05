@@ -4,23 +4,23 @@ require 'class'
 require 'geometry'
 
 ---SubpassId---
-local idPass = {}
+g_idPass = {}
 local subpassId = 0
 local passTable = {}
-function SubpassId(pass, subIdx, isId)
+function SubpassId(pass, subIdx, idIdx)
 	local p = passTable[pass] or {}
 	passTable[pass] = p
 	local id = p[subIdx] or subpassId
 	p[subIdx] = id
 	subpassId = subpassId + 1
-	idPass[id] = isId
+	g_idPass[id] = idIdx
 	return id
 end
 
 ---VBLayout---
 g_vbNull = CMBuffer(16)
 local g_vbLayouts = {}
-function NewVBLayout(fields, ...)
+function NewVBLayout(fields, hasId, ...)
 	local o = {...}
 	local strides = {}
 	local i = 1
@@ -34,7 +34,7 @@ function NewVBLayout(fields, ...)
 	local same
 	local layout
 	for _, v in pairs(g_vbLayouts) do
-		if (fields == v.fields) then
+		if (fields == v.fields and hasId == v.hasId) then
 			layout = v
 			i = 1
 			while (i <= fields and i ~= 0) do
@@ -53,9 +53,210 @@ function NewVBLayout(fields, ...)
 			end
 		end
 	end
-	o = {fields = fields, strides = strides}
+	o = {fields = fields, strides = strides, hasId = hasId}
 	table.insert(g_vbLayouts, o)
 	return o
+end
+
+---Renderer---
+Renderer = class()
+Renderer.UpdateCached = {}
+Renderer.VtxHandler = {}
+Renderer.VtxHandlerCached = {}
+
+function Renderer:ctor(mesh, fields, reader, doCache)
+	self.mesh = mesh
+	self.id = self.mesh.id
+	self.reader = reader
+	self.fields = fields
+	self.doCache = doCache
+	self.disables = {}
+	self.instArgs = mesh.instArgs
+	self.defaultInst = {0, 1}
+	self.n_vtx = 0
+	self.n_idx = 0
+	self.writeId = true
+	
+	if (doCache) then
+		self.copy = CBufferCopy
+		Renderer.VtxHandlerCached[fields] = Renderer.VtxHandlerCached[fields] or {[true] = {}, [false] = {}}
+		self.vb = {}
+		local c = 'return function (self) local vb = self.vb self.n_vtx, self.n_idx = self.reader(self.mesh, '
+		local f = Renderer.UpdateCached[fields]
+		local i = 1
+		while (i <= fields and i ~= 0) do
+			if (i & fields ~= 0) then
+				self.vb[i] = CMBuffer(8)
+				if (f == nil) then
+					c = c .. string.format('vb[%q], 0, ', i)
+				end
+			end
+			i = i << 1
+		end
+		self.ib = CMBuffer(SIZE_INDEX)
+		self.Render = self.RenderCached
+		if (f == nil) then
+			f = load(c .. 'self.ib, 0, 0) end', '', 't')()
+			Renderer.UpdateCached[fields] = f
+		end
+		self.UpdateCached = f
+	else
+		Renderer.VtxHandler[fields] = Renderer.VtxHandler[fields] or {[true] = {}, [false] = {}}
+	end
+	self.update = true
+end
+
+function Renderer:Render(scene)
+	local mtl = self.mtl
+	local draw = true
+	local iwp = g_input.idxCount * SIZE_INDEX
+	local n_idx = 0
+	for spId, func in pairs(mtl.func) do
+		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
+		if (not self.disables[spId] and dcList) then
+			if (dcList.mtl ~= mtl) then
+				func.func(mtl, dcList)
+				dcList.mtl = mtl
+			end
+			if (draw) then
+				local vbDst = g_input.vtx[self.mtl.vbLayout]
+				n_idx = self:vtxHandler(vbDst, g_input.ib, g_input.idxCount * SIZE_INDEX)
+				draw = false
+			end
+			local instArgs = self.instArgs[mtl.inst] or self.defaultInst
+			dcList:Draw(g_input.idxCount, n_idx, instArgs[1], instArgs[2])
+		end
+	end
+	g_input.idxCount = g_input.idxCount + n_idx
+end
+
+function Renderer:RenderCached(scene)
+	if (self.update) then
+		self:UpdateCached()
+		self.update = false
+	end
+	local mtl = self.mtl
+	local draw = false
+	for spId, func in pairs(mtl.func) do
+		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
+		if (not self.disables[spId] and dcList) then
+			if (dcList.mtl ~= mtl) then
+				func.func(mtl, dcList)
+				dcList.mtl = mtl
+			end
+			local instArgs = self.instArgs[mtl.inst] or self.defaultInst
+			dcList:Draw(g_input.idxCount, self.n_idx, instArgs[1], instArgs[2])
+			draw = true
+		end
+	end
+	if (draw) then
+		local vbDst = g_input.vtx[self.mtl.vbLayout]
+		self:vtxHandler(vbDst, g_input.ib, g_input.idxCount * SIZE_INDEX)
+		g_input.idxCount = g_input.idxCount + self.n_idx
+	end
+end
+
+function Renderer:SetMaterial(mtl)
+	if (self.mtl == mtl) then
+		return
+	end
+	self.mtl = mtl
+	self.strides = mtl.vbLayout.strides
+	
+	local hasId = mtl.vbLayout.hasId
+	
+	local strides = self.strides
+	local srcFields = self.fields
+	local dstFields = mtl.vbLayout.fields
+	local f
+	if (self.doCache) then
+		f = Renderer.VtxHandlerCached[srcFields][hasId][dstFields]
+	else
+		f = Renderer.VtxHandler[srcFields][hasId][dstFields]
+	end
+	if (f == nil) then
+		local c = [[return function(self, vbDst, ibDst, iwp)
+			local vwp, vbId = vbDst.wp, vbDst.vbId vbDst = vbDst.vb local strides = self.strides ]]
+		local c1 = ''
+		local i = 1
+		if (self.vb) then
+			c = c .. 'local vb, n_vtx = self.vb, self.n_vtx '
+			while (i <= srcFields and i ~= 0) do
+				if (i & srcFields ~= 0) then
+					if (strides[i]) then
+						c = c .. string.format('local n_vtx%q = n_vtx * strides[%q]', i, i)
+						c = c .. string.format('CBufferCopy(vbDst[%q], vwp[%q], vb[%q], 0, n_vtx%q)', i, i, i, i)
+						c1 = c1 .. string.format('vwp[%q] = vwp[%q] + n_vtx%q ', i, i, i)
+					end
+				end
+				i = i << 1
+			end
+			c = c .. [[CCopyIndexBuffer(ibDst, iwp, self.ib, 0, self.n_idx, vwp.idxAddOn)
+				vwp.idxAddOn = vwp.idxAddOn + n_vtx ]]
+			i = 1
+			local n = ~(srcFields & dstFields) & dstFields
+			while (i <= n and i ~= 0) do
+				if (i & n ~= 0) then
+					local slot = mtl.slot[i]
+					c1 = c1 .. string.format('vwp[%q] = vwp[%q] + n_vtx * strides[%q] ', slot, slot, slot)
+				end
+				i = i << 1
+			end
+			if (hasId) then
+				c1 = c1 .. [[CMulAddUInt1(n_vtx, vbId, vwp.wpId, self.id)
+					vwp.wpId = vwp.wpId + n_vtx * SIZE_WRITE_ID ]]
+			end
+			c1 = c1 .. 'end'
+			f = load(c..c1, '', 't')()
+			Renderer.VtxHandlerCached[srcFields][hasId][dstFields] = f
+		else
+			c = c .. 'local n_vtx, n_idx = self.reader(self.mesh, '
+			while (i <= srcFields and i ~= 0) do
+				if (i & srcFields ~= 0) then
+					if (strides[i]) then
+						c1 = c1 .. string.format('vwp[%q] = vwp[%q] + n_vtx * strides[%q] ', i, i, i)
+						c = c .. string.format('vbDst[%q], vwp[%q], ', i, i)
+					else
+						c = c .. 'g_vbNull, 0, '
+					end
+				end
+				i = i << 1
+			end
+			i = 1
+			local n = ~(srcFields & dstFields) & dstFields
+			while (i <= n and i ~= 0) do
+				if (i & n ~= 0) then
+					c1 = c1 .. string.format('vwp[%q] = vwp[%q] + n_vtx * strides[%q] ', i, i, i)
+				end
+				i = i << 1
+			end
+			c = c .. 'ibDst, iwp, vwp.idxAddOn) '
+			if (hasId) then
+				c1 = c1 .. [[CMulAddUInt1(n_vtx, vbId, vwp.wpId, self.id)
+					vwp.wpId = vwp.wpId + n_vtx * SIZE_WRITE_ID ]]
+			end
+			c1 = c1 .. 'vwp.idxAddOn = vwp.idxAddOn + n_vtx '
+			c1 = c1 .. 'return n_idx end'
+			f = load(c..c1, '', 't')()
+			Renderer.VtxHandler[srcFields][hasId][dstFields] = f
+		end
+	end
+	self.vtxHandler = f
+end
+
+function Renderer:EnableSubpass(spId, flag)
+	self.disables[spId] = not flag
+end
+
+function Renderer:EnableWriteId(flag)
+	if (self.writeId ~= flag) then
+		for spId, _ in pairs(self.mtl.func) do
+			if (g_idPass[spId]) then
+				self.disables[spId] = not flag
+			end
+		end
+		self.writeId = flag
+	end
 end
 
 ---RenderCommand---
@@ -111,6 +312,13 @@ function Command.NewRenderCmd()
 			vb = cGI:NewBuffer(s)
 			o1.vb[k] = vb
 			o1.vbSet:Add(vb)
+		end
+		if (layout.hasId) then
+			wp.wpId = 0
+			o0.vbId = cGI:NewBuffer(SIZE_WRITE_ID)
+			o0.vbSet:Add(o0.vbId)
+			o1.vbId = cGI:NewBuffer(SIZE_WRITE_ID)
+			o1.vbSet:Add(o1.vbId)
 		end
 		cmd.input[0].vtx[layout] = o0
 		cmd.input[1].vtx[layout] = o1
@@ -417,8 +625,12 @@ function DrawcallList:Reset(input)
 	self.idxCount = 0
 	self.indStart = 0 
 	self.indCount = 0
+	self.instStart = 0
+	self.instCount = 0
+	self.instEnd = 0
 	self.opIdx = 0
 	self.resIdx = 0
+	self.mtl = nil
 
 	self.rs = self.d_rs
 	self.rs.vp = nil
@@ -505,24 +717,6 @@ function DrawcallList:SetLineWidth(w)
 	end
 end
 
-function DrawcallList:SetPipeline(pl, vbLayout, slot)
-	local rs = self.rs
-	if (pl ~= self.rs.pl) then
-		self:CommitDrawcall()
-	end
-	rs.pl = pl
-	
-	local vtxInput = self.input.vtx[vbLayout].vbSet
-	local op = rs.vbMain
-	if (not op or op.vtxInput ~= vtxInput or op.slot ~= slot) then
-		self:CommitDrawcall()
-		op = self:NewOP()
-		op.vtxInput, op.slot = vtxInput, slot
-		SetupOp(op, Command.SetVertexBuffers, vtxInput, slot)
-		rs.vbMain = op
-	end
-end
-
 function DrawcallList:AddResourceSet(res)
 	local resIdx = self.resIdx
 	self.resIdx = self.resIdx + 1
@@ -535,6 +729,23 @@ function DrawcallList:AddResourceSet(res)
 		op.arg[1] = res
 		op.arg[2] = resIdx
 		resSet[resIdx] = op
+	end
+end
+
+function DrawcallList:SetPipeline(pl, vbLayout, slot)
+	local rs = self.rs
+	if (pl ~= self.rs.pl) then
+		self:CommitDrawcall()
+	end
+	rs.pl = pl
+	
+	local vtxInput = self.input.vtx[vbLayout].vbSet
+	local op = rs.vbMain
+	if (not op or op.vtxInput ~= vtxInput or op.slot ~= slot) then
+		self:CommitDrawcall()
+		op = self:NewOP()
+		SetupOp(op, Command.SetVertexBuffers, vtxInput, slot)
+		rs.vbMain = op
 	end
 end
 
@@ -597,405 +808,26 @@ function DrawcallList:CommitIndBuffer()
 end
 
 function DrawcallList:Draw(idxStart, idxCount, instStart, instCount)
-	if (self.idxStart + self.idxCount ~= idxStart or self.instStart ~= instStart or self.instCount ~= instCount) then
+	local instEnd = instStart + instCount - 1
+	local diffInst = instEnd < self.instStart or instStart > self.instEnd or
+		self.instEnd < instStart or self.instStart > instEnd
+	
+	if (self.idxStart + self.idxCount ~= idxStart or diffInst) then
 		self:CommitIndBuffer()
+	else
+		instStart = math.min(instStart, self.instStart)
+		instEnd = math.max(instEnd, self.instEnd)
 	end
+		
 	if (self.idxCount == 0) then
 		self.idxStart = idxStart
 	end
 	self.instStart = instStart
 	self.instCount = instCount
+	self.instEnd = instEnd
 	self.idxCount = self.idxCount + idxCount
 	
 	self.resIdx = 0
-end
-
----Material---
-function Material(mtl)
-	return setmetatable({}, {__index = mtl})
-end
-
----Geometry---
-Geometry = class()
-Geometry.TRANS_NONE = 0
-Geometry.TRANS_DEFAULT = 1
-Geometry.TRANS_NORMAL = 2
-function Geometry:ctor(o)
-	self.info = o
-	self.meshes = o.meshes
-	local s = 'return function(model, scene) local m = model.meshes'
-	for k, m in pairs(o.meshes) do
-		if (o.ib) then
-			m.vbStart, m.vbEnd = CGetIndicesSegment(o.ib, 0, m[1], m[2])
-		end
-		s = string.format('%s m[%q].renderer:Render(scene)', s, k)
-	end
-	self.renderFunc = load(s .. ' end', 'renderer', 't')()
-	
-	self.trans = CTransformer()
-	local write = 'return function(model, vbStart, vbCount, idxOffset, idxCount'
-	local write_d = 'return function(model, vbCount'
-	for k, v in pairs(o.vbInfo) do
-		local s = string.format(', vbDst%q, wp%q', k, k)
-		write = write .. s
-		write_d = write_d .. s
-	end
-	s = ', ib, iwp, ibStart) '
-	write = write .. s .. 'local vb '
-	write_d = write_d .. s
-	for k, v in pairs(o.vbInfo) do
-		write = write .. string.format('vb = model.vb[%q] ', k)
-		if (v[1] == Geometry.TRANS_DEFAULT or v[1] == Geometry.TRANS_NORMAL) then
-			local isNormal = v[1] == Geometry.TRANS_NORMAL
-			write = write .. string.format('model:Trans(vb, 0, vbStart, vbCount, vbDst%q, wp%q, %q) ', k, k, isNormal)
-			write_d = write_d .. string.format('model:Trans(vbDst%q, wp%q, 0, vbCount, vbDst%q, wp%q, %q) ', k, k, k, k, isNormal)
-		else
-			write = write .. 
-			string.format(' CBufferCopy(vbDst%q, wp%q, vb, vbStart * %q, vbCount * %q) ', k, k, v[2], v[2])
-		end
-	end
-	write = write .. 'CCopyIndexBuffer(ib, iwp, model.ib, idxOffset, idxCount, ibStart - vbStart) end'
-	write_d = write_d .. 'end'
-	self.Write = load(write, 'Write', 't')()
-	self.WriteDynamic = load(write_d, 'WriteD', 't')()
-end
-
----Mesh---
-Mesh = class()
-
-function Mesh:ctor(model, layout, vbStart, vbEnd, idxOffset, idxCount)
-	self.model = model
-	self.id = self.model.id
-	self.vbStart = vbStart or 0
-	self.vbEnd = vbEnd or 0
-	self.idxOffset = idxOffset or 0
-	self.idxCount = idxCount or 0
-	self.instArgs = {}
-	self:SetInstArgs(g_idInstGroup, self.id, 1)
-	self.renderer = Renderer(self, layout, self.Write)
-end
-
-function Mesh:SetInstArgs(instGroup, start, count)
-	local o = self.instArgs[instGroup] or {}
-	o[1], o[2] = start, count
-	self.instArgs[instGroup] = o
-end
-
-function Mesh:Write(...)
-	local vbCount = self.vbEndNew - self.vbStartNew + 1
-	if (vbCount > 1) then
-		self.model:Write(self.vbStartNew, vbCount, self.idxOffset, self.idxCountNew, ...)
-	end
-	return vbCount, self.idxCount
-end
-
----Model---
-Model = class(SceneObject)
-Model.writeId = true
-function Model:ctor(geom)
-	self.trans = geom.trans
-	self.Write = geom.Write
-	self.WriteDynamic = geom.WriteDynamic
-	self.layout = geom.layout
-	self.meshes = {}
-	self.vb = geom.info.vb
-	self.ib = geom.info.ib
-	self.Trans = Model.CPUTrans
-	for _, m in pairs(geom.meshes) do
-		local mesh = Mesh(self, geom.info.layout, m.vbStart, m.vbEnd, m[1], m[2])
-		table.insert(self.meshes, mesh)
-		mesh.renderer:SetMaterial(m[3])
-	end
-	self.RenderMeshes = geom.renderFunc
-	self:Reschedule()
-end
-
-function Model:CPUTrans(...)
-	self.trans:AddFactors(...)
-end
-
-function Model:GPUTrans(src, wpSrc, start, count, dst, wpDst)
-	CBufferCopy(dst, wpDst, src, start * SIZE_FLOAT3, count * SIZE_FLOAT3)
-end
-
-function Model.MeshDynamic1(mesh, ...)
-	local vbCount, idxCount = mesh.dynamicFunc(mesh.dynamicData, ...)
-	mesh.model:WriteDynamic(vbCount, ...)
-	return vbCount, idxCount
-end
-
-function Model.MeshDynamic2(mesh, ...)
-	local vbCount, idxCount = mesh.dynamicFunc(...)
-	mesh.model:WriteDynamic(vbCount, ...)
-	return vbCount, idxCount
-end
-
-function Model:SetCustomMesh(idx, func, data)
-	local m = self.meshes[idx] 
-	if (m) then
-		local b = not func == not m.dynamicFunc
-		m.dynamicFunc = func
-		m.dynamicData = data
-		if (data) then
-			m.renderer.reader = Model.MeshDynamic1
-		else
-			m.renderer.reader = Model.MeshDynamic2
-		end
-		if (b) then
-			self:Reschedule()
-		end
-	end
-end
-
-function Model:SetMaterial(idx, mtl)
-	local m = self.meshes[idx]
-	if (m) then
-		m.renderer:SetMaterial(mtl)
-		m.renderer:EnableWriteId(self.writeId)
-		self:Reschedule()
-	end	
-end
-
-function Model:SetInstArgs(idx, instGroup, start, count)
-	local m = self.meshes[idx]
-	if (m) then
-		m:SetInstArgs(instGroup, start, count)
-	end	
-end
-
-function Model:EnableWriteId(flag)
-	if (self.writeId ~= flag) then
-		for _, m in pairs(self.meshes) do
-			m.renderer:EnableWriteId(flag)
-		end
-		self.writeId = flag
-	end
-end
-
-function Model:Render(scene)
-	self:RenderMeshes(scene)
-	self.trans:MatrixTransform(self.mWorld)
-end
-
-function Model:Reschedule()
-	local k, m = next(self.meshes)
-	m.vbStartNew = m.vbStart
-	m.vbEndNew = m.vbEnd
-	m.idxCountNew = m.idxCount
-	while (m) do
-		k, n = next(self.meshes, k)
-		if (not k) then
-			break
-		end
-		if (not m.dynamicFunc) then
-			if (m.renderer.mtl.vbLayout == n.renderer.mtl.vbLayout) then
-				m.vbStartNew = math.min(m.vbStartNew, n.vbStart)
-				m.vbEndNew = math.max(m.vbEndNew, n.vbEnd)
-				m.idxCountNew = m.idxCountNew + n.idxCount
-				n.vbStartNew = 0
-				n.vbEndNew = 0
-				n.idxCountNew = 0
-			else
-				m = n
-				m.vbStartNew = m.vbStart
-				m.vbEndNew = m.vbEnd
-				m.idxCountNew = m.idxCount
-			end
-		end
-	end
-end
-
----Renderer---
-Renderer = class()
-Renderer.UpdateCached = {}
-Renderer.VtxHandler = {}
-Renderer.VtxHandlerCached = {}
-
-function Renderer:ctor(mesh, fields, reader, doCache)
-	self.mesh = mesh
-	self.reader = reader
-	self.fields = fields
-	self.doCache = doCache
-	self.disables = {}
-	self.instArgs = mesh.instArgs
-	self.defaultInst = {0, 1}
-	self.n_vtx = 0
-	self.n_idx = 0
-	self.writeId = true
-	
-	if (doCache) then
-		self.copy = CBufferCopy
-		Renderer.VtxHandlerCached[fields] = Renderer.VtxHandlerCached[fields] or {}
-		self.vb = {}
-		local c = 'local vb = o.vb o.n_vtx, o.n_idx = o.reader(o.mesh, '
-		local f = Renderer.UpdateCached[fields]
-		local i = 1
-		while (i <= fields and i ~= 0) do
-			if (i & fields ~= 0) then
-				self.vb[i] = CMBuffer(8)
-				if (f == nil) then
-					c = c .. 'vb[' .. i ..'], 0, '
-				end
-			end
-			i = i << 1
-		end
-		c = c .. 'o.ib, 0, 0)'
-		self.ib = CMBuffer(SIZE_INDEX)
-		self.Render = self.RenderCached
-		if (f == nil) then
-			f = load(c, '', 't', Renderer)
-			Renderer.UpdateCached[fields] = f
-		end
-		self.updateCached = f
-	else
-		Renderer.VtxHandler[fields] = Renderer.VtxHandler[fields] or {}
-	end
-	self.update = true
-end
-
-function Renderer:Render(scene)
-	self.vwp = g_input.vtx[self.mtl.vbLayout].wp
-	Renderer.o = self
-	local mtl = self.mtl
-	self.vbDst = g_input.vtx[mtl.vbLayout].vb
-	self.ibDst = g_input.ib
-	self.iwp = g_input.idxCount * SIZE_INDEX
-	self.ibStart = self.vwp.idxAddOn
-	local draw = true
-	local iwp = g_input.idxCount * SIZE_INDEX
-	for spId, func in pairs(mtl.func) do
-		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
-		if (not self.disables[spId] and dcList) then
-			func.func(mtl, dcList)
-			if (draw) then
-				self.vtxHandler()
-				draw = false
-			end
-			local instArgs = self.instArgs[func.instGroup] or self.defaultInst
-			dcList:Draw(g_input.idxCount, self.n_idx, instArgs[1], instArgs[2])
-		end
-	end
-	self.vwp.idxAddOn = self.vwp.idxAddOn + self.n_vtx
-	g_input.idxCount = g_input.idxCount + self.n_idx
-	self.n_vtx = 0
-	self.n_idx = 0
-end
-
-function Renderer:RenderCached(scene)
-	self.vwp = g_input.vtx[self.mtl.vbLayout].wp
-	Renderer.o = self
-	if (self.update) then
-		self.updateCached()
-		self.update = false
-	end
-	local mtl = self.mtl
-	self.vbDst = g_input.vtx[mtl.vbLayout].vb
-	local draw = false
-	local iwp = g_input.idxCount * SIZE_INDEX
-	for spId, func in pairs(mtl.func) do
-		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
-		if (not self.disables[spId] and dcList) then
-			func.func(mtl, dcList)
-			local instArgs = self.instArgs[func.instGroup] or self.defaultInst
-			dcList:Draw(g_input.idxCount, self.n_idx, instArgs[1], instArgs[2])
-			draw = true
-		end
-	end
-	if (draw) then
-		self.vtxHandler()
-		CCopyIndexBuffer(g_input.ib, iwp, self.ib, 0, self.n_idx, self.vwp.idxAddOn)
-		self.vwp.idxAddOn = self.vwp.idxAddOn + self.n_vtx
-		g_input.idxCount = g_input.idxCount + self.n_idx
-	end
-end
-
-function Renderer:SetMaterial(mtl)
-	if (self.mtl == mtl) then
-		return
-	end
-	self.mtl = mtl
-	self.strides = mtl.vbLayout.strides
-	
-	local strides = self.strides
-	local srcFields = self.fields
-	local dstFields = mtl.vbLayout.fields
-	local f
-	if (self.doCache) then
-		f = Renderer.VtxHandlerCached[srcFields][dstFields]
-	else
-		f = Renderer.VtxHandler[srcFields][dstFields]
-	end
-	if (f == nil) then
-		local c = [[local copy = o.copy local vb = o.vb local n_vtx = o.n_vtx 
-			local vbDst = o.vbDst local vwp = o.vwp local strides = o.strides ]]
-		local c1 = ''
-		local i = 1
-		if (self.vb) then
-			while (i <= srcFields and i ~= 0) do
-				if (i & srcFields ~= 0) then
-					if (strides[i]) then
-						c = c .. 'local n_vtx'..i..' = n_vtx * strides['..i..']'
-						c = c .. 'copy(vbDst['..i..'], vwp['..i..'], vb['..i..'], 0, n_vtx'..i..')'
-						c1 = c1 .. 'vwp['..i..'] = vwp['..i..'] + n_vtx'..i..' '
-					end
-				end
-				i = i << 1
-			end
-			i = 1
-			local n = ~(srcFields & dstFields) & dstFields
-			while (i <= n and i ~= 0) do
-				if (i & n ~= 0) then
-					local slot = mtl.slot[i]
-					c1 = c1 .. string.format('vwp[%q] = vwp[%q] + n_vtx * strides[%q] ', slot, slot, slot)
-				end
-				i = i << 1
-			end
-			f = load(c..c1, '', 't', Renderer)
-			Renderer.VtxHandlerCached[srcFields][dstFields] = f
-		else
-			c = [[local vbDst = o.vbDst local vwp = o.vwp local strides = o.strides
-				o.n_vtx, o.n_idx = o.reader(o.mesh, ]]
-			c1 = 'local n_vtx = o.n_vtx '
-			while (i <= srcFields and i ~= 0) do
-				if (i & srcFields ~= 0) then
-					if (strides[i]) then
-						c1 = c1 .. 'vwp['..i..'] = vwp['..i..'] + n_vtx * strides['..i..'] '
-						c = c .. 'vbDst['.. i ..'], vwp['..i..'], '
-					else
-						c = c .. 'g_vbNull, 0, '
-					end
-				end
-				i = i << 1
-			end
-			i = 1
-			local n = ~(srcFields & dstFields) & dstFields
-			while (i <= n and i ~= 0) do
-				if (i & n ~= 0) then
-					c1 = c1 .. string.format('vwp[%q] = vwp[%q] + n_vtx * strides[%q] ', i, i, i)
-				end
-				i = i << 1
-			end
-			c = c .. 'o.ibDst, o.iwp, o.ibStart) '
-			f = load(c..c1, '', 't', Renderer)
-			Renderer.VtxHandler[srcFields][dstFields] = f
-		end
-	end
-	self.vtxHandler = f
-end
-
-function Renderer:EnableSubpass(spId, flag)
-	self.disables[spId] = not flag
-end
-
-function Renderer:EnableWriteId(flag)
-	if (self.writeId ~= flag) then
-		for spId, _ in pairs(self.mtl.func) do
-			if (idPass[spId]) then
-				self.disables[spId] = not flag
-			end
-		end
-		self.writeId = flag
-	end
 end
 
 ---FramePipeline---

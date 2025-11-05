@@ -25,19 +25,9 @@ local function dtor(o)
 	end
 end
 
-local function instantiate(c, base, ...)
-	local o
-	local b = getmetatable(base)
-	if (b and c._base and b == c._base._class) then
-		local bctor = base.ctor
-		o = setmetatable(base, c._class)
-		if (o.ctor and o.ctor ~= bctor) then
-			o:ctor(...)
-		end
-	else
-		o = assign({}, c)
-		ctor(o, c, base, ...)
-	end
+local function instantiate(c, ...)
+	local o = assign({}, c)
+	ctor(o, c, ...)
 	return o
 end
 
@@ -61,7 +51,7 @@ function class(base_class, ...)
 	else
 		c._bctor = ctor
 	end
-	c[c] = true
+	c[c] = c
 	return c
 end
 

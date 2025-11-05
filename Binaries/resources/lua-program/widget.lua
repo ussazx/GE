@@ -2,6 +2,7 @@
 require 'object'
 require 'utility'
 require 'global'
+require 'presets'
 
 -----Widget2D-----
 Widget2D = class(Object)
@@ -713,7 +714,8 @@ function UiWidget:ctor(w, h)
 	self.color = Color(255, 255, 255, 255)
 	self.renderDisables = {}
 	self.instArgs = {}
-	self.instArgs[g_idInstGroup] = {self.id, 1}
+	local pos = g_perObjInstance:AddObject(self)
+	self.instArgs[g_perObjInstance] = {pos.pos, 1}
 	
 	self.renderer = Renderer(self, 1|2|4, self.FillVB, self.cached)
 	self.renderer:SetMaterial(g_mtlUi)
@@ -2104,11 +2106,6 @@ function UiLine:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ib
 	-- return 8, CAddLine2D(vbPos, wpPos, 4, true, 2, 1, vbPos, wpPos, ib, iwp, ibStart)
 end
 
------Camera-----
-Camera = class(SceneObject)
-function Camera:ctor()
-end
-
 -----SceneWidget-----
 SceneWidget = class(Widget2D)
 SceneWidget.acceptFocus = true
@@ -2176,9 +2173,9 @@ function SceneWidget:ClearViewRP0_1(spId, dcList)
 end
 
 function SceneWidget:ClearViewRP0_2(spId, dcList)
-	if (self.writeId and g_idView[spId]) then
+	if (self.writeId and g_idPass[spId]) then
 		local vpNew = self.vpNew
-		dcList:ClearViewUint4(g_idView[spId], vpNew.x, vpNew.y, vpNew.w, vpNew.h, self.id, 0, 0, 0)
+		dcList:ClearViewUint4(g_idPass[spId], vpNew.x, vpNew.y, vpNew.w, vpNew.h, self.id, 0, 0, 0)
 	end
 end
 
@@ -2214,7 +2211,7 @@ Scene3D = class(SceneWidget)
 
 function Scene3D:ctor(camera)
 	if (not camera) then
-		camera = SceneObject()
+		camera = Camera()
 	end
 	self.camera = camera
 	self.mProj = CMatrix()
@@ -2234,7 +2231,8 @@ function Scene3D:Render()
 	if (scene.update) then
 		scene:Update()
 	end
-	CMatrixToView(self.rb(), self.rb[1], self.camera.mWorld)
+	--CMatrixToView(self.rb(), self.rb[1], self.camera.mModel)
+	CAddMatrix(self.rb(), self.rb[1], self.camera.mView)
 	CAddMatrix(self.rb(), self.rb[2], self.mProj)
 	g_resCamera = self.res
 	

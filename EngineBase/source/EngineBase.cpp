@@ -135,7 +135,7 @@ void Engine::LuaRegister(lua_State* L)
 	for (size_t i = 0x30, j = 0; i <= 0x39; i++, j++)
 	{
 		char c[8]{};
-		sprintf_s(c, "VK_%d", j);
+		sprintf_s(c, "VK_%u", j);
 		lua.SetValue("SYS", c, i);
 	}
 	for (size_t i = 0x41; i <= 0x5A; i++)

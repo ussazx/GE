@@ -217,53 +217,65 @@ static inline void AddValue(CBuffer& b, int wp, int n, T1... t)
 		bw[i] = { (0, t)... };
 }
 
-inline void CAddFloat1(float x, LuacObj<CBuffer> vb, int wp, int num)
+inline void CMulAddFloat1(int num, LuacObj<CBuffer> vb, int wp, float x)
 {
 	AddValue<float>(*vb, wp, num, x);
 }
-Lua_global_add_cfunc(CAddFloat1)
+Lua_global_add_cfunc(CMulAddFloat1)
 
-inline void CAddFloat2(float x, float y, LuacObj<CBuffer> vb, int wp, int num)
+inline void CMulAddFloat2(int num, LuacObj<CBuffer> vb, int wp, float x, float y)
 {
 	AddValue<float2>(*vb, wp, num, x, y);
 }
-Lua_global_add_cfunc(CAddFloat2)
+Lua_global_add_cfunc(CMulAddFloat2)
 
-inline void CAddFloat3(float x, float y, float z, LuacObj<CBuffer> vb, int wp, int num)
+inline void CMulAddFloat3(int num, LuacObj<CBuffer> vb, int wp, float x, float y, float z)
 {
 	AddValue<float3>(*vb, wp, num, x, y, z);
 }
-Lua_global_add_cfunc(CAddFloat3)
+Lua_global_add_cfunc(CMulAddFloat3)
 
-inline void CAddFloat4(float x, float y, float z, float w, LuacObj<CBuffer> vb, int wp, int num)
+inline void CMulAddFloat4(int num, LuacObj<CBuffer> vb, int wp, float x, float y, float z, float w)
 {
 	AddValue<float4>(*vb, wp, num, x, y, z, w);
 }
-Lua_global_add_cfunc(CAddFloat4)
+Lua_global_add_cfunc(CMulAddFloat4)
 
-inline void CAddInt1(int x, LuacObj<CBuffer> vb, int wp, int num)
+inline void CMulAddInt1(int num, LuacObj<CBuffer> vb, int wp, int x)
 {
 	AddValue<int>(*vb, wp, num, x);
 }
-Lua_global_add_cfunc(CAddInt1)
+Lua_global_add_cfunc(CMulAddInt1)
 
-inline void CAddUInt1(uint1 x, LuacObj<CBuffer> vb, int wp, int num)
+inline void CMulAddUInt1(int num, LuacObj<CBuffer> vb, int wp, uint1 x)
 {
 	AddValue<uint1>(*vb, wp, num, x);
 }
-Lua_global_add_cfunc(CAddUInt1)
+Lua_global_add_cfunc(CMulAddUInt1)
 
-inline void CAddUShort1(uint32_t x, LuacObj<CBuffer> vb, int wp, int num)
+struct uint3
+{
+	uint1 x;
+	uint1 y;
+	uint1 z;
+};
+inline void CMulAddUInt3(int num, LuacObj<CBuffer> vb, int wp, uint1 x, uint1 y, uint1 z)
+{
+	AddValue<uint3>(*vb, wp, num, x, y, z);
+}
+Lua_global_add_cfunc(CMulAddUInt3)
+
+inline void CMulAddUShort1(int num, LuacObj<CBuffer> vb, int wp, uint32_t x)
 {
 	AddValue<uint16_t>(*vb, wp, num, (uint16_t)x);
 }
-Lua_global_add_cfunc(CAddUShort1)
+Lua_global_add_cfunc(CMulAddUShort1)
 
-inline void CAddUByte4(uint32_t r, uint32_t g, uint32_t b, uint32_t a, LuacObj<CBuffer> vb, int wp, int num)
+inline void CMulAddUByte4(int num, LuacObj<CBuffer> vb, int wp, uint32_t r, uint32_t g, uint32_t b, uint32_t a)
 {
 	AddValue<uint32_t>(*vb, wp, num, r | (g << 8) | (b << 16) | (a << 24));
 }
-Lua_global_add_cfunc(CAddUByte4)
+Lua_global_add_cfunc(CMulAddUByte4)
 
 //inline void CAddRectFloat2(LuacObj<CBuffer> vb, int wp, float x, float y, float w, float h)
 //{
@@ -275,7 +287,7 @@ Lua_global_add_cfunc(CAddUByte4)
 //}
 //Lua_global_add_cfunc(CAddRectFloat2)
 
-inline void CAddRectFloat3(float x, float y, float w, float h, float z, LuacObj<CBuffer> vb, int wp)
+inline void CAddRectFloat3(LuacObj<CBuffer> vb, int wp, float x, float y, float w, float h, float z)
 {
 	BufferWriter<float3> bw(*vb, 4, wp);
 	bw[0] = { x, y, z };
@@ -285,30 +297,8 @@ inline void CAddRectFloat3(float x, float y, float w, float h, float z, LuacObj<
 }
 Lua_global_add_cfunc(CAddRectFloat3)
 
-inline std::tuple<float, float> CNormalize2D(float vx, float vy)
-{
-	float d = vx * vx + vy * vy;
-	if (d == 0)
-		d = 1;
-	else if (d > 1)
-		d = sqrt(d);
-	return { vx / d, vy / d };
-}
-Lua_global_add_cfunc(CNormalize2D)
-
-inline std::tuple<float, float> CGetLineNormal2D(float x0, float y0, float x1, float y1, bool counter_clockwise)
-{
-	float n = counter_clockwise ? 1 : -1;
-	if (x0 == x1)
-		return { y0 == y1 ? 0 : (y0 < y1 ? 1 : -1) * n, 0 };
-	if (y0 == y1)
-		return { 0, (x0 < x1 ? -1 : 1) * n };
-	return CNormalize2D((y1 - y0) * n, (x0 - x1) * n);
-}
-Lua_global_add_cfunc(CGetLineNormal2D)
-
-inline size_t CAddLine2D(LuacObj<CBuffer> vb_src, int rp, int count, bool closed, float thickness, bool outer, bool mid,
-	LuacObj<CBuffer> vb_dst, int vwp, LuacObj<CBuffer> ib_dst, int iwp, int ioffset)
+inline size_t CAddLine2D(LuacObj<CBuffer> vb_dst, int vwp, LuacObj<CBuffer> ib_dst, int iwp, int ioffset,
+	LuacObj<CBuffer> vb_src, int rp, int count, bool closed, float thickness, bool outer, bool mid)
 {
 	if (count < 2)
 		return 0;
@@ -389,54 +379,6 @@ inline size_t CAddLine2D(LuacObj<CBuffer> vb_src, int rp, int count, bool closed
 	return icount;
 }
 Lua_global_add_cfunc(CAddLine2D)
-
-inline std::tuple<bool, float, float> CIntersect2D(float p0x, float p0y, float p1x, float p1y, bool p1AsDirection,
-	float p2x, float p2y, float p3x, float p3y, bool p2Opened, bool p3Opened)
-{
-	float3 p0 = { p0x, p0y };
-	float3 p1 = { p1x, p1y };
-	float3 p2 = { p2x, p2y };
-	float3 p3 = { p3x, p3y };
-
-	float3 v0 = p1AsDirection ? p1 : p1 - p0;
-	if (v0.x == 0 && v0.y == 0)
-		return { false, 0, 0 };
-
-	float3 v1 = p3 - p2;
-	if (v1.x == 0 && v1.y == 0)
-		return { false, 0, 0 };
-
-	if ((v0.x == 0 && v1.x == 0) || (v0.y == 0 && v1.y == 0))
-		return { false, 0, 0 };
-
-	float t0 = 0;
-	float t1 = 0;
-	if (v1.x == 0)
-	{
-		t0 = (p2.x - p0.x) / v0.x;
-		t1 = (p0.y + v0.y * t0 - p2.y) / v1.y;
-	}
-	else
-	{
-		float n = v1.y / v1.x;
-		float d = v0.y - n * v0.x;
-		if (d == 0)
-			return { false, 0, 0 };
-		float xd = p0.x - p2.x;
-
-		t0 = (p2.y + n * xd - p0.y) / d;
-		t1 = (xd + v0.x * t0) / v1.x;
-	}
-
-	if (t0 < 0 || (!p1AsDirection && t0 > 1))
-		return { false, 0, 0 };
-
-	if (t1 < 0 || (p2Opened && t1 == 0) || t1 > 1 || (p3Opened && t1 == 1))
-		return { false, 0, 0 };
-
-	return { true, p0x + v0.x * t0, p0y + v0.y * t0 };
-}
-Lua_global_add_cfunc(CIntersect2D)
 
 inline size_t AddConvexPolyIndex(BufferWriter<uint1>& ibw, int idx_offset, uint32_t num_vtx)
 {
@@ -648,7 +590,7 @@ inline size_t PrepareCopy(CBuffer& src, uint32_t src_pos, uint32_t stride, uint3
 	return count;
 }
 
-inline void CBufferCopy(LuacObj<CBuffer> src, int src_pos, int size, LuacObj<CBuffer> dst, int dst_wp)
+inline void CBufferCopy(LuacObj<CBuffer> dst, int dst_wp, LuacObj<CBuffer> src, int src_pos, int size)
 {
 	if (size < 0)
 		size = src->GetSize();
@@ -661,7 +603,7 @@ inline void CBufferCopy(LuacObj<CBuffer> src, int src_pos, int size, LuacObj<CBu
 }
 Lua_global_add_cfunc(CBufferCopy)
 
-inline void CCopyIndexBuffer(LuacObj<CBuffer> src, uint32_t src_pos, uint32_t count, uint32_t idx_start, LuacObj<CBuffer> dst, int dst_wp)
+inline void CCopyIndexBuffer(LuacObj<CBuffer> dst, int dst_wp, LuacObj<CBuffer> src, uint32_t src_pos, uint32_t count, uint32_t idx_start)
 {
 	BufferWriter<uint1> bw_src(*src, count, src_pos);
 	BufferWriter<uint1> bw_dst(*dst, count, dst_wp);
@@ -690,7 +632,7 @@ Lua_global_add_cfunc(CReplaceIndex)
 //}
 //Lua_global_add_cfunc(CMoveFloat2)
 
-inline void CMoveFloat3(LuacObj<CBuffer> src, int src_pos, size_t count, float x, float y, float z, LuacObj<CBuffer> dst, int dst_wp)
+inline void CMoveFloat3(LuacObj<CBuffer> dst, int dst_wp, LuacObj<CBuffer> src, int src_pos, size_t count, float x, float y, float z)
 {
 	BufferWriter<float3> bw_src(*src, count, src_pos);
 	BufferWriter<float3> bw_dst(*dst, count, dst_wp);
@@ -710,7 +652,7 @@ Lua_global_add_cfunc(CMoveFloat3)
 //}
 //Lua_global_add_cfunc(CScaleFloat2)
 
-inline void CScaleFloat3(LuacObj<CBuffer> src, int src_pos, size_t count, float sx, float sy, float sz, LuacObj<CBuffer> dst, int dst_wp)
+inline void CScaleFloat3(LuacObj<CBuffer> dst, int dst_wp, LuacObj<CBuffer> src, int src_pos, size_t count, float sx, float sy, float sz)
 {
 	BufferWriter<float3> bw_src(*src, count, src_pos);
 	BufferWriter<float3> bw_dst(*dst, count, dst_wp);
@@ -736,7 +678,7 @@ Lua_global_add_cfunc(CScaleFloat3)
 //}
 //Lua_global_add_cfunc(CTransformFloat2)
 
-inline std::tuple<float, float, float> CTransformFloat3(LuacObj<CBuffer> src, int src_pos, size_t count, LuacObj<CMatrix3D> m, LuacObj<CBuffer> dst, int dst_wp)
+inline std::tuple<float, float, float> CTransformFloat3(LuacObj<CBuffer> dst, int dst_wp, LuacObj<CBuffer> src, int src_pos, size_t count, LuacObj<CMatrix> m)
 {
 	BufferWriter<float3> bw_src(*src, count, src_pos, false);
 	BufferWriter<float3> bw_dst(*dst, count, dst_wp);
@@ -753,25 +695,25 @@ inline std::tuple<float, float, float> CTransformFloat3(LuacObj<CBuffer> src, in
 }
 Lua_global_add_cfunc(CTransformFloat3)
 
-inline void CAddMatrix(LuacObj<CMatrix3D> m, LuacObj<CBuffer> vb, int wp)
+inline void CAddMatrix(LuacObj<CBuffer> vb, int wp, LuacObj<CMatrix> m)
 {
-	BufferWriter<CMatrix3D> bw(*vb, 1, wp);
+	BufferWriter<CMatrix> bw(*vb, 1, wp);
 	bw[0] = *m;
 }
 Lua_global_add_cfunc(CAddMatrix)
 
-inline void CMatrixMultiply(LuacObj<CMatrix3D> m1, LuacObj<CMatrix3D> m2, LuacObj<CBuffer> vb, int wp)
+inline void CMatrixMultiply(LuacObj<CBuffer> vb, int wp, LuacObj<CMatrix> m1, LuacObj<CMatrix> m2)
 {
-	BufferWriter<CMatrix3D> bw(*vb, 1, wp);
-	CMatrix3D& m = bw[0];
+	BufferWriter<CMatrix> bw(*vb, 1, wp);
+	CMatrix& m = bw[0];
 	m.SetByMultiplied(m1, m2);
 }
 Lua_global_add_cfunc(CMatrixMultiply)
 
-inline void CMatrixToView(LuacObj<CMatrix3D> m, LuacObj<CBuffer> vb, int wp)
+inline void CMatrixToView(LuacObj<CBuffer> vb, int wp, LuacObj<CMatrix> m)
 {
-	BufferWriter<CMatrix3D> bw(*vb, 1, wp);
-	CMatrix3D& v = bw[0];
+	BufferWriter<CMatrix> bw(*vb, 1, wp);
+	CMatrix& v = bw[0];
 	v.SetByTransposed(m);
 	float3 p = v.col[3];
 	v.col[3] = { 0, 0, 0, 1 };
@@ -780,10 +722,10 @@ inline void CMatrixToView(LuacObj<CMatrix3D> m, LuacObj<CBuffer> vb, int wp)
 }
 Lua_global_add_cfunc(CMatrixToView)
 
-inline void CMatrixToViewMultiply(LuacObj<CMatrix3D> m, LuacObj<CMatrix3D> n, LuacObj<CBuffer> vb, int wp)
+inline void CMatrixToViewMultiply(LuacObj<CBuffer> vb, int wp, LuacObj<CMatrix> m, LuacObj<CMatrix> n)
 {
-	BufferWriter<CMatrix3D> bw(*vb, 1, wp);
-	CMatrix3D& v = bw[0];
+	BufferWriter<CMatrix> bw(*vb, 1, wp);
+	CMatrix& v = bw[0];
 	v.SetByTransposed(m);
 	float3 p = v.col[3];
 	v.col[3] = { 0, 0, 0, 1 };

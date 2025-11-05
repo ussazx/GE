@@ -8,7 +8,7 @@
 #define SAFE_DIVIDE(a, b, c) (IS_NOT_ZERO(b) ? ((a) / (b)) : c)
 #define M_PI 3.141592654f
 
-struct CMatrix3D;
+struct CMatrix;
 
 struct float2
 {
@@ -41,9 +41,9 @@ struct float3
 	float3 operator * (const float3& v) const;
 	bool operator == (const float3& v);
 	bool operator != (const float3& v);
-	float3 operator * (const CMatrix3D& m) const;
-	const float3& operator *= (const CMatrix3D& m);
-	float3 MulVec3(const CMatrix3D& m) const;
+	float3 operator * (const CMatrix& m) const;
+	const float3& operator *= (const CMatrix& m);
+	float3 MulVec3(const CMatrix& m) const;
 	float& operator [] (size_t i);
 	float operator [] (size_t i) const;
 	bool Same(const float3& v);
@@ -85,15 +85,16 @@ struct float4
 	float w = 0;
 };
 
-struct CMatrix3D
+struct CMatrix
 {
-	CMatrix3D();
+	CMatrix();
 
 	void Identity();
 	void SetRow1(float x, float y, float z, float w);
 	void SetRow2(float x, float y, float z, float w);
 	void SetRow3(float x, float y, float z, float w);
 	void SetRow4(float x, float y, float z, float w);
+	void SetDiagonalTL(float m00, float m11, float m22, float m33);
 	std::tuple<float, float, float, float> GetRow1();
 	std::tuple<float, float, float, float> GetRow2();
 	std::tuple<float, float, float, float> GetRow3();
@@ -104,17 +105,22 @@ struct CMatrix3D
 	void RotateLocalX(float angle, bool rotatePos);
 	void RotateLocalY(float angle, bool rotatePos);
 	void RotateLocalZ(float angle, bool rotatePos);
+	void Scale(float x, float y, float z);
 	void Move(float x, float y, float z);
 	void MoveLocal(float x, float y, float z);
-	void Transform(LuacObj<CMatrix3D> M, size_t d = 4);
+	void Transform(LuacObj<CMatrix> M, size_t d = 4);
 	void Perspective(float fov, float width, float height, float nearZ, float farZ);
-	void CopyFrom(LuacObj<CMatrix3D> M);
-	void SetByTransposed(LuacObj<CMatrix3D> M, size_t d = 4);
-	void SetByMultiplied(LuacObj<CMatrix3D> M1, LuacObj<CMatrix3D> M2);
-	void SetByInverted(LuacObj<CMatrix3D> M);
-	void TransformInverted(LuacObj<CMatrix3D> M);
+	void CopyFrom(LuacObj<CMatrix> M);
+	void SetByScaled(float x, float z, float y, LuacObj<CMatrix> M);
+	void SetByTransposed(LuacObj<CMatrix> M, size_t d = 4);
+	void SetByMultiplied(LuacObj<CMatrix> M1, LuacObj<CMatrix> M2);
+	void SetByInverted(LuacObj<CMatrix> M);
+	void SetByMatrixToView(LuacObj<CMatrix> M);
+	void TransformByInverted(LuacObj<CMatrix> M);
+	std::tuple<float, float, float> PointTransform(float x, float y, float z);
+	std::tuple<float, float, float> VectorTransform(float x, float y, float z);
 	std::tuple<float, float, float> GetPosition();
-	const CMatrix3D& operator *= (const CMatrix3D& n);
+	const CMatrix& operator *= (const CMatrix& n);
 
 	struct Row
 	{
@@ -145,14 +151,15 @@ struct CMatrix3D
 		float4 col[4];
 	};
 
-	Lua_wrap_cpp_class(CMatrix3D, Lua_ctor(), Lua_mf(Identity), Lua_mf(SetRow1), Lua_mf(SetRow2), Lua_mf(SetRow3), Lua_mf(SetRow4),
-		Lua_mf(GetRow1), Lua_mf(GetRow2), Lua_mf(GetRow3), Lua_mf(GetRow4), 
+	Lua_wrap_cpp_class(CMatrix, Lua_ctor(), Lua_mf(Identity), Lua_mf(SetRow1), Lua_mf(SetRow2), Lua_mf(SetRow3), Lua_mf(SetRow4),
+		Lua_mf(GetRow1), Lua_mf(GetRow2), Lua_mf(GetRow3), Lua_mf(GetRow4),
 		Lua_mf(SetRotation), Lua_mf(SetPosition), Lua_mf(Move), Lua_mf(MoveLocal),
-		Lua_mf(Rotate), Lua_mf(RotateLocalX), Lua_mf(RotateLocalY), Lua_mf(RotateLocalZ),
-		Lua_mf(Transform), Lua_mf(SetByTransposed), Lua_mf(SetByMultiplied), Lua_mf(TransformInverted),
-		Lua_mf(SetByInverted), Lua_mf(Perspective), Lua_mf(CopyFrom), Lua_mf(GetPosition))
+		Lua_mf(Rotate), Lua_mf(RotateLocalX), Lua_mf(RotateLocalY), Lua_mf(RotateLocalZ), Lua_mf(Scale),
+		Lua_mf(PointTransform), Lua_mf(VectorTransform),
+		Lua_mf(Transform), Lua_mf(SetByScaled), Lua_mf(SetByTransposed), Lua_mf(SetByMultiplied), Lua_mf(TransformByInverted),
+		Lua_mf(SetByInverted), Lua_mf(SetByMatrixToView), Lua_mf(Perspective), Lua_mf(CopyFrom), Lua_mf(GetPosition), Lua_mf(SetDiagonalTL))
 };
-Lua_global_add_cpp_class(CMatrix3D)
+Lua_global_add_cpp_class(CMatrix)
 
 inline float3 float3::Normalize() const
 {
@@ -291,18 +298,18 @@ inline bool float3::operator != (const float3& v)
 	return NOT_EQUAL(x, v.x) || NOT_EQUAL(y, v.y) || NOT_EQUAL(z, v.z);
 }
 
-inline float3 float3::operator * (const CMatrix3D& m) const
+inline float3 float3::operator * (const CMatrix& m) const
 {
 	return { x * m[0][0] + y * m[1][0] + z * m[2][0] + m[3][0],
 			 x * m[0][1] + y * m[1][1] + z * m[2][1] + m[3][1],
 			 x * m[0][2] + y * m[1][2] + z * m[2][2] + m[3][2] };
 }
-inline const float3& float3::operator *= (const CMatrix3D& m)
+inline const float3& float3::operator *= (const CMatrix& m)
 {
 	*this = *this * m;
 	return *this;
 }
-inline float3 float3::MulVec3(const CMatrix3D& m) const
+inline float3 float3::MulVec3(const CMatrix& m) const
 {
 	return { x * m[0][0] + y * m[1][0] + z * m[2][0],
 			 x * m[0][1] + y * m[1][1] + z * m[2][1],
@@ -328,12 +335,12 @@ inline float Vec2Cross(float x0, float y0, float x1, float y1)
 	return x0 * y1 - y0 * x1;
 }
 
-inline CMatrix3D::CMatrix3D()
+inline CMatrix::CMatrix()
 {
 	Identity();
 }
 
-inline void CMatrix3D::Identity()
+inline void CMatrix::Identity()
 {
 	col[0] = { 1, 0, 0 };
 	col[1] = { 0, 1, 0 };
@@ -341,61 +348,70 @@ inline void CMatrix3D::Identity()
 	col[3] = { 0, 0, 0, 1 };
 }
 
-inline void CMatrix3D::SetRow1(float x, float y, float z, float w)
+inline void CMatrix::SetRow1(float x, float y, float z, float w)
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
 	M[0][0] = x;
 	M[0][1] = y;
 	M[0][2] = z;
 	M[0][3] = w;
 }
-inline void CMatrix3D::SetRow2(float x, float y, float z, float w)
+inline void CMatrix::SetRow2(float x, float y, float z, float w)
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
 	M[1][0] = x;
 	M[1][1] = y;
 	M[1][2] = z;
 	M[1][3] = w;
 }
-inline void CMatrix3D::SetRow3(float x, float y, float z, float w)
+inline void CMatrix::SetRow3(float x, float y, float z, float w)
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
 	M[2][0] = x;
 	M[2][1] = y;
 	M[2][2] = z;
 	M[2][3] = w;
 }
-inline void CMatrix3D::SetRow4(float x, float y, float z, float w)
+inline void CMatrix::SetRow4(float x, float y, float z, float w)
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
 	M[3][0] = x;
 	M[3][1] = y;
 	M[3][2] = z;
 	M[3][3] = w;
 }
-inline std::tuple<float, float, float, float> CMatrix3D::GetRow1()
+inline void CMatrix::SetDiagonalTL(float m00, float m11, float m22, float m33)
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
+	M[0][0] = m00;
+	M[1][1] = m11;
+	M[2][2] = m22;
+	M[3][3] = m33;
+}
+inline std::tuple<float, float, float, float> CMatrix::GetRow1()
+{
+	CMatrix& M = *this;
 	return { M[0][0], M[0][1], M[0][2], M[0][3] };
 }
-inline std::tuple<float, float, float, float> CMatrix3D::GetRow2()
+inline std::tuple<float, float, float, float> CMatrix::GetRow2()
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
 	return { M[1][0], M[1][1], M[1][2], M[1][3] };
 }
-inline std::tuple<float, float, float, float> CMatrix3D::GetRow3()
+inline std::tuple<float, float, float, float> CMatrix::GetRow3()
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
 	return { M[2][0], M[2][1], M[2][2], M[2][3] };
 }
-inline std::tuple<float, float, float, float> CMatrix3D::GetRow4()
+inline std::tuple<float, float, float, float> CMatrix::GetRow4()
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
 	return { M[3][0], M[3][1], M[3][2], M[3][3] };
 }
-inline void CMatrix3D::SetRotation(float x, float y, float z, float angle)
+inline void CMatrix::SetRotation(float x, float y, float z, float angle)
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
+	M.Identity();
 	if (angle == 0)
 		return;
 	angle *= M_PI / 180.0f;
@@ -464,55 +480,55 @@ inline void CMatrix3D::SetRotation(float x, float y, float z, float angle)
 	M.SetRow2(v1.z, v0.y, r1.x, M[1][3]);
 	M.SetRow3(v2.x, v2.y, v0.z, M[2][3]);
 }
-inline void CMatrix3D::SetPosition(float x, float y, float z)
+inline void CMatrix::SetPosition(float x, float y, float z)
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
 	M.SetRow4(x, y, z, M[3][3]);
 }
-inline std::tuple<float, float, float> CMatrix3D::GetPosition()
+inline std::tuple<float, float, float> CMatrix::GetPosition()
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
 	return { M[3][0], M[3][1], M[3][2] };
 }
-inline void CMatrix3D::Rotate(float x, float y, float z, float angle, bool rotatePos)
+inline void CMatrix::Rotate(float x, float y, float z, float angle, bool rotatePos)
 {
-	CMatrix3D M;
+	CMatrix M;
 	M.SetRotation(x, y, z, angle);
-	Transform(const_cast<CMatrix3D*>(&M), rotatePos ? 4 : 3);
+	Transform(const_cast<CMatrix*>(&M), rotatePos ? 4 : 3);
 }
-inline void CMatrix3D::RotateLocalX(float angle, bool rotatePos)
+inline void CMatrix::RotateLocalX(float angle, bool rotatePos)
 {
-	CMatrix3D M;
+	CMatrix M;
 	float3 v{};
 	v = GetRow1();
 	M.SetRotation(v.x, v.y, v.z, angle);
-	Transform(const_cast<CMatrix3D*>(&M), rotatePos ? 4 : 3);
+	Transform(const_cast<CMatrix*>(&M), rotatePos ? 4 : 3);
 }
-inline void CMatrix3D::RotateLocalY(float angle, bool rotatePos)
+inline void CMatrix::RotateLocalY(float angle, bool rotatePos)
 {
-	CMatrix3D M;
+	CMatrix M;
 	float3 v{};
 	v = GetRow2();
 	M.SetRotation(v.x, v.y, v.z, angle);
-	Transform(const_cast<CMatrix3D*>(&M), rotatePos ? 4 : 3);
+	Transform(const_cast<CMatrix*>(&M), rotatePos ? 4 : 3);
 }
-inline void CMatrix3D::RotateLocalZ(float angle, bool rotatePos)
+inline void CMatrix::RotateLocalZ(float angle, bool rotatePos)
 {
-	CMatrix3D M;
+	CMatrix M;
 	float3 v{};
 	v = GetRow3();
 	M.SetRotation(v.x, v.y, v.z, angle);
-	Transform(const_cast<CMatrix3D*>(&M), rotatePos ? 4 : 3);
+	Transform(const_cast<CMatrix*>(&M), rotatePos ? 4 : 3);
 }
-inline void CMatrix3D::Move(float x, float y, float z)
+inline void CMatrix::Move(float x, float y, float z)
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
 	M.SetRow4(M[3][0] + x, M[3][1] + y, M[3][2] + z, M[3][3]);
 }
-inline void CMatrix3D::MoveLocal(float x, float y, float z)
+inline void CMatrix::MoveLocal(float x, float y, float z)
 {
-	CMatrix3D& M = *this;
 	float3 v1{}, v2{}, v3{}, v4{};
+	CMatrix& M = *this;
 	v1 = M.GetRow1();
 	v2 = M.GetRow2();
 	v3 = M.GetRow3();
@@ -520,11 +536,40 @@ inline void CMatrix3D::MoveLocal(float x, float y, float z)
 	v4 += v1 * x + v2 * y + v3 * z;
 	M.SetRow4(v4.x, v4.y, v4.z, M[3][3]);
 }
-inline void CMatrix3D::Transform(LuacObj<CMatrix3D> N, size_t d)
+inline void CMatrix::Scale(float x, float y, float z)
+{
+	float3 v1{}, v2{}, v3{};
+	CMatrix& M = *this;
+	v1 = M.GetRow1();
+	v2 = M.GetRow2();
+	v3 = M.GetRow3();
+	v1 *= x;
+	v2 *= y;
+	v3 *= z;
+	M.SetRow1(v1.x, v1.y, v1.z, M[0][3]);
+	M.SetRow2(v2.x, v2.y, v2.z, M[1][3]);
+	M.SetRow3(v3.x, v3.y, v3.z, M[2][3]);
+}
+inline void CMatrix::SetByScaled(float x, float z, float y, LuacObj<CMatrix> m)
+{
+	float3 v1{}, v2{}, v3{};
+	CMatrix& M = *m;
+	v1 = M.GetRow1();
+	v2 = M.GetRow2();
+	v3 = M.GetRow3();
+	v1 *= x;
+	v2 *= y;
+	v3 *= z;
+	SetRow1(v1.x, v1.y, v1.z, M[0][3]);
+	SetRow2(v2.x, v2.y, v2.z, M[1][3]);
+	SetRow3(v3.x, v3.y, v3.z, M[2][3]);
+	SetRow4(M[3][0], M[3][1], M[3][2], M[3][3]);
+}
+inline void CMatrix::Transform(LuacObj<CMatrix> N, size_t d)
 {
 	d %= 5;
-	CMatrix3D& M = *this;
-	CMatrix3D& n = *N;
+	CMatrix& M = *this;
+	CMatrix& n = *N;
 	float4 v;
 	for (size_t i = 0; i < d; i++)
 	{
@@ -536,24 +581,33 @@ inline void CMatrix3D::Transform(LuacObj<CMatrix3D> N, size_t d)
 			M[i][j] = v[j];
 	}
 }
-inline void CMatrix3D::SetByTransposed(LuacObj<CMatrix3D> N, size_t d)
+inline void CMatrix::SetByTransposed(LuacObj<CMatrix> N, size_t d)
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
 	d %= 5;
-	CMatrix3D& n = *N;
+	CMatrix& n = *N;
 	for (size_t i = 0; i < d; i++)
 		for (size_t j = 0; j < d; j++)
 			M[i][j] = n[j][i];
 }
-inline void CMatrix3D::SetByMultiplied(LuacObj<CMatrix3D> M1, LuacObj<CMatrix3D> M2)
+inline void CMatrix::SetByMultiplied(LuacObj<CMatrix> M1, LuacObj<CMatrix> M2)
 {
-	*this = *M1;
-	*this *= *M2;
+	if (this == M2)
+	{
+		CMatrix m = *M2;
+		*this = *M1;
+		*this *= m;
+	}
+	else
+	{
+		*this = *M1;
+		*this *= *M2;
+	}
 }
-inline void CMatrix3D::SetByInverted(LuacObj<CMatrix3D> n)
+inline void CMatrix::SetByInverted(LuacObj<CMatrix> n)
 {
-	CMatrix3D N = *n;
-	CMatrix3D& M = *this;
+	CMatrix N = *n;
+	CMatrix& M = *this;
 	float s[6];
 	float c[6];
 	s[0] = N[0][0] * N[1][1] - N[1][0] * N[0][1];
@@ -593,20 +647,33 @@ inline void CMatrix3D::SetByInverted(LuacObj<CMatrix3D> n)
 	M[3][2] = (-N[3][0] * s[3] + N[3][1] * s[1] - N[3][2] * s[0]) * idet;
 	M[3][3] = (N[2][0] * s[3] - N[2][1] * s[1] + N[2][2] * s[0]) * idet;
 }
-inline void CMatrix3D::TransformInverted(LuacObj<CMatrix3D> n)
+inline void CMatrix::TransformByInverted(LuacObj<CMatrix> n)
 {
-	CMatrix3D N;
+	CMatrix N;
 	N.SetByInverted(n);
 	*this *= N;
 }
-inline const CMatrix3D& CMatrix3D::operator *= (const CMatrix3D& n)
+inline std::tuple<float, float, float> CMatrix::PointTransform(float x, float y, float z)
 {
-	Transform(const_cast<CMatrix3D*>(&n), 4);
+	float3 v = { x, y, z };
+	v *= *this;
+	return { v.x, v.y, v.z };
+}
+inline std::tuple<float, float, float> CMatrix::VectorTransform(float x, float y, float z)
+{
+	CMatrix& m = *this;
+	return { x * m[0][0] + y * m[1][0] + z * m[2][0],
+		 x * m[0][1] + y * m[1][1] + z * m[2][1],
+		 x * m[0][2] + y * m[1][2] + z * m[2][2] };
+}
+inline const CMatrix& CMatrix::operator *= (const CMatrix& n)
+{
+	Transform(const_cast<CMatrix*>(&n), 4);
 	return *this;
 }
-inline void CMatrix3D::Perspective(float fovD, float width, float height, float nearZ, float farZ)
+inline void CMatrix::Perspective(float fovD, float width, float height, float nearZ, float farZ)
 {
-	CMatrix3D& M = *this;
+	CMatrix& M = *this;
 	if (fovD == 0 || width == 0 || height == 0 || nearZ == farZ)
 		return;
 	float h = 1 / tanf(fovD * M_PI / 180.0f * 0.5f);
@@ -617,7 +684,16 @@ inline void CMatrix3D::Perspective(float fovD, float width, float height, float 
 	M.SetRow3(0, 0, farZ / (farZ - nearZ), 1);
 	M.SetRow4(0, 0, -M[2][2] * nearZ, 0);
 }
-inline void CMatrix3D::CopyFrom(LuacObj<CMatrix3D> N)
+inline void CMatrix::SetByMatrixToView(LuacObj<CMatrix> N)
+{
+	CMatrix& m = *this;
+	m.SetByTransposed(N);
+	float3 p = m.col[3];
+	m.col[3] = { 0, 0, 0, 1 };
+	p *= m;
+	m.SetRow4(-p.x, -p.y, -p.z, 1);
+}
+inline void CMatrix::CopyFrom(LuacObj<CMatrix> N)
 {
 	if (this != N)
 		*this = *N;
@@ -654,20 +730,94 @@ inline std::tuple<float, float, float> CVec3NormalizeScale(float x, float y, flo
 }
 Lua_global_add_cfunc(CVec3NormalizeScale)
 
-inline std::tuple<float, float, float> CVec3Transform(float x, float y, float z, LuacObj<CMatrix3D> m)
+inline std::tuple<float, float, float> CVec3TransformInverted(float x, float y, float z, LuacObj<CMatrix> m)
 {
 	float3 v = { x, y, z };
-	v *= *m;
-	return { v.x, v.y, v.z };
-}
-Lua_global_add_cfunc(CVec3Transform)
-
-inline std::tuple<float, float, float> CVec3TransformInverted(float x, float y, float z, LuacObj<CMatrix3D> m)
-{
-	float3 v = { x, y, z };
-	CMatrix3D M;
+	CMatrix M;
 	M.SetByInverted(m);
 	v *= M;
 	return { v.x, v.y, v.z };
 }
 Lua_global_add_cfunc(CVec3TransformInverted)
+
+inline float CDot3D(float x0, float y0, float z0, float x1, float y1, float z1)
+{
+	return x0 * x1 + y0 * y1 + z0 * z1;
+}
+Lua_global_add_cfunc(CDot3D)
+
+inline float CDot2D(float x0, float y0, float x1, float y1)
+{
+	return x0 * x1 + y0 * y1;
+}
+Lua_global_add_cfunc(CDot2D)
+
+inline std::tuple<float, float> CNormalize2D(float vx, float vy)
+{
+	float d = vx * vx + vy * vy;
+	if (d == 0)
+		d = 1;
+	else if (d > 1)
+		d = sqrt(d);
+	return { vx / d, vy / d };
+}
+Lua_global_add_cfunc(CNormalize2D)
+
+inline std::tuple<float, float> CGetLineNormal2D(float x0, float y0, float x1, float y1, bool counter_clockwise)
+{
+	float n = counter_clockwise ? 1 : -1;
+	if (x0 == x1)
+		return { y0 == y1 ? 0 : (y0 < y1 ? 1 : -1) * n, 0 };
+	if (y0 == y1)
+		return { 0, (x0 < x1 ? -1 : 1) * n };
+	return CNormalize2D((y1 - y0) * n, (x0 - x1) * n);
+}
+Lua_global_add_cfunc(CGetLineNormal2D)
+
+inline std::tuple<bool, float, float> CIntersect2D(float p0x, float p0y, float p1x, float p1y, bool p1AsDirection,
+	float p2x, float p2y, float p3x, float p3y, bool p2Opened, bool p3Opened)
+{
+	float3 p0 = { p0x, p0y };
+	float3 p1 = { p1x, p1y };
+	float3 p2 = { p2x, p2y };
+	float3 p3 = { p3x, p3y };
+
+	float3 v0 = p1AsDirection ? p1 : p1 - p0;
+	if (v0.x == 0 && v0.y == 0)
+		return { false, 0, 0 };
+
+	float3 v1 = p3 - p2;
+	if (v1.x == 0 && v1.y == 0)
+		return { false, 0, 0 };
+
+	if ((v0.x == 0 && v1.x == 0) || (v0.y == 0 && v1.y == 0))
+		return { false, 0, 0 };
+
+	float t0 = 0;
+	float t1 = 0;
+	if (v1.x == 0)
+	{
+		t0 = (p2.x - p0.x) / v0.x;
+		t1 = (p0.y + v0.y * t0 - p2.y) / v1.y;
+	}
+	else
+	{
+		float n = v1.y / v1.x;
+		float d = v0.y - n * v0.x;
+		if (d == 0)
+			return { false, 0, 0 };
+		float xd = p0.x - p2.x;
+
+		t0 = (p2.y + n * xd - p0.y) / d;
+		t1 = (xd + v0.x * t0) / v1.x;
+	}
+
+	if (t0 < 0 || (!p1AsDirection && t0 > 1))
+		return { false, 0, 0 };
+
+	if (t1 < 0 || (p2Opened && t1 == 0) || t1 > 1 || (p3Opened && t1 == 1))
+		return { false, 0, 0 };
+
+	return { true, p0x + v0.x * t0, p0y + v0.y * t0 };
+}
+Lua_global_add_cfunc(CIntersect2D)

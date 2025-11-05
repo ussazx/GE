@@ -98,9 +98,9 @@ public:
 		f.emplace_back(Factors(isNormal, 
 			BufferWriter<float3>(*dst, count, wDst), BufferWriter<float3>(*src, start + count, wpSrc)));
 	}
-	void MatrixTransform(LuacObj<CMatrix3D> m)
+	void MatrixTransform(LuacObj<CMatrix> m)
 	{
-		CMatrix3D mn;
+		CMatrix mn;
 		if (m_hasNormal)
 			;
 		for (auto& i : m_factors)

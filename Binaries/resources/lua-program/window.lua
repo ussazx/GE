@@ -264,11 +264,13 @@ function Window:CaptureMouse(w)
 	g_actWindow = nil
 end
 
-function Window:ReleaseCaptured()
-	self.captured = nil
-	if (self.sysCaptured) then
-		self:Capture(false)
-		self.sysCaptured = false
+function Window:ReleaseCaptured(w)
+	if (not w or w == self.captured) then
+		self.captured = nil
+		if (self.sysCaptured) then
+			self:Capture(false)
+			self.sysCaptured = false
+		end
 	end
 end
 
@@ -321,7 +323,11 @@ function Window:on_mouse(e, x, y, w, m)
 	else
 		id = PickByTexture(self.idTexture, x, y)
 		obj = get_object(id) or self
-		obj = CheckScene(obj, self, x, y)
+		local scene = CheckScene(obj, self, x, y)
+		if (obj ~= scene and (not obj.pickable[scene] or
+			(e == EVT.MOUSEWHEEL and not obj.event_table_obj[e]))) then
+			obj = scene
+		end
 	end
 		
 	if (EVT.entered_id ~= id) then

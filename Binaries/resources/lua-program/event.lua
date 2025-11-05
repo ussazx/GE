@@ -1,5 +1,5 @@
 ---event---
-require 'utility'
+require 'object'
 local i = 0
 function new_event(name)
 	i = i + 1
@@ -13,8 +13,6 @@ end
 EVT = {}
 EVT.TIMER = new_event()
 EVT.RENDER = new_event()
-EVT.MOVE_IN = new_event()
-EVT.MOVE_OUT = new_event()
 EVT.FOCUS_IN = new_event()
 EVT.FOCUS_OUT = new_event()
 EVT.ACTIVE = new_event()
@@ -42,6 +40,8 @@ EVT.DROP = new_event()
 EVT.UNDEFINED = new_event('EVT_UNDEFINED')
 --EVT.ENTER_WINDOW = new_event('EVT_ENTER_WINDOW')
 --EVT.LEAVE_WINDOW = new_event('EVT_LEAVE_WINDOW')
+EVT.MOVE_IN = new_event()
+EVT.MOVE_OUT = new_event()
 EVT.LEFT_DOWN = new_event('EVT_LEFT_DOWN')
 EVT.LEFT_UP = new_event('EVT_LEFT_UP')
 EVT.MIDDLE_DOWN = new_event('EVT_MIDDLE_DOWN')
@@ -59,3 +59,36 @@ EVT.AUX1_DCLICK = new_event('EVT_AUX1_DCLICK')
 EVT.AUX2_DOWN = new_event('EVT_AUX2_DOWN')
 EVT.AUX2_UP = new_event('EVT_AUX2_UP')
 EVT.MAGNIFY = new_event('EVT_MAGNIFY')
+
+local mouseAll = {
+	EVT.MOVE_IN, 
+	EVT.MOVE_OUT,
+	EVT.LEFT_DOWN,
+	EVT.LEFT_UP,
+	EVT.MIDDLE_DOWN,
+	EVT.MIDDLE_UP,
+	EVT.RIGHT_DOWN,
+	EVT.RIGHT_UP,
+	EVT.MOTION,
+	EVT.LEFT_DCLICK, 
+	EVT.MIDDLE_DCLICK,
+	EVT.RIGHT_DCLICK,
+	EVT.MOUSEWHEEL,
+	EVT.AUX1_DOWN,
+	EVT.AUX1_UP,
+	EVT.AUX1_DCLICK, 
+	EVT.AUX2_DOWN,
+	EVT.AUX2_UP,
+	EVT.MAGNIFY}
+	
+function EVT.BindMouseAll(a, b, func, ...)
+	local o = {}
+	for _, e in pairs ({...}) do
+		o[e] = true
+	end
+	for _, e in pairs(mouseAll) do
+		if (not o[e]) then
+			a:bind_event(e, b, func)
+		end
+	end
+end

@@ -43,16 +43,16 @@ APPEND = -1
 
 Z_2D = 1
 
-g_sizeFunc = {}
-g_sizeFunc[CMulAddFloat1] = 4
---g_sizeFunc[CAddFloat2] = 8
-g_sizeFunc[CMulAddFloat3] = 12
-g_sizeFunc[CMulAddFloat4] = 16
-g_sizeFunc[CMulAddInt1] = 4
-g_sizeFunc[CMulAddUInt1] = 4
-g_sizeFunc[CMulAddUShort1] = 2
-g_sizeFunc[CMulAddUByte4] = 4
-g_sizeFunc[CAddMatrix] = CMatrix._size
+g_funcSize = {}
+g_funcSize[CMulAddFloat1] = 4
+g_funcSize[CMulAddFloat2] = 8
+g_funcSize[CMulAddFloat3] = 12
+g_funcSize[CMulAddFloat4] = 16
+g_funcSize[CMulAddInt1] = 4
+g_funcSize[CMulAddUInt1] = 4
+g_funcSize[CMulAddUShort1] = 2
+g_funcSize[CMulAddUByte4] = 4
+g_funcSize[CAddMatrix] = CMatrix._size
 
 DC_DEFAULT = 1
 DC_SORTED_1 = 2

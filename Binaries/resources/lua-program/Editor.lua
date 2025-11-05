@@ -112,18 +112,15 @@ function LoadAssets(path)
 end
 
 SceneView = class(Scene3D)
+SceneView.EvtPicked = {}
 function SceneView:ctor(scene)
 	self.scene = scene
 	self.focus = SceneObject(scene)
 	self.focus:Move(0, 5, 0)
 	self.camera:Attach(self.focus)
 	self.camera:Move(0, 0, -10)
-
-	self:bind_event(EVT.LEFT_DOWN, self, SceneView.OnSceneMouse)
-	self:bind_event(EVT.LEFT_UP, self, SceneView.OnSceneMouse)
-	self:bind_event(EVT.MOTION, self, SceneView.OnSceneMouse)
-	self:bind_event(EVT.MIDDLE_DOWN, self, SceneView.OnSceneMouse)
-	self:bind_event(EVT.MOUSEWHEEL, self, SceneView.OnSceneMouse)
+	
+	EVT.BindMouseAll(self, self, SceneView.OnSceneMouse)
 end
 
 function SceneView:RotateView(yaw, pitch)
@@ -152,27 +149,37 @@ function SceneView:OnSceneMouse(e, x, y, w, m)
 		g_actWindow:CaptureMouse(self)
 		self.mx = x
 		self.my = y
-		self.md = true
 	elseif (e == EVT.LEFT_UP) then
-		if (g_actWindow.captured == self) then
-			g_actWindow:ReleaseCaptured()
-			self.md = false
-		elseif (g_sceneModel) then
-		
+		g_actWindow:ReleaseCaptured(self)
+		if (not self.viewing) then
+			if (g_sceneModel) then
+				self.picked = g_sceneModel
+				self:process_event(SceneView.EvtPicked, g_sceneModel)
+			elseif (self.picked) then
+				self:process_event(SceneView.EvtPicked)
+			end
 		end
+		self.viewing = false
 	elseif (e == EVT.MOTION) then
-		if (self.md) then
-			self:RotateView(x - self.mx, y - self.my)
-		elseif (m) then
-			self:MoveView(self.mx - x, y - self.my, 0)
+		if (g_actWindow.captured == self) then
+			self.viewing = true
+			if (m) then
+				self:MoveView(self.mx - x, y - self.my, 0)
+			else
+				self:RotateView(x - self.mx, y - self.my)
+			end
 		end
 		self.mx = x
 		self.my = y
 	elseif (e == EVT.MIDDLE_DOWN) then
-			self.mx = x
-			self.my = y
+		g_actWindow:CaptureMouse(self)
+		self.mx = x
+		self.my = y
 	elseif (e == EVT.MOUSEWHEEL) then
 		self:MoveView(0, 0, w)
+	elseif (e == EVT.MIDDLE_UP) then
+		g_actWindow:ReleaseCaptured(self)
+		self.viewing = false
 	end
 	self:Refresh()
 end
@@ -364,7 +371,7 @@ local function GridFunc(grid, vbLineInfo, lwp, vbFadeInfo, fwp,  vbColor, cwp, i
 		for i = -count, count do
 			CMulAddInt1(1, b, APPEND, i)
 		end
-		grid:SetInstArgs(1, g_gridInstGroup, 0, count * 2 + 1)
+		grid:SetMeshInstArgs(1, g_gridSeqInst, 0, count * 2 + 1)
 		grid.count = count
 	end
 
@@ -396,13 +403,14 @@ end
 
 SceneWindow = class(PaneWindow)
 function SceneWindow:ctor()
+	self:EnableWriteId(false)
 	self.drawSelf = false
-	self.scene = SceneObject()
+	self.scene = ObjectScene()
 	self.sceneView = SceneView(self.scene)
 	self.sceneView.fColor:set(0.25, 0.25, 0.25, 1)
-	self.sceneView.camera._Update = self.sceneView.camera.Update
-	self.sceneView.camera.Update = SceneCameraUpdate
 	self.sceneView:bind_event(EVT.KEY_DOWN, self, SceneWindow.OnKeyDown)
+	
+	self.sceneView:bind_event(SceneView.EvtPicked, self, SceneWindow.OnPicked)
 	
 	local v = VBoxLayout()
 	v:AddChild(self.sceneView, 1, 0, 0, true)
@@ -416,26 +424,100 @@ function SceneWindow:ctor()
 	self.grid:Attach(self.scene)
 	
 	self.o = Model(g_cube)
-	--self.o:Attach(self.scene)
+	self.o:Attach(self.scene)
 	self.o1 = Model(g_cube)
 	self.o1:Move(-2.5, 0, 0)
 	self.o1:Attach(self.scene)
-	self.a = true
 	
-	local arrow = SceneObjCoord()
-	arrow:Attach(self.scene)
+	self.objCoord = ObjectCoord(self.sceneView.camera)
+	self.objCoord.arrowX.pickable[self.sceneView] = true
+	self.objCoord.arrowY.pickable[self.sceneView] = true
+	self.objCoord.arrowZ.pickable[self.sceneView] = true
+	
+	EVT.BindMouseAll(self.objCoord.arrowX, self, self.OnCoord, EVT.MOUSEWHEEL)
+	EVT.BindMouseAll(self.objCoord.arrowY, self, self.OnCoord, EVT.MOUSEWHEEL)
+	EVT.BindMouseAll(self.objCoord.arrowZ, self, self.OnCoord, EVT.MOUSEWHEEL)
+	--self.objCoord:Attach(self.scene)
 	
 	--local w = UiPolyIcon(g_iconLine1)
-	local w = UiText('abcdef')
-	w:EnableWriteId(false)
-	self.w = w
-	w.mRoot = CMatrix()
-	w.mtl = Material(g_mtlUi2)
-	w.mtl.resModel = ResourceHub(g_rlUB)
-	local buf = w.mtl.resModel:BindResBuffer(0, CMatrix._size)
-	CAddMatrix(buf(), buf[1], w.mRoot)
-	w.renderer:SetMaterial(w.mtl)
+	-- local w = UiText('abcdef')
+	-- w:EnableWriteId(false)
+	-- self.w = w
+	-- w.mRoot = CMatrix()
+	-- w.mtl = Material(g_mtlUi2)
+	-- w.mtl.resModel = ResourceHub(g_rlUB)
+	-- local buf = w.mtl.resModel:BindResBuffer(0, CMatrix._size)
+	-- CAddMatrix(buf(), buf[1], w.mRoot)
+	-- w.renderer:SetMaterial(w.mtl)
 	--self.scene:AddChild(w, 100, 50)
+	self.a = true
+end
+
+function SceneWindow:OnCoord(e, x, y, w, m)
+	local c = self.objCoord
+	local o = EVT.obj
+	if (e == EVT.MOVE_IN) then
+		if (o == c.arrowX) then
+			c:SetColorX(255, 255, 0, 200)
+		elseif (o == c.arrowY) then
+			c:SetColorY(255, 255, 0, 200)
+		elseif(o == c.arrowZ) then
+			c:SetColorZ(255, 255, 0, 200)
+		end
+	elseif (e == EVT.MOVE_OUT) then
+		c:RestoreColors(true, true, true)
+	elseif (e == EVT.LEFT_DOWN) then
+		g_actWindow:CaptureMouse(o)
+		if (o == c.arrowX) then
+			c:SetColorY(100, 100, 100, 100)
+			c:SetColorZ(100, 100, 100, 100)
+		elseif (o == c.arrowY) then
+			c:SetColorX(100, 100, 100, 100)
+			c:SetColorZ(100, 100, 100, 100)
+		elseif(o == c.arrowZ) then
+			c:SetColorX(100, 100, 100, 100)
+			c:SetColorY(100, 100, 100, 100)
+		end
+		self.mx = x
+		self.my = y
+	elseif (e == EVT.MOTION) then
+		if (g_actWindow.captured == o) then
+			local x0, y0 = x - self.mx, self.my - y
+			local mView = self.sceneView.camera.mView
+			if (o == c.arrowX) then
+				local x1, y1, _ = mView:VectorTransform(1, 0, 0)
+				c.attached:Move(Dot2D(x0, y0, Normalize2D(x1, y1)) / 20, 0, 0)
+			elseif (o == c.arrowY) then
+				local x1, y1, _ = mView:VectorTransform(0, 1, 0)
+				c.attached:Move(0, Dot2D(x0, y0, Normalize2D(x1, y1)) / 20, 0)
+			elseif (o == c.arrowZ) then
+				local x1, y1, _ = mView:VectorTransform(0, 0, 1)
+				c.attached:Move(0, 0, Dot2D(x0, y0, Normalize2D(x1, y1)) / 20)
+			end
+		end
+		self.mx = x
+		self.my = y
+	elseif ( e == EVT.LEFT_UP) then
+		g_actWindow:ReleaseCaptured(o)
+		if (o == c.arrowX) then
+			c:RestoreColors(false, true, true)
+		elseif (o == c.arrowY) then
+			c:RestoreColors(true, false, true)
+		elseif(o == c.arrowZ) then
+			c:RestoreColors(true, true, false)
+		end
+	end
+	self:Refresh()
+end
+
+function SceneWindow:OnPicked(e, m)
+	if (m) then
+		self.objCoord:Attach(m, nil, SceneObject.ATTACH_ROT_AFFECT_POS)
+		self.picked = m
+	elseif (self.picked) then
+		self.objCoord:Detach(true)
+		self.picked = nil
+	end
 end
 
 function SceneWindow:OnKeyDown(e, k)
@@ -449,7 +531,7 @@ function SceneWindow:OnKeyDown(e, k)
 		self.o:Move(0.1, 0, 0)
 	elseif (k == SYS.VK_A) then
 		if (self.a) then
-			self.o1:Attach(self.o, self.o1.ATTACH_ROT_AFFECT_POS_ROT, self.o1.ATTACH_WORLD)
+			self.o1:Attach(self.o, self.o1.ATTACH_WORLD, self.o1.ATTACH_ROT_AFFECT_POS_ROT)
 		else
 			self.o1:Detach()
 		end
@@ -470,7 +552,7 @@ function SceneWindow:UpdateDragging(x, y, m)
 	local z
 	x, y, z = CScreenToViewPos(x, y, 45, self.rect.w, self.rect.h)
 	x, y, z = CVec3NormalizeScale(x, y, z, 20)
-	x, y, z = CVec3Transform(x, y, z, self.sceneView.camera.mWorld)
+	x, y, z = self.sceneView.camera.mWorld:PointTransform(x, y, z)
 	m:SetPosition(x, y, z)
 	return true
 end
