@@ -595,7 +595,7 @@ geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_UINT1}
 geoInfo.vb = {vb, ub, cb}
 geoInfo.ib = ib
 geoInfo.meshes = {}
-geoInfo.meshes[1] = {0, 6, g_mtl3d}
+geoInfo.meshes[1] = {0, 6, g_mtl3dInst}
 g_plane3d = Geometry(geoInfo)
 
 ---Grid3d---
