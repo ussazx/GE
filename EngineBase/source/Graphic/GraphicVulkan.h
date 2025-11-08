@@ -19,6 +19,7 @@ struct VKParamRenderPass;
 struct VKParamPipeline;
 struct VKParamSampler;
 
+class VKImageHolder;
 class VKTexture : public Texture
 {
 public:
@@ -46,8 +47,10 @@ public:
 	uint32_t m_memTypeIndex{};
 	VkDeviceMemory m_mem{};
 	void* m_data{};
+	std::unordered_set<VKImageHolder*> m_holders;
 };
 
+class VKTexture;
 struct VKView
 {
 	VKTexture* t;
@@ -181,7 +184,13 @@ public:
 	virtual void OnBufferResized(VKBuffer*) = 0;
 };
 
-class VKResourceSet : public ResourceSet, public VKBufferHolder
+class VKImageHolder
+{
+public:
+	virtual void OnImageResized(VKTexture*) = 0;
+};
+
+class VKResourceSet : public ResourceSet, public VKBufferHolder, public VKImageHolder
 {
 public:
 	~VKResourceSet();
@@ -189,10 +198,12 @@ public:
 	void BindImageWithSampler(LuacObj<Texture> image, LuacObj<Sampler> sampler, uint32_t binding) override;
 	void BindInputAttachment(LuacObj<Texture> image, uint32_t binding) override;
 	void OnBufferResized(VKBuffer* buffer) override;
+	void OnImageResized(VKTexture* image) override;
 
 	VkDescriptorPool m_pool{};
 	VkDescriptorSet m_set{};
 	std::unordered_map<VKBuffer*, std::unordered_map<uint32_t, std::tuple<VkDescriptorBufferInfo, VkWriteDescriptorSet>>> m_bufferInfo;
+	std::unordered_map<VKTexture*, std::unordered_map<uint32_t, std::tuple<VkDescriptorImageInfo, VkWriteDescriptorSet>>> m_ImageInfo;
 };
 
 class VKShaderModule : public ShaderModule
@@ -266,6 +277,7 @@ public:
 			i.first->SetWritePos(pos);
 	}
 	std::unordered_map<VKBuffer*, size_t> m_buffers;
+	std::unordered_map<VKTexture*, size_t> m_images;
 	std::vector<VkBuffer> m_set;
 	std::vector<VkDeviceSize> m_offsets;
 };
@@ -343,10 +355,8 @@ public:
 	VKFrameBuffer* m_fb;
 	VkSubmitInfo m_si{};
 
-	std::vector<VKSwapchain*> m_swapchains;
-	std::vector<VkSwapchainKHR> m_scKHRs;
+	std::unordered_set<VKSwapchain*> m_swapchains;
 	std::vector<VkSemaphore> m_scSemas;
-	std::vector<uint32_t> m_scIndecies;
 	std::vector<VkPipelineStageFlags> m_plStageFlags;
 
 	static VkImageMemoryBarrier m_imb[2];

@@ -511,12 +511,19 @@ function SceneWindow:OnCoord(e, x, y, w, m)
 end
 
 function SceneWindow:OnPicked(e, m)
+	local o = self.picked
+	local b = not m and o
 	if (m) then
+		b = o and m ~= o
 		self.objCoord:Attach(m, nil, SceneObject.ATTACH_ROT_AFFECT_POS)
 		self.picked = m
-	elseif (self.picked) then
+		m:ShowPicked(true)
+	else
 		self.objCoord:Detach(true)
 		self.picked = nil
+	end
+	if (b) then
+		o:ShowPicked(false)
 	end
 end
 

@@ -305,6 +305,9 @@ bool VKTexture::Resize(uint32_t w, uint32_t h)
 		}
 	}
 
+	for (auto i : m_holders)
+		i->OnImageResized(this);
+
 	return true;
 }
 
@@ -481,21 +484,35 @@ void VKResourceSet::OnBufferResized(VKBuffer* b)
 	}
 }
 
+void VKResourceSet::OnImageResized(VKTexture* t)
+{
+	for (auto& i : m_ImageInfo[t])
+	{
+		std::get<0>(i.second).imageView = t->m_srv;
+		vkUpdateDescriptorSets(g->device, 1, &std::get<1>(i.second), 0, NULL);
+	}
+}
+
 void VKResourceSet::BindImageWithSampler(LuacObj<Texture> image, LuacObj<Sampler> sampler, uint32_t binding)
 {
-	VkDescriptorImageInfo dii{};
-	//dii.imageView = ((VKTexture*)image)->m_vci.image;
+	VKTexture* t = (VKTexture*)image;
+	auto& info = m_ImageInfo[t][binding];
+
+	VkDescriptorImageInfo& dii = std::get<0>(info);
+	dii.imageView = ((VKTexture*)image)->m_srv;
 	dii.sampler = ((VKSampler*)sampler)->m_sampler;
 	dii.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	
+	VkWriteDescriptorSet& wds = std::get<1>(info);
+	wds.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	wds.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	wds.dstBinding = binding;
+	wds.descriptorCount = 1;
+	wds.pImageInfo = &dii;
+	wds.dstSet = m_set;
+	vkUpdateDescriptorSets(g->device, 1, &wds, 0, NULL);
 
-	VkWriteDescriptorSet wds[1]{};
-	wds[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	wds[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	wds[0].dstBinding = binding;
-	wds[0].descriptorCount = 1;
-	wds[0].pImageInfo = &dii;
-	wds[0].dstSet = m_set;
-	vkUpdateDescriptorSets(g->device, 1, wds, 0, NULL);
+	t->m_holders.insert(this);
 }
 
 void VKResourceSet::BindInputAttachment(LuacObj<Texture> image, uint32_t binding)
@@ -657,21 +674,18 @@ void VKCommand::RenderBegin(LuacObj<FrameBuffer> fb, bool secondary)
 {
 	VKFrameBuffer* vfb = (VKFrameBuffer*)fb;
 
-	if (vfb->m_swapchain)
+	VKSwapchain* sc = vfb->m_swapchain;
+	if (sc && m_swapchains.find(sc) == m_swapchains.end())
 	{
-		if (m_si.waitSemaphoreCount >= m_scCap)
+		m_swapchains.insert(sc);
+		if (m_si.waitSemaphoreCount++ >= m_scSemas.size())
 		{
-			m_scCap++;
-			m_swapchains.resize(m_scCap);
-			m_scKHRs.resize(m_scCap);
-			m_scSemas.resize(m_scCap);
-			m_scIndecies.resize(m_scCap);
-			m_plStageFlags.resize(m_scCap, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+			m_scSemas.resize(m_si.waitSemaphoreCount);
+			m_plStageFlags.resize(m_si.waitSemaphoreCount, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 
-			m_si.pWaitDstStageMask = m_plStageFlags.data();
 			m_si.pWaitSemaphores = m_scSemas.data();
+			m_si.pWaitDstStageMask = m_plStageFlags.data();
 		}
-		m_swapchains[m_si.waitSemaphoreCount++] = vfb->m_swapchain;
 	}
 
 	VkRenderPassBeginInfo rpbi{};
@@ -890,16 +904,15 @@ void VKCommand::Execute()
 		vkQueueSubmit(g->queueG, 1, &m_si, m_fence);
 	else
 	{
-		for (size_t i = 0; i < m_si.waitSemaphoreCount; i++)
+		size_t i = 0;
+		for (auto j : m_swapchains)
 		{
-			VKSwapchain* sc = m_swapchains[i];
-			m_scKHRs[i] = sc->m_swapchain;
-			m_scSemas[i] = sc->m_vSemaphore[sc->m_semaIndex];
-			m_scIndecies[i] = sc->m_imageIndex;
-			sc->AddCmdSemaphore(m_completeSema);
+			m_scSemas[i++] = j->m_vSemaphore[j->m_semaIndex];
+			j->AddCmdSemaphore(m_completeSema);
 		}
 		vkQueueSubmit(g->queueG, 1, &m_si, m_fence);
 	}
+	m_swapchains.clear();
 	m_si.waitSemaphoreCount = 0;
 }
 
@@ -1299,6 +1312,17 @@ void Graphic::RegisterVulkanDefines(LuaState& lua)
 	SET_DEFINE("FORMAT_R8G8B8A8_UINT", VK_FORMAT_R8G8B8A8_UINT);
 	SET_DEFINE("FORMAT_B8G8R8A8_UNORM", VK_FORMAT_B8G8R8A8_UNORM);
 	SET_DEFINE("FORMAT_D24_UNORM_S8_UINT", VK_FORMAT_D24_UNORM_S8_UINT);
+
+	SET_DEFINE("FILTER_NEAREST", VK_FILTER_NEAREST);
+	SET_DEFINE("FILTER_LINEAR", VK_FILTER_LINEAR);
+	SET_DEFINE("FILTER_CUBIC_IMG", VK_FILTER_CUBIC_IMG);
+	SET_DEFINE("SAMPLER_MIPMAP_MODE_NEAREST", VK_SAMPLER_MIPMAP_MODE_NEAREST);
+	SET_DEFINE("SAMPLER_MIPMAP_MODE_LINEAR", VK_SAMPLER_MIPMAP_MODE_LINEAR);
+	SET_DEFINE("SAMPLER_ADDRESS_MODE_REPEAT", VK_SAMPLER_ADDRESS_MODE_REPEAT);
+	SET_DEFINE("SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT", VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT);
+	SET_DEFINE("SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE", VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE);
+	SET_DEFINE("SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER", VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER);
+	SET_DEFINE("SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE", VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE);
 
 	SET_DEFINE("RESOURCE_TYPE_SAMPLER", VK_DESCRIPTOR_TYPE_SAMPLER);
 	SET_DEFINE("RESOURCE_TYPE_COMBINED_IMAGE_SAMPLER", VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);

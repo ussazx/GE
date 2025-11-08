@@ -213,6 +213,9 @@ function Model:ctor(geom)
 	self.RenderMeshes = geom.renderFunc
 	self.pickable = {}
 	self:Reschedule()
+	if (EDITOR) then
+		self:ShowPicked(false)
+	end
 end
 
 function Model:SetMaterial(idx, mtl)
@@ -268,6 +271,27 @@ function Model:EnableWriteId(flag)
 	end
 end
 
+function Model:EnableSubpass(spId, flag, meshIdx)
+	if (meshIdx) then
+		local m = self.meshes[meshIdx] 
+		if (m) then
+			m.renderer:EnableSubpass(spId, flag)
+		end
+	else
+		for _, m in pairs(self.meshes) do
+			m.renderer:EnableSubpass(spId, flag)
+		end
+	end
+end
+
+function Model:ShowPicked(flag)
+	if (self.picked ~= flag) then
+		self:EnableSubpass(g_rp0[3], flag)
+		self:EnableSubpass(g_rp1[1], flag)
+		self.picked = flag
+	end
+end
+	
 function Model:Update()
 	SceneObject.Update(self)
 	for _, v in pairs(self.pmInst) do

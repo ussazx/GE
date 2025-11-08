@@ -76,6 +76,7 @@ function Renderer:ctor(mesh, fields, reader, doCache)
 	self.n_vtx = 0
 	self.n_idx = 0
 	self.writeId = true
+	self.orders = {}
 	
 	if (doCache) then
 		self.copy = CBufferCopy
@@ -111,8 +112,10 @@ function Renderer:Render(scene)
 	local draw = true
 	local iwp = g_input.idxCount * SIZE_INDEX
 	local n_idx = 0
+	local order = self.orders[mtl]
 	for spId, func in pairs(mtl.func) do
-		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
+		local o = order[spId]
+		local dcList = scene:GetDrawcall(spId, o[1], o[2])
 		if (not self.disables[spId] and dcList) then
 			if (dcList.mtl ~= mtl) then
 				func.func(mtl, dcList)
@@ -137,8 +140,10 @@ function Renderer:RenderCached(scene)
 	end
 	local mtl = self.mtl
 	local draw = false
+	local order = self.orders[mtl]
 	for spId, func in pairs(mtl.func) do
-		local dcList = scene:GetDrawcall(spId, func.mergeType, func.order)
+		local o = order[spId]
+		local dcList = scene:GetDrawcall(spId, o[1], o[2])
 		if (not self.disables[spId] and dcList) then
 			if (dcList.mtl ~= mtl) then
 				func.func(mtl, dcList)
@@ -156,6 +161,31 @@ function Renderer:RenderCached(scene)
 	end
 end
 
+function Renderer:SetOrder(mtl, spId, mergeType, order)
+	local m = self.orders[mtl or self.mtl]
+	if (not m) then
+		m = {}
+		self.orders[mtl] = m
+	end
+	local o = m[spId]
+	if (not o) then
+		o = {}
+		m[spId] = o
+	end
+	o[1], o[2] = mergeType, order
+end
+
+function Renderer:RestoreOrder(mtl, spId)
+	local m = self.orders[mtl or self.mtl]
+	if (m) then
+		local o = m[spId]
+		if (o) then
+			local func = mtl[spId]
+			o[1],  o[2] = func.mergeType, func.order
+		end
+	end
+end
+
 function Renderer:SetMaterial(mtl)
 	if (self.mtl == mtl) then
 		return
@@ -164,6 +194,10 @@ function Renderer:SetMaterial(mtl)
 	self.strides = mtl.vbLayout.strides
 	
 	local hasId = mtl.vbLayout.hasId
+	
+	for spId, func in pairs(mtl.func) do
+		self:SetOrder(mtl, spId, func.mergeType, func.order)
+	end
 	
 	local strides = self.strides
 	local srcFields = self.fields
@@ -469,6 +503,10 @@ function ResourceHub:_BindTexelView(set, v, binding)
 	set:BindBuffer(v, 0, cGI.WHOLE_SIZE, 0, cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER)
 end
 
+function ResourceHub:_BindImageWithSampler(set, o, binding)
+	set:BindImageWithSampler(o.image, o.sampler, binding)
+end
+
 function ResourceHub:BindResBuffer(binding, ...)
 	if (not self.rb) then
 		self.rb = cGI:NewBuffer(128)
@@ -513,6 +551,13 @@ end
 function ResourceHub:BindTexelView(v, binding)
 	--self:BindBuffer(v, 0, cGI.WHOLE_SIZE, 0, cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER)
 	self:NewBind(binding, v, ResourceHub._BindTexelView)
+end
+
+function ResourceHub:BindImageWithSampler(image, sampler, binding)
+	local o = {}
+	o.image = image
+	o.sampler = sampler
+	self:NewBind(binding, o, ResourceHub._BindImageWithSampler)
 end
 
 function ResourceHub:NewCmdResourceSet(cmd)

@@ -34,13 +34,20 @@ struct VKParamRenderPass : public ParamRenderPass
 			viewDescs.back().samples = VK_SAMPLE_COUNT_1_BIT;
 			viewDescs.back().loadOp = scLoad ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR;
 			viewDescs.back().storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-			viewDescs.back().initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+			viewDescs.back().initialLayout = scLoad ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_UNDEFINED;
 			viewDescs.back().finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		}
 	}
 
 	void AddViewDesc(uint32_t format, uint32_t sample, bool load, bool store, bool stencilLoad, bool stencilStore) override
 	{
+		auto layout = VK_IMAGE_LAYOUT_UNDEFINED;
+		if (load)
+			if (format == VK_FORMAT_D24_UNORM_S8_UINT)
+				layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+			else
+				layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
 		viewDescs.resize(viewDescs.size() + 1);
 		viewDescs.back().format = VkFormat(format);
 		viewDescs.back().samples = VkSampleCountFlagBits(sample);
@@ -48,7 +55,7 @@ struct VKParamRenderPass : public ParamRenderPass
 		viewDescs.back().storeOp = store ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		viewDescs.back().stencilLoadOp = stencilLoad ? VK_ATTACHMENT_LOAD_OP_LOAD : VK_ATTACHMENT_LOAD_OP_CLEAR;
 		viewDescs.back().stencilStoreOp = stencilStore ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		viewDescs.back().initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		viewDescs.back().initialLayout = layout;
 		viewDescs.back().finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	}
 

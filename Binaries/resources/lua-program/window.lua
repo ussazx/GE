@@ -134,42 +134,58 @@ function Window:init(hwnd, w, h)
 	self.idTargetView = cGI:NewTargetView(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PICK_ID, cGI.SAMPLE_COUNT_1_BIT, w, h)
 	self.idTexture = cGI:NewTexture(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PICK_ID, w, h)
 	self.depthStencilView = cGI:NewDepthStencilView(cGI.SAMPLE_COUNT_1_BIT, w, h)
+	self.idRecordView = cGI:NewTargetView(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PICK_ID, cGI.SAMPLE_COUNT_1_BIT, w, h)
+	
+	self.resIdImage = ResourceHub(g_rlCIS)
+	self.resIdImage:BindImageWithSampler(self.idRecordView, g_idSampler, 0)
 	
 	cParamFrameBuffer:Reset()
 	cParamFrameBuffer:SetSwapchain(self.swapchain)
 	--cParamFrameBuffer:AddView(self.scTargetView, 0)
 	cParamFrameBuffer:AddView(self.idTargetView, 0)
 	cParamFrameBuffer:AddView(self.depthStencilView, 0)
-	self.frameBuffer = cGI:NewFrameBuffer(g_rp0, cParamFrameBuffer, w, h)
-	self.frameBuffer.rp = g_rp0
-	self.frameBuffer.rt = {}
-	self.frameBuffer.rt[1] = self.idTargetView
+	cParamFrameBuffer:AddView(self.idRecordView, 0)
+	self.mainFrame = cGI:NewFrameBuffer(g_rp0, cParamFrameBuffer, w, h)
+	self.mainFrame.rp = g_rp0
 	
-	self.frameBuffer:ClearSwapchain(0.15, 0.15, 0.15, 0.2)
-	self.frameBuffer:ClearViewUint4(0, self.id, 0, 0, 0)
-	self.frameBuffer:ClearDepthStencil(1, 0, 0)
-	-- self.frameBuffer:ClearViewFloat4(0, 0.15, 0.15, 0.15, 0.2)
-	-- self.frameBuffer:ClearViewUint4(1, self.id, 0, 0, 0)
+	self.mainFrame:ClearSwapchain(0.15, 0.15, 0.15, 0.2)
+	self.mainFrame:ClearViewUint4(0, self.id, 0, 0, 0)
+	self.mainFrame:ClearDepthStencil(1, 0, 0)
+	self.mainFrame:ClearViewUint4(0, 0, 0, 0, 0)
+	-- self.mainFrame:ClearViewFloat4(0, 0.15, 0.15, 0.15, 0.2)
+	-- self.mainFrame:ClearViewUint4(1, self.id, 0, 0, 0)
 	
-	self.frameBuffer.vp = self.rect
-	self.frameBuffer.cr = self.rect
+	self.mainFrame.vp = self.rect
+	self.mainFrame.cr = self.rect
+	
+	cParamFrameBuffer:Reset()
+	cParamFrameBuffer:SetSwapchain(self.swapchain)
+	self.postFrame = cGI:NewFrameBuffer(g_rp1, cParamFrameBuffer, w, h)
+	self.postFrame.rp = g_rp1
+	self.postFrame.vp = self.rect
+	self.postFrame.cr = self.rect
 	
 	--self.sizegroup:add_rtv(self.scTargetView)
 	self.sizegroup:add_rtv(self.swapchain)
-	self.sizegroup:add_fb(self.frameBuffer)
+	self.sizegroup:add_fb(self.mainFrame)
 	self.sizegroup:add_rtv(self.idTargetView, true)
 	self.sizegroup:add_rtv(self.idTexture, true)
 	self.sizegroup:add_rtv(self.depthStencilView, true)
+	self.sizegroup:add_rtv(self.idRecordView, true)
+	self.sizegroup:add_fb(self.postFrame)
 	
 	self.fp = FramePipeline()
 	self.copyParam = {srcView = self.idTargetView, srcLayer = 0, src_x = 0, src_y = 0,
 					dstView = self.idTexture, dstLayer = 0, dst_x = 0, dst_y = 0, 
 					numLayers = 1, w = self.rect.w, h = self.rect.h}
-	self.fp:AddFrameOutput(self.frameBuffer)
+	self.fp:AddFrameOutput(self.mainFrame)
 	self.fp:AddCopyImage(self.copyParam)
+	self.fp:AddFrameOutput(self.postFrame)
 	self.fp:Bake()
 	self.fp:SetSurface(self, g_rp0[1])
 	self.fp:SetSurface(self, g_rp0[2])
+	self.fp:SetSurface(self, g_rp0[3])
+	self.fp:SetSurface(self, g_rp1[1])
 	
 	self.renderQueue[1] = self.fp
 	
@@ -232,6 +248,7 @@ function Window:render()
 	if(self.update or self.sized) then
 		
 		g_resWnd = self.res
+		g_resIdImage = self.resIdImage
 		
 		self.update = true
 		while (self.update) do

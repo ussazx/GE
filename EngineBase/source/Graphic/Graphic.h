@@ -302,6 +302,7 @@ public:
 		Lua_mf(NewDrawIndirectCmd),
 		Lua_mf(NewBuffer),
 		Lua_mf(NewBufferSet),
+		Lua_mf(NewSampler),
 		Lua_mf(DeviceWaitIdle));
 };
 

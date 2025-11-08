@@ -12,8 +12,10 @@
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\grid3d.vsc grid3d.vert
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\grid3d.psc grid3d.frag
 
-..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\ui2.vsc ui2.vert
+..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\ui3d.vsc ui3d.vert
 
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\id.psc id.frag
 
-..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\object3d_1.vsc object3d_1.vert
+..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\coord3d.vsc coord3d.vert
+
+..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\id_outline.psc id_outline.frag
