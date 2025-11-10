@@ -2223,6 +2223,8 @@ int wxAuiNotebook2::DoModifySelection(size_t n, bool events)
 
             ctrl->MakeTabVisible(ctrl_idx, ctrl);
 
+			wnd->SetFocus();
+
             // set fonts
             wxAuiPaneInfoArray& all_panes = m_mgr.GetAllPanes();
             size_t i, pane_count = all_panes.GetCount();

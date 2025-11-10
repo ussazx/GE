@@ -17,8 +17,6 @@ function GridLayoutTest(w)
 	local t = UiTextInput(0, uiFont.fontSize)
 	layout:AddChild(t, nil, 20, 10, true, 20, 20)
 	
-	if (1) then return end
-	
 	-- local sb = UiSlideBar(nil, false, 0, 0, 0, 20)
 	-- sb:SetScale(5, 1)
 	-- layout:AddChild(sb, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 20, 20, 20, 10)
@@ -63,19 +61,16 @@ function NewCommonWindow()
 	local w = Window()
 end
 
-function OnCreateProj()
-	local path = cTerminal.NewFileDialog(_('Create Project'), _("new"), '')
-	if (path:length() == 0) then
-		return
-	end
+local function OnCreateProj(w)
+	local path = w.dirText .. '\\' .. w.nameText
 	cTerminal.NewDirectory(path)
-	local name = path .. path:substr(path:rfind('\\'), -1) .. '.proj'
+	local name = path .. '\\' .. w.nameText .. '.gsproj'
 	local f = CNewFileOutput()
-	f:Open(name, true)
+	f:Open(name, false)
 	--f:WriteUtf8('')
 	f:Close()
-	cTerminal.NewDirectory(path .. '\\Assets')
-	cTerminal.NewDirectory(path .. '\\Configs')
+	cTerminal.NewDirectory(path .. '\\Content')
+	cTerminal.NewDirectory(path .. '\\Config')
 	cEntrance:Accept()
 	g_projPath = LString(path)
 end
@@ -184,55 +179,6 @@ function SceneView:OnSceneMouse(e, x, y, w, m)
 	self:Refresh()
 end
 
-function NewWindow_CreateProj()
-	local w = Window()
-	w.name = 'create'
-	w.color:set(70, 70, 70, 255)
-	
-	local layout = VSizerLayout()
-	w:AddChild(layout)
-	
-	local b = UiButton(100 ,30, _('Create'))
-	b:bind_event(EVT.LEFT_UP, nil, OnCreateProj)
-	layout:AddChild(b, nil, 10, 10, false, 10)
-	
-	-- local ww = UiWidget()
-	-- ww.color:set(40, 40, 40, 255)
-	-- layout:AddChild(ww, 1, 10, 10, true, 10, 10)
-	
-	-- local combo = UiCombo()
-	-- combo:AddItem('zzzz')
-	-- combo:AddItem('12345')
-	-- combo:AddItem('zzzzzzzzzzzzzzzzzzzzzzzzzzzzz')
-	-- combo:AddItem('zzzz')
-	-- combo:AddItem('zzzz')
-	-- combo:SetDefault(5)
-	-- combo:ShowOutline(true, Color(150, 150, 150, 255))
-	-- ww:AddChild(combo, 100, 100)
-	
-	--local ww = NewSceneViewport(w)
-	--layout:AddChild(ww, 1, 10, 10, true, 10, 10)
-	
-	local cp = ContentPanel()
-	layout:AddChild(cp, 1, 0, 10, true, 10, 10)
-	
-	cp:ScanDirectory()
-	
-	--local vs = HSizerLayout()
-	--local w0 = UiWidget(200, 100)
-	--w0.color:set(150, 150, 150, 100)
-	--local w1 = UiWidget(200, 100)
-	--w1.color:set(40, 40, 40, 255)
-	--local w2 = UiWidget(200, 100)
-	-- w2.color:set(40, 40, 40, 255)
-	-- vs:AddChild(t, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
-	-- vs:AddChild(w1, nil, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
-	-- vs:AddChild(w2, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
-	-- layout:AddChild(vs, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM)
-	
-	return w
-end
-
 ---FrameBufferPanel---
 FrameBufferPanel = class(VBoxLayout)
 
@@ -318,33 +264,113 @@ function ContentPanel:OnDropFile(x, y, files)
 	end
 end
 
+function OnLoadButton(w)
+	cTerminal.OpenFileDialog(_('加载项目'), '', 'gsproj')
+end
+
 function NewWindow_LoadProj()
 	local w = Window()
-	w.name = 'load'
-	w.color:set(40, 40, 40, 255)
-	--t0:bind_event(EVT.TIMER, t0, t0.Func)
-	--t1:bind_event(EVT.TIMER, t1, t1.Func)
-	--t0:Start(w, 300, true)
-	--t1:Start(w, 10, true)
+	w.color:set(70, 70, 70, 255)
+	local f = CNewFileInput(false)
+	if (f:Open('saved', false)) then
+	else
+		local v = VBoxLayout()
+		v:AddChild(UiText(_('未找到本地项目')), 1)
+		local b = UiButton(100, 30, _('加载...'))
+		b:bind_event(EVT.LEFT_DOWN, w, OnLoadButton)
+		v:AddChild(b, nil, 10, 20, false, nil, 20)
+		w:AddChild(v)
+		return w
+	end
 	
-	--VLayoutTest(w)
-	--HLayoutTest(w)
-	GridLayoutTest(w)
-	--w:AddChild(UiWidget(150, 130), 0, 0)
-	--w:AddChild(UiWidget(150, 130), 200, 0)
+	return w
+end
+
+local function OnCreateProjWndUpdate(w)
+	local s = w.nameText
+	if (s ~= w.nameInput.text) then
+		local hint = nil
+		s:set(w.nameInput.text)
+		if (s:length() > 0) then
+			if (s:find(' ') == 0) then
+				hint = w.nameHint1
+			elseif (s:length() > 0 and
+				(s:find('\\') >= 0 or
+				s:find('/') >= 0 or
+				s:find(':') >= 0 or
+				s:find('*') >= 0 or
+				s:find('?') >= 0 or
+				s:find('\"') >= 0 or
+				s:find('<') >= 0 or
+				s:find('>') >= 0 or
+				s:find('|') >= 0)) then
+				hint = w.nameHint2 
+			end
+		end
+		if (hint) then
+			w.hint:SetText(hint)
+			w.hint:Show(true)
+		else
+			w.hint:Show(false)
+		end
+	end
+	local loc = w.nameInput.location
+	local rect = w.nameInput.rect
+	w.hint:SetPos(loc.x, loc.y + rect.h + 10)
+	local b = not hint and w.dirText:length() > 0 and s:length() > 0
+	w.btnCreate:Enable(b)
+end
+
+local function OnCreateProjWndDirButton(w)
+	local s = cTerminal.ChooseDirDialog('', '', true)
+	if (s:length() > 0) then
+		w.dirText = s
+		w.dirButton.text:Show(false)
+		w.dirButton.fzText:SetText(s)
+	end
+end
+
+function NewWindow_CreateProj()
+	local w = Window()
+	w.UpdateBegin = OnCreateProjWndUpdate
+	w.color:set(70, 70, 70, 255)
+	w.dirText = LString('')
+	w.nameText = LString('')
+	w.finder = cTerminal.NewFileFinder()
 	
-	--w:AddChild(UiTextInput(100, uiFont.fontSize), 10, 10)
-	--w:AddChild(UiTextInput(100, uiFont.fontSize), 10, 100)
+	local v = VBoxLayout()
+	w:AddChild(v)
 	
-	--w:AddChild(UiText('abcdef'), 0, 0)
-	--w:AddChild(UiText('abcdef'), 100, 0)
-	--w:AddChild(UiText('abcdef'), 200, 0)
+	local h = HBoxLayout()
+	v:AddChild(h, 1)
 	
-	--w:AddChild(UiPolyIcon(g_iconLine), 200, 200)
-	--w:AddChild(UiPolyIcon(g_iconMagnifier), 200, 100)
+	h:AddChild(UiText(_('目录')))
+	w.dirButton = UiButton(300, 30)
+	w.dirButton.text:SetText('...')
+	w.dirButton:SetDefaultColor(80, 80, 80, 255)
+	w.dirButton:bind_event(EVT.LEFT_UP, w, OnCreateProjWndDirButton)
+	w.dirButton.fzText = UiTextLabel(300)
+	w.dirButton.fzText:EnableWriteId(false)
+	w.dirButton.layout:AddChild(w.dirButton.fzText, 1, 0)
 	
-	w.OnLeftDown = WindowOnLeftDown
-	--w:bind_event(EVT.LEFT_DOWN, w, w.OnLeftDown)
+	h:AddChild(w.dirButton, nil, 10)
+
+	h:AddChild(UiText(_('名称')), nil, 20)
+	w.nameInput = UiTextInput(200, 30)
+	h:AddChild(w.nameInput, nil, 10)		
+	
+	w.btnCreate = UiButton(100 ,30, _('新建'))
+	w.btnCreate:Enable(false)
+	w.btnCreate:bind_event(EVT.LEFT_UP, w, OnCreateProj)
+	h:AddChild(w.btnCreate, nil, 5)
+	
+	w.nameHint1 = _('项目名不能以空格开头')
+	w.nameHint2 = _('项目名不能包含下列字符：\\/:*?\"<>|')
+	
+	w.hint = UiText('')
+	w.hint.color:set(255, 100, 100, 255)
+	w.hint:Show(false)
+	w:AddChild(w.hint)
 	
 	return w
 end

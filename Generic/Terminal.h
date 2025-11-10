@@ -30,6 +30,8 @@ struct Terminal
 	static void SetClipboardText(LString s);
 	static LuacObjNew<LString> GetClipboardText();
 	static LuacObjNew<LString> NewFileDialog(LString title, LString defName, LString filter);
+	static LuacObjNew<LString> OpenFileDialog(LString title, LString defName, LString filter);
+	static LuacObjNew<LString> ChooseDirDialog(LString title, LString home, bool mustExist);
 	static void NewDirectory(LString path);
 	static void SetCurrentDir(LString path);
 
@@ -48,8 +50,8 @@ struct Terminal
 	}
 
 	Lua_wrap_cpp_class(Terminal, Lua_abstract, Lua_mf(AddEvent), Lua_mf(FlushStdout), Lua_mf(FlushStderr), Lua_mf(NewTimer),
-		Lua_mf(NewFileFinder), Lua_mf(GetClipboardText), Lua_mf(SetClipboardText), Lua_mf(NewFileDialog),
-		Lua_mf(NewDirectory), Lua_mf(SetCurrentDir))
+		Lua_mf(NewFileFinder), Lua_mf(GetClipboardText), Lua_mf(SetClipboardText), Lua_mf(OpenFileDialog), Lua_mf(NewFileDialog),
+		Lua_mf(ChooseDirDialog), Lua_mf(NewDirectory), Lua_mf(SetCurrentDir))
 
 private:
 	static void LuaRegister()

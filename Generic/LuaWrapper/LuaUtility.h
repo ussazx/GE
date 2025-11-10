@@ -153,6 +153,11 @@ public:
 		return *this;
 	}
 
+	bool same(LString s)
+	{
+		return *m_text == *s.m_text;
+	}
+
 	size_t insert(size_t pos, LString s)
 	{
 		if (m_text.use_count() > 1)
@@ -189,17 +194,17 @@ public:
 		return *s0.m_text == *s1.m_text;
 	}
 
-	size_t find(LString s)
+	int find(LString s)
 	{
 		return m_text->find(*s.m_text);
 	}
 
-	size_t rfind(LString s)
+	int rfind(LString s)
 	{
 		return m_text->rfind(*s.m_text);
 	}
 
-	Lua_wrap_cpp_class(LString, Lua_ctor(LuaIdx), Lua_mf(set), Lua_mf(utf8), Lua_mf(length), Lua_mf(ch),
+	Lua_wrap_cpp_class(LString, Lua_ctor(LuaIdx), Lua_mf(set), Lua_mf(utf8), Lua_mf(length), Lua_mf(ch), Lua_mf(same),
 		Lua_mf(insert), Lua_mf(erase), Lua_mf(substr), Lua_mt_mf("__concat", concat), Lua_mt_mf("__eq", equal), Lua_mf(find), Lua_mf(rfind))
 protected:
 	struct Cvt

@@ -105,19 +105,20 @@ bool AddGlyphClip(BufferWriter<float3>& pos, BufferWriter<float3>& uvw, GlyphInf
 	return AddGlyph(pos, uvw, g, p, &scissor, z);
 }
 
-std::tuple<float, uint32_t> MeasureText(const std::wstring& s, GlyphTable& table, int maxIndex = -1, int range = -1)
+std::tuple<uint32_t, uint32_t> CMeasureText(LString s, int count, int range, LuacObj<GlyphTable> table)
 {
 	float x = 0;
 	uint32_t i = 0;
-	for (auto it = s.begin(); it != s.end() && (maxIndex < 0 || maxIndex > i); it++, i++)
+	const std::wstring& ss = s;
+	for (auto it = ss.begin(); it != ss.end() && (count < 0 || i < count); it++, i++)
 	{
 		uint32_t index = 0;
-		if (*it >= table.indices.size())
-			index = L'?' < table.indices.size() ? table.indices[L'?'] : 0xffff;
+		if (*it >= table->indices.size())
+			index = L'?' < table->indices.size() ? table->indices[L'?'] : 0xffff;
 		else
-			index = table.indices[*it];
+			index = table->indices[*it];
 
-		float w = (index < table.glyphs.size() ? table.glyphs[index].xAdvance : table.xAdvance);
+		float w = (index < table->glyphs.size() ? table->glyphs[index].xAdvance : table->xAdvance);
 		float hw = w > 0 ? w / 2 : 0;
 		if (range >= 0 && range < x + hw)
 			break;
@@ -125,12 +126,30 @@ std::tuple<float, uint32_t> MeasureText(const std::wstring& s, GlyphTable& table
 	}
 	return { x, i };
 }
-
-std::tuple<uint32_t, uint32_t> CMeasureText(LString s, int maxIndex, int range, LuacObj<GlyphTable> font)
-{
-	return MeasureText(s, *font, maxIndex, range);
-}
 Lua_global_add_cfunc(CMeasureText);
+
+std::tuple<uint32_t, uint32_t> CMeasureTextR(LString s, int count, int range, LuacObj<GlyphTable> table)
+{
+	float x = 0;
+	uint32_t i = 0;
+	const std::wstring& ss = s;
+	for (auto it = ss.rbegin(); it != ss.rend() && (count < 0 || i < count); it++, i++)
+	{
+		uint32_t index = 0;
+		if (*it >= table->indices.size())
+			index = L'?' < table->indices.size() ? table->indices[L'?'] : 0xffff;
+		else
+			index = table->indices[*it];
+
+		float w = (index < table->glyphs.size() ? table->glyphs[index].xAdvance : table->xAdvance);
+		float hw = w > 0 ? w / 2 : 0;
+		if (range >= 0 && range < x + hw)
+			break;
+		x += w;
+	}
+	return { x, i };
+}
+Lua_global_add_cfunc(CMeasureTextR);
 
 std::tuple<int, int> CAddText(float x, float y, float z, LString s, LuacObj<GlyphTable> table, LuacObj<CBuffer> vb_pos, int wp_pos, LuacObj<CBuffer> vb_uv, int wp_uv)
 {

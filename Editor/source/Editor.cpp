@@ -200,8 +200,8 @@ bool MyApp::OnInit()
 
 	assert(Terminal::Lua().GetTop() == 0);
 	
-	//if (en.ShowModal() != wxID_OK)
-	//	return false;
+	if (en.ShowModal() != wxID_OK)
+		return false;
 
 	Terminal::Lua().GetValue("LoadProject", LuaCall());
 
@@ -272,6 +272,25 @@ LuacObjNew<LString> Terminal::NewFileDialog(LString title, LString defName, LStr
 		defName.c_str(),
 		filters.c_str(),
 		wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+	dialog.ShowModal();
+	return new LString(dialog.GetPath().wc_str());
+}
+
+LuacObjNew<LString> Terminal::OpenFileDialog(LString title, LString defName, LString filters)
+{
+	wxFileDialog dialog(nullptr,
+		title.c_str(),
+		wxEmptyString,
+		defName.c_str(),
+		filters.c_str(),
+		wxFD_OPEN);
+	dialog.ShowModal();
+	return new LString(dialog.GetPath().wc_str());
+}
+
+LuacObjNew<LString> Terminal::ChooseDirDialog(LString title, LString home, bool mustExist)
+{
+	wxDirDialog dialog(nullptr, title.c_str(), home.c_str(), wxDD_DEFAULT_STYLE | (mustExist ? wxDD_DIR_MUST_EXIST : 0));
 	dialog.ShowModal();
 	return new LString(dialog.GetPath().wc_str());
 }

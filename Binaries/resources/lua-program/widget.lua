@@ -98,8 +98,6 @@ function Widget2D:Show(show)
 	if (self.show ~= show) then
 		if (self.window) then
 			self.window:OnWidgetShow(self, show)
-		elseif(self.window) then
-			self.window.update = true
 		end
 		if (self.inLayout) then
 			self.inLayout:SetUpdate(true)
@@ -110,6 +108,7 @@ function Widget2D:Show(show)
 end
 
 function Widget2D:Update(...)
+	self:UpdateBegin()
 	self.location.x = self.rect.x
 	self.location.y = self.rect.y
 	if (self.parent) then
@@ -129,6 +128,13 @@ function Widget2D:Update(...)
 		end
 		self.updating = false
 	end
+	self:UpdateEnd()
+end
+
+function Widget2D:UpdateBegin()
+end
+
+function Widget2D:UpdateEnd()
 end
 
 function Widget2D:DoUpdate(...)
@@ -156,9 +162,9 @@ function Widget2D:SetPos(x, y)
 	if (self.inLayout and self.inLayout.update == false) then
 		return
 	end
-	self:DoSetPos(x, y)
+	local b = self:DoSetPos(x, y)
 	if (self.window) then
-		self.window.update = true
+		self.window.update = b
 	end
 end
 
@@ -173,7 +179,9 @@ function Widget2D:DoSetPos(x, y)
 		if (self.OnMoved) then
 			self:OnMoved()
 		end
+		return true
 	end
+	return false
 end
 
 function Widget2D:Move(x, y)
@@ -268,9 +276,9 @@ function Layout:DoUpdate(...)
 	return true, ...
 end
 
-local function InitVBoxLayoutProp(o, ratio, gapTop, gapBottom, expand, gapLeft, gapRight)
+local function InitVBoxLayoutProp(o, ratio, gapTop, gapBottom, hExpand, gapLeft, gapRight)
 	o.ratio = ratio
-	o.expand = expand
+	o.expand = hExpand
 	o.left = gapLeft or 0
 	o.alignL = gapLeft
 	o.right = gapRight or 0
@@ -530,39 +538,60 @@ local function SizerLayout_OnSizerMouse(layout, e, x, y)
 		if (layout.mp) then
 			local c0 = layout.c0
 			local c1 = layout.c1
+			local len0 = GetLen(c0)
+			local len1 = GetLen(c1)
 			local dp = p - layout.mp
-			if (dp == 0 or (dp < 0 and GetLen(c0) == 0) or (dp > 0 and GetLen(c1) == 0) or 
-				(GetLen(c0) == 0 and GetLen(c1) == 0)) then
+			if (dp == 0 or (dp < 0 and len0 == 0) or (dp > 0 and len1 == 0) or 
+				(GetLen(c0) == 0 and len1 == 0)) then
 				return
 			end
 			if (dp > 0) then
-				dp = math.min(dp, GetLen(c1))
+				dp = math.min(dp, len1)
 			else
 				dp = math.max(dp, -GetLen(c0))
 			end
 			
 			local prop0 = layout.props[c0]
 			local prop1 = layout.props[c1]
+			local max0, max1 = 0, 0
 			if (prop0.ratio) then
 				if (prop1.ratio) then
 					if (layout.flex > 0 and layout.scale > 0) then
-						prop0.ratio = (GetLen(c0) + dp) / layout.flex * layout.scale
-						prop1.ratio = (GetLen(c1) - dp) / layout.flex * layout.scale
+						if (not prop0.alignL or not prop0.alignR) then
+							max0 = layout.scale * len0 / layout.flex
+						end
+						if (not prop1.alignL or not prop1.alignR) then
+							max1 = layout.scale * len1 / layout.flex
+						end	
+						local total = prop0.ratio + prop1.ratio
+						if (dp < 0) then
+							prop0.ratio = math.max(max0, prop0.ratio + layout.scale * dp / layout.flex)
+							prop1.ratio = total - prop0.ratio
+						else
+							prop1.ratio = math.max(max1, prop1.ratio - layout.scale * dp / layout.flex)
+							prop0.ratio = total - prop1.ratio
+						end
 					end
 				else
 					if (prop0.ratio < layout.scale and layout.flex > 0) then
-						prop0.ratio = math.max(0, prop0.ratio - layout.scale * (1 - (layout.flex + dp) / layout.flex))
+						if (not prop0.alignL or not prop0.alignR) then
+							max0 = layout.scale * len0 / layout.flex
+						end
+						prop0.ratio = math.max(max0, prop0.ratio + layout.scale * dp / layout.flex)
 					end
-					SetLen(c1, GetLen(c1) - dp)
+					SetLen(c1, len1 - dp)
 				end
 			else
-				SetLen(c0, GetLen(c0) + dp)
+				SetLen(c0, len0 + dp)
 				if (prop1.ratio) then
 					if (prop1.ratio < layout.scale and layout.flex > 0) then
-						prop1.ratio = math.max(0, prop1.ratio - layout.scale * (1 - (layout.flex - dp) / layout.flex))
+						if (not prop1.alignL or not prop1.alignR) then
+							max1 = layout.scale * len1 / layout.flex
+						end	
+						prop1.ratio = math.max(max1, prop1.ratio - layout.scale * dp / layout.flex)
 					end
 				else
-					SetLen(c1, GetLen(c1) - dp)
+					SetLen(c1, len1 - dp)
 				end
 			end
 			if (layout.vertical) then
@@ -722,6 +751,26 @@ function UiWidget:ctor(w, h)
 	
 	self.rcRenderer = Renderer(self, 1|2|4, self.FillClipRectVB, false)
 	self.rcRenderer:SetMaterial(g_mtlUi)
+	
+	self.enable = true
+end
+
+function UiWidget:Enable(flag)
+	if (flag == self.enable) then
+	return end
+	
+	if (flag) then
+		self:RemoveChild(self.disUi)
+	else
+		if (not self.disUi) then
+			self.disUi = UiWidget()
+			self.disUi.color:set(150, 150, 150, 200)
+		end
+		self.disUi:SetSize(self.rect.w, self.rect.h)
+		self:AddChild(self.disUi)
+	end
+	
+	self.enable = flag
 end
 
 function UiWidget:EnableWriteId(flag)
@@ -1001,17 +1050,18 @@ UiText.cached = true
 function UiText:ctor(s, font)
 	self.text = LString('')
 	self:SetText(s, font)
+	self:Show(self.text:length() > 0)
 end
 
 function UiText:SetText(s, font)
 	s = s or self.text
 	font = font or uiFont
-	self:Show(s ~= '')
 	if (self.text ~= s or self.font ~= font) then
 		self.text:set(s)
 		self.font = font
 		self:SetSize(CMeasureText(s, -1, -1, font), font.fontSize)
 		self:Refresh()
+		self:Show(self.text:length() > 0)
 	end
 end
 
@@ -1030,6 +1080,64 @@ function UiText:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ib
 	return 4 * n, CAddConvexPolyIndex(4, ib, iwp, ibStart, n)
 end
 
+---UiTextLabel---
+UiTextLabel = class(UiWidget)
+UiTextLabel.FillVB = UiText.FillVB
+UiTextLabel.cached = true
+UiTextLabel.ellWidth = CMeasureText('...', -1, -1, UiWidget.font)
+
+function UiTextLabel:ctor(w, s, font)
+	self.text = LString('')
+	self.fullText = LString('')
+	self:SetText(s, font)
+	self:SetSize(w, self.font.fontSize)
+	self:Show(self.text:length() > 0)
+end
+
+function UiTextLabel:SetText(s, font)
+	s = s or self.fullText
+	font = font or self.font
+	if (self.fullText ~= s or self.font ~= font) then
+		self:Refresh()
+		self.fullText:set(s)
+		self:Show(self.fullText:length() > 0)
+		if (self.font ~= font) then
+			self.ellWidth = CMeasureText('...', -1, -1, font)
+			if (self.font.fontSize ~= font.fontSize) then
+				self.SetSize(nil, font.fontSize)
+				self.font = font
+				return
+			end
+			self.font = font
+		end
+		self:OnSized()
+	end
+end
+	
+function UiTextLabel:OnSized()
+	local m = self.fullText:length()
+	local w1 = self.rect.w
+	if (w1 < 1 or m < 2) then
+		return
+	end
+
+	local s = self.text
+	s:set(self.fullText)
+	local font = self.font
+	local w2 = CMeasureText(s, m, -1, font)
+	if (w2 <= w1) then
+		return
+	end
+	local w3 = 0
+	local n = 0
+	while (w2 - w3 + self.ellWidth > w1 and n + 1 < m) do
+		n = n + 1
+		w3 = CMeasureTextR(s, n, -1, font)
+	end
+	s:erase(m - n, n)
+	self.text = s .. '...'
+end
+	
 -----TextInput-----
 UiTextInput = class(UiWidget)
 UiTextInput.cached = true
@@ -1411,7 +1519,7 @@ function UiTextInput:SetText(s, font)
 		self.text:set(s)
 		self.font = font
 		self.insertIdx = 0
-		self.caret:SetSize(1, font.fontSize)
+		self.caret:SetSize(1, self.rect.h)
 		self.caret:SetPos(0, self.rect.h - self.caret.rect.h)
 		if (s ~= '') then
 			local w
@@ -1444,7 +1552,11 @@ function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iw
 		wpUVW = APPEND
 		wpColor = APPEND
 	end
-	n = n + CAddTextClip(self.textOffset, self.rect.h + self.font.descender, 
+	local h = self.rect.h
+	if (h > self.font.fontSize) then
+		h = h - (h - self.font.fontSize) // 2
+	end
+	n = n + CAddTextClip(self.textOffset, h + self.font.descender, 
 	rect.x, rect.y, rect.w, rect.h, Z_2D, self.text, self.font, vbPos, wpPos, vbUVW, wpUVW)
 	CMulAddUByte4(4 * n, vbColor, wpColor, self.color.r, self.color.g, self.color.b, self.color.a)
 	return 4 * n, CAddConvexPolyIndex(4, ib, iwp, ibStart, n)
