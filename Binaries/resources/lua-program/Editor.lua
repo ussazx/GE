@@ -265,7 +265,7 @@ function ContentPanel:OnDropFile(x, y, files)
 end
 
 function OnLoadButton(w)
-	cTerminal.OpenFileDialog(_('加载项目'), '', 'gsproj')
+	cTerminal.OpenFileDialog(_('加载项目'), '', '*.gsproj')
 end
 
 function NewWindow_LoadProj()
@@ -541,7 +541,7 @@ function SceneWindow:OnPicked(e, m)
 	local b = not m and o
 	if (m) then
 		b = o and m ~= o
-		self.objCoord:Attach(m, nil, SceneObject.ATTACH_ROT_AFFECT_POS)
+		self.objCoord:Attach(m, nil, SceneObject.ATTACH_ROT_IGNORE)
 		self.picked = m
 		m:ShowPicked(true)
 	else
