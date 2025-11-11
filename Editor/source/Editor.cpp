@@ -200,8 +200,8 @@ bool MyApp::OnInit()
 
 	assert(Terminal::Lua().GetTop() == 0);
 	
-	//if (en.ShowModal() != wxID_OK)
-	//	return false;
+	if (en.ShowModal() != wxID_OK)
+		return false;
 
 	Terminal::Lua().GetValue("LoadProject", LuaCall());
 
