@@ -515,6 +515,7 @@ public:
 
 	void AddPageNotebook(LuaReturn& ret, const char* name, LString title)
 	{
+		this;
 		FloatableNotebook* nb = new FloatableNotebook(m_self, new UiManager);
 		nb->SetName(name);
 		AddPageWnd(nb, title.c_str());
@@ -531,6 +532,7 @@ public:
 		SetFrameMenuBar({});
 	}
 
+	virtual void SetTitle(LString title) {};
 	virtual void AddPageWnd(wxWindow*, const wchar_t* title) = 0;
 	virtual void SetFrameMenuBar(wxMenuBar*) {}
 
@@ -538,8 +540,8 @@ public:
 	virtual void Reject() = 0;
 
 	Lua_wrap_cpp_class(vmFrame, Lua_abstract, Lua_mf(AddPageWindow), Lua_mf(AddPageNotebook),
-		Lua_mf(SetMenuBar), Lua_mf(ResetMenuBar),
+		Lua_mf(SetTitle), Lua_mf(SetMenuBar), Lua_mf(ResetMenuBar),
 		Lua_mf(Accept), Lua_mf(Reject));
-private:
+protected:
 	wxWindow* m_self{};
 };

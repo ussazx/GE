@@ -756,9 +756,18 @@ public:
 };
 Lua_global_add_cpp_class(CList);
 
-inline void CLuaLoad(LuaReturn& ret, LuacObj<Engine::StreamInput> input)
+inline void CLoadInput(LuaReturn& ret, LuacObj<Engine::StreamInput> input)
 {
-	ret.Push(LuaLoad(input->GetData(), input->GetSize()));
+	if (input->GetSize() == 0)
+		ret.Push(nullptr);
+	else
+		ret.Push(LuaLoad(input->GetData(), input->GetSize()));
 }
-Lua_global_add_cfunc(CLuaLoad)
+Lua_global_add_cfunc(CLoadInput)
+
+inline void CSetLoadedEnv(LuaIdx func, LuaIdx env)
+{
+	func.SetValue(LuaFEnv(), env.Idx());
+}
+Lua_global_add_cfunc(CSetLoadedEnv)
 

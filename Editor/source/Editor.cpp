@@ -128,6 +128,7 @@ bool MyApp::OnInit()
 
 	LuaRegGlobalReflected(&Terminal::Lua());
 
+
 	Terminal::Lua().Run("a = 1.1");
 	uint32_t n;
 	Terminal::Lua().GetValue("a", &n);
@@ -168,6 +169,16 @@ bool MyApp::OnInit()
 	Terminal::Lua().Run((char*)fd.GetData(), fd.GetSize());
 	fd.Release();
 
+	Terminal::Lua().Run("function z() return a, b end zz = {a = 'abc', b = '123'} w = {z = z} o = {zz = zz}");
+	Terminal::Lua().SetValue("w", "z", LuaFEnv(), LuaGet("o", "zz"));
+	const char* a{};
+	const char* b{};
+	Terminal::Lua().GetValue("z", LuaCall(), &a, &b);
+
+	Terminal::Lua().Run("a = {} b = {}");
+	Terminal::Lua().SetValue("a", 1, LuaGet("b"), "z", 1);
+	Terminal::Lua().Run("Print(a[1][b].z)");
+
 	Terminal::Lua().Run("A = class() function A:f() end a = A() B = class(A) b = B() C = class(B) c = C()");
 
 	t = GetTickCount();
@@ -205,8 +216,9 @@ bool MyApp::OnInit()
 
 	Terminal::Lua().GetValue("LoadProject", LuaCall());
 
-	MainFrame* mf = new MainFrame(nullptr, wxID_ANY, "");
+	MainFrame* mf = new MainFrame(nullptr, wxID_ANY, "", "cMainFrame");
 	Terminal::Lua().SetValue("cMainFrame", Lua_set_cobj(mf));
+
 	Terminal::Lua().GetValue("LoadMainFrame", LuaCall());
 	//mf->m_nb->LoadPerspective(DEFAULT_LAYOUT);
 
@@ -293,6 +305,26 @@ LuacObjNew<LString> Terminal::ChooseDirDialog(LString title, LString home, bool 
 	wxDirDialog dialog(nullptr, title.c_str(), home.c_str(), wxDD_DEFAULT_STYLE | (mustExist ? wxDD_DIR_MUST_EXIST : 0));
 	dialog.ShowModal();
 	return new LString(dialog.GetPath().wc_str());
+}
+
+void Terminal::MessageDialog(LuaReturn& ret, LString caption, LString message, LString yes, LString no, LString cancel)
+{
+	wxMessageDialog dialog({},
+		message.c_str(),
+		caption.c_str(),
+		wxCENTER |
+		wxNO_DEFAULT | wxYES_NO | wxCANCEL |
+		wxICON_INFORMATION);
+	dialog.SetYesNoCancelLabels(yes.c_str(), no.c_str(), cancel.c_str());
+	switch (dialog.ShowModal())
+	{
+	case wxID_YES:
+		ret.Push(true);
+	case wxID_NO:
+		ret.Push(false);
+	default:
+		ret.Push(nullptr);
+	}
 }
 
 class Timer : public Terminal::CTimer

@@ -27,16 +27,19 @@ local function Text(o)
 	return nil
 end
 
-function SerializeToText(o)
+function SerializeToTableText(o)
 	if (type(o) ~= 'table') then
 		return Text(o)
+	end
+	if (o[LString]) then
+		return Text(o:utf8())
 	end
 	local s = '{ '
 	local comma = ''
 	for k, v in pairs(o) do
 		local ks = Text(k)
 		if (ks) then
-			local vs = SerializeToText(v)
+			local vs = SerializeToTableText(v)
 			if (vs) then
 				s = s..comma..'['..ks..']'..'='..vs
 				comma = ', '
@@ -46,6 +49,51 @@ function SerializeToText(o)
 	return s..' }'
 end
 
+function SerializeToText(o)
+	if (type(o) ~= 'table') then
+		return Text(o)
+	end
+	if (o[LString]) then
+		return Text(o:utf8())
+	end
+	local s = ''
+	local newLine = ''
+	for k, v in pairs(o) do
+		local ks = Text(k)
+		if (ks) then
+			local vs = SerializeToTableText(v)
+			if (vs) then
+				s = s..newLine..'['..ks..']'..'='..vs
+				newLine = '\n'
+			end
+		end
+	end
+	return s
+end
+
+function LoadFile(f, path, env)
+	local input = f or CNewFileInput(false)
+	if (input:Open(path, false)) then
+		local c = CLoadInput(input)
+		if (f) then
+			f:Close()
+		end
+		if (type(c) == 'function') then
+			if (env) then
+				CSetLoadedEnv(f, env)
+			end
+			return c
+		else
+			Print(c)
+		end
+	end
+end
+
+function LoadInput(input, env)
+	local c = CLoadInput(input)
+	CSetLoadedEnv(c, env)
+	return c
+end
 
 function swap(a, b)
 	return b, a

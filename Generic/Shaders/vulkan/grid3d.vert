@@ -2,8 +2,9 @@
 
 layout(location = 0) in vec4 lineInfo;
 layout(location = 1) in vec4 fadeInfo;
-layout(location = 2) in vec4 color;
-layout(location = 3) in int inst_seq;
+layout(location = 2) in float range;
+layout(location = 3) in vec4 color;
+layout(location = 4) in int inst_seq;
 
 layout(binding = 0) uniform cb {
     mat4 view;
@@ -11,8 +12,10 @@ layout(binding = 0) uniform cb {
 } b;
 
 layout(location = 0) out vec4 o_color;
-layout(location = 1) out vec3 o_pos;
-layout(location = 2) out vec3 o_norm;
+layout(location = 1) out vec3 o_wpos;
+layout(location = 2) out vec3 o_vpos;
+layout(location = 3) out vec3 o_norm;
+layout(location = 4) out vec3 o_origin;
 
 void main()
 {
@@ -33,7 +36,7 @@ void main()
 	float front = cz + lenH;
 	float back = cz - lenH;
 	
-	o_pos.y = 0;
+	o_wpos.y = 0;
 	float d = space * inst_seq;
 	if (isXLine != 0)
 	{
@@ -47,8 +50,8 @@ void main()
 			d = d - front;
 			d = back + d - floor(d / len) * len;
 		}
-		o_pos.x = lineInfo.x + right - lenH;
-		o_pos.z = d;
+		o_wpos.x = lineInfo.x + right - lenH;
+		o_wpos.z = d;
 	}
 	else
 	{
@@ -62,8 +65,8 @@ void main()
 			d = d - right;
 			d = left + d - floor(d / len) * len;
 		}
-		o_pos.x = d;
-		o_pos.z = lineInfo.x + front - lenH;
+		o_wpos.x = d;
+		o_wpos.z = lineInfo.x + front - lenH;
 	}
 	uint i = uint(round(abs(d) / space));
 	if (fadeCount == 0 || i % noneFadeCount == 0)
@@ -71,9 +74,9 @@ void main()
 	else if (i % fadeCount != 0)
 		fade = 0;
 	
-	gl_Position = vec4(o_pos, 1) * b.view;
-	o_pos = gl_Position.xyz;
-	o_pos.x = 0;
+	o_origin = vec3(cx, cz, range);
+	gl_Position = vec4(o_wpos, 1) * b.view;
+	o_vpos = gl_Position.xyz;
 	gl_Position *= b.proj;
 	o_norm = (vec4(0, 1, 0, 0) * b.view).xyz;
 	o_color = color;

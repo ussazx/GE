@@ -413,9 +413,10 @@ cParamPipeline:SetBlendState(0, true)
 cParamPipeline:SetBsColorBlendOp(0, cGI.BLEND_FACTOR_SRC_ALPHA, cGI.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, cGI.BLEND_OP_ADD)
 cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
 cParamPipeline:AddVertexElement(1, 1, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
-cParamPipeline:AddVertexElement(2, 2, cGI.FORMAT_R8G8B8A8_UNORM, SIZE_UINT1)
-cParamPipeline:AddVertexElement(3, 3, cGI.FORMAT_R32_SINT, SIZE_INT1)
-cParamPipeline:SetVertexInputRate(3, true)
+cParamPipeline:AddVertexElement(2, 2, cGI.FORMAT_R32_SFLOAT, SIZE_FLOAT1)
+cParamPipeline:AddVertexElement(3, 3, cGI.FORMAT_R8G8B8A8_UNORM, SIZE_UINT1)
+cParamPipeline:AddVertexElement(4, 4, cGI.FORMAT_R32_SINT, SIZE_INT1)
+cParamPipeline:SetVertexInputRate(4, true)
 g_plGrid3d = cGI:NewPipeline(g_rp0, 0, 1, grid3d_vs, 'main', grid3d_ps, 'main', cParamPipeline)
 
 --object coord pipeline
@@ -536,14 +537,14 @@ end, mergeType = DC_SORTED_EDITOR, order = 3}
 g_gridSeqInst = InstanceBuffer(1000 * SIZE_INT1)
 
 g_mtlGrid3d = {inst = g_gridSeqInst}
-g_mtlGrid3d.vbLayout = NewVBLayout(1|2|4, false, SIZE_FLOAT4, SIZE_FLOAT4, SIZE_UINT1)
+g_mtlGrid3d.vbLayout = NewVBLayout(1|2|4|8, false, SIZE_FLOAT4, SIZE_FLOAT4, SIZE_FLOAT1, SIZE_UINT1)
 
 g_mtlGrid3d.func = {}
 g_mtlGrid3d.func[g_rp0[1]] = {func = function(mtl, dcList)
 	dcList:AddResourceSet(g_resCamera)
 	dcList:SetLineWidth(2)
 	dcList:SetPipeline(g_plGrid3d, g_mtlGrid3d.vbLayout, 0)
-	dcList:SetInstVB(g_mtlGrid3d.inst, 3)
+	dcList:SetInstVB(g_mtlGrid3d.inst, 4)
 end, mergeType = DC_SORTED_2, order = 1}
 
 ---Cube---
@@ -600,11 +601,12 @@ g_plane3d = Geometry(geoInfo)
 
 ---Grid3d---
 geoInfo = {}
-geoInfo.layout = 1|2|4
+geoInfo.layout = 1|2|4|8
 geoInfo.vbInfo = {}
 geoInfo.vbInfo[1] = {Geometry.TRANS_NONE, SIZE_FLOAT4}
 geoInfo.vbInfo[2] = {Geometry.TRANS_NONE, SIZE_FLOAT4}
-geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_UINT1}
+geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_FLOAT1}
+geoInfo.vbInfo[4] = {Geometry.TRANS_NONE, SIZE_UINT1}
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 0, g_mtlGrid3d}
 g_grid3d = Geometry(geoInfo)

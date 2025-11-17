@@ -12,12 +12,12 @@ struct LuaIdx : public lua_Idx
 	template<typename ...T>
 	void SetValue(const T&... t) const
 	{
-		state.SetValue(*this, t...);
+		state.SetValue(Idx(), t...);
 	}
 	template<typename ...T>
 	int GetValue(T... t) const
 	{
-		return state.GetValue(*this, t...);
+		return state.GetValue(Idx(), t...);
 	}
 	template<typename T = void>
 	inline T* GetCppObj() const
@@ -35,7 +35,15 @@ struct LuaIdx : public lua_Idx
 		lua_pop(lua, 1);
 		return (T*)p;
 	}
-private:
+	lua_Idx& Idx()
+	{
+		return *this;
+	}
+	const lua_Idx& Idx() const
+	{
+		return *this;
+	}
+//private:
 	LuaState state;
 };
 
@@ -419,6 +427,7 @@ inline void LuaRegisterCppClass(LuaState& lua, const char* name, const char* bas
 	lua.SetValue(name, "_size", size);
 	lua.SetValue(name, "_class", "__gc", objectDtor);
 	lua.GetValue(name, LuaSetTo(name, "_class", "__index"));
+	lua.SetValue(name, LuaGet(name), true);
 }
 
 template<class T>

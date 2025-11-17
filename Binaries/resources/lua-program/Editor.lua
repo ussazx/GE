@@ -2,6 +2,11 @@
 require 'window'
 require 'presets'
 
+local savedList = {}
+local savedListPath
+local scenePanelSet = {panels = {}}
+g_proj = {}
+
 function WindowRecord(w, redo, o)
 	if (redo) then
 		w:AddChild(o)
@@ -10,23 +15,18 @@ function WindowRecord(w, redo, o)
 	end
 end
 
-function GridLayoutTest(w)
+function LoadSavedList(w)
 	local layout = VBoxLayout()
 	w:AddChild(layout)
 	
-	local t = UiTextInput(0, uiFont.fontSize)
-	layout:AddChild(t, nil, 20, 10, true, 20, 20)
-	
-	-- local sb = UiSlideBar(nil, false, 0, 0, 0, 20)
-	-- sb:SetScale(5, 1)
-	-- layout:AddChild(sb, 0, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 20, 20, 20, 10)
-	
+	--local t = UiTextInput(0, uiFont.fontSize)
+	--layout:AddChild(t, nil, 20, 10, true, 20, 20)
 	
 	local grid = GridLayout()
 	local scrollPanel = UiScrollPanel()
 	scrollPanel:SetWidget(grid)
 	layout:AddChild(scrollPanel, 1, 10, 10, true, 10, 10)
-	for i = 1, 100 do
+	for _, v in pairs(savedList) do
 		local ww = UiWidget(150, 150)
 		ww.color:set(100, 100, 100, 100)
 		grid:AddChild(ww, 5, 5, 10, 10)
@@ -61,25 +61,35 @@ function NewCommonWindow()
 	local w = Window()
 end
 
-local function OnCreateProj(w)
-	local path = w.dirText .. '\\' .. w.nameText
-	cTerminal.NewDirectory(path)
-	local name = path .. '\\' .. w.nameText .. '.gsproj'
-	local f = CNewFileOutput()
-	f:Open(name, false)
-	--f:WriteUtf8('')
-	f:Close()
-	cTerminal.NewDirectory(path .. '\\Content')
-	cTerminal.NewDirectory(path .. '\\Config')
-	cEntrance:Accept()
-	g_projPath = LString(path)
+local function SaveProject(path)
+	if (not path) then
+		path = cTerminal.NewFileDialog('', '', '')
+		if (path:length() == 0) then
+			return false
+		end
+		cTerminal.NewDirectory(path)
+		local f = CNewFileOutput()
+		f:Open(path .. '\\project', false)
+		g_proj.panelLayout = scenePanelSet.nb:SaveLayout()
+		f:WriteUtf8('return' .. SerializeToTableText(g_proj))
+		f:Close()
+		cTerminal.NewDirectory(path .. '\\Content')
+		cTerminal.NewDirectory(path .. '\\Config')
+		local name = path:substr(path:rfind('\\') + 1, -1)
+		g_projPath = path
+		table.insert(savedList, {name = name, path = path})
+		f:Open(savedListPath, false)
+		f:WriteUtf8('return' .. SerializeToTableText(savedList))
+		f:Close()
+	end
+	return true
 end
 
 function LoadProject()
 	--LoadAssets(g_projPath)
 end
 
-function LoadAssets(path)
+function LoadContent(path)
 	-- local o = LoadLuaFile(path, isBin)
 	-- if (o) then
 		-- o = o() or {}
@@ -95,7 +105,7 @@ function LoadAssets(path)
 		local name = f:GetName()
 		if (f:IsDirectory()) then
 			if (name:ch(0) ~= '.') then
-				LoadAssets(path .. '\\' .. name)
+				LoadContent(path .. '\\' .. name)
 			end
 		elseif (name:rfind('.xasset') ~= -1) then
 			CLoadAsset(path .. '\\' .. name)
@@ -265,14 +275,49 @@ function ContentPanel:OnDropFile(x, y, files)
 end
 
 function OnLoadButton(w)
-	cTerminal.OpenFileDialog(_('加载项目'), '', '*.gsproj')
+	cTerminal.OpenFileDialog(_('加载项目'), '', 'project')
 end
 
 function NewWindow_LoadProj()
 	local w = Window()
 	w.color:set(70, 70, 70, 255)
-	local f = CNewFileInput(false)
-	if (f:Open('saved', false)) then
+	
+	savedListPath = cTerminal.currentPath .. 'saved'
+	local c = LoadFile(nil, savedListPath, {})
+	if (c) then
+		savedList = c() or savedList
+		local layout = VBoxLayout()
+		w:AddChild(layout)
+	
+		local t = UiTextInput(0, uiFont.fontSize)
+		layout:AddChild(t, nil, 20, 10, true, 20, 20)
+	
+		local grid = GridLayout()
+		local scrollPanel = UiScrollPanel()
+		scrollPanel:SetWidget(grid)
+		scrollPanel.color:set(0, 0, 0, 0)
+		layout:AddChild(scrollPanel, 1, 10, 10, true, 15, 15)
+		
+		for _, v in pairs(savedList) do
+			local ww = UiWidget(150, 150)
+			ww.color:set(100, 100, 100, 100)
+			grid:AddChild(ww, 5, 5, 10, 10)
+			
+			local layout = VBoxLayout()
+			ww:AddChild(layout)
+			
+			ww = UiPolyIcon(g_iconFolder, true, 80, 45)
+			layout:AddChild(ww, 1)
+			
+			-- ww = UiPolyIcon(g_iconFolder, true)
+			-- layout:AddChild(ww, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 5, 5, 5, 5)
+			
+			--ww = UiPolyIcon(g_iconFolder)
+			--layout:AddChild(ww, 1, 0, 5, 5, 5, 5)
+			
+			local t = UiText(v.name)
+			layout:AddChild(t)
+		end
 	else
 		local v = VBoxLayout()
 		v:AddChild(UiText(_('未找到本地项目')), 1)
@@ -330,9 +375,13 @@ local function OnCreateProjWndDirButton(w)
 	end
 end
 
+local function OnCreate()
+	cEntrance:Accept()
+end
+
 function NewWindow_CreateProj()
 	local w = Window()
-	w.UpdateBegin = OnCreateProjWndUpdate
+	--w.UpdateBegin = OnCreateProjWndUpdate
 	w.color:set(70, 70, 70, 255)
 	w.dirText = LString('')
 	w.nameText = LString('')
@@ -344,33 +393,33 @@ function NewWindow_CreateProj()
 	local h = HBoxLayout()
 	v:AddChild(h, 1)
 	
-	h:AddChild(UiText(_('目录')))
-	w.dirButton = UiButton(300, 30)
-	w.dirButton.text:SetText('...')
-	w.dirButton:SetDefaultColor(80, 80, 80, 255)
-	w.dirButton:bind_event(EVT.LEFT_UP, w, OnCreateProjWndDirButton)
-	w.dirButton.fzText = UiTextLabel(300)
-	w.dirButton.fzText:EnableWriteId(false)
-	w.dirButton.layout:AddChild(w.dirButton.fzText, 1, 0)
+	-- h:AddChild(UiText(_('目录')))
+	-- w.dirButton = UiButton(300, 30)
+	-- w.dirButton.text:SetText('...')
+	-- w.dirButton:SetDefaultColor(80, 80, 80, 255)
+	-- w.dirButton:bind_event(EVT.LEFT_UP, w, OnCreateProjWndDirButton)
+	-- w.dirButton.fzText = UiTextLabel(300)
+	-- w.dirButton.fzText:EnableWriteId(false)
+	-- w.dirButton.layout:AddChild(w.dirButton.fzText, 1, 0)
 	
-	h:AddChild(w.dirButton, nil, 10)
+	-- h:AddChild(w.dirButton, nil, 10)
 
-	h:AddChild(UiText(_('名称')), nil, 20)
-	w.nameInput = UiTextInput(200, 30)
-	h:AddChild(w.nameInput, nil, 10)		
+	-- h:AddChild(UiText(_('名称')), nil, 20)
+	-- w.nameInput = UiTextInput(200, 30)
+	-- h:AddChild(w.nameInput, nil, 10)		
 	
 	w.btnCreate = UiButton(100 ,30, _('新建'))
-	w.btnCreate:Enable(false)
-	w.btnCreate:bind_event(EVT.LEFT_UP, w, OnCreateProj)
+	--w.btnCreate:Enable(false)
+	w.btnCreate:bind_event(EVT.LEFT_UP, nil, OnCreate)
 	h:AddChild(w.btnCreate, nil, 5)
 	
-	w.nameHint1 = _('项目名不能以空格开头')
-	w.nameHint2 = _('项目名不能包含下列字符：\\/:*?\"<>|')
+	--w.nameHint1 = _('项目名不能以空格开头')
+	--w.nameHint2 = _('项目名不能包含下列字符：\\/:*?\"<>|')
 	
-	w.hint = UiText('')
-	w.hint.color:set(255, 100, 100, 255)
-	w.hint:Show(false)
-	w:AddChild(w.hint)
+	-- w.hint = UiText('')
+	-- w.hint.color:set(255, 100, 100, 255)
+	-- w.hint:Show(false)
+	-- w:AddChild(w.hint)
 	
 	return w
 end
@@ -386,8 +435,9 @@ local lineSpace = 1
 local fadePerCount = 10 
 local fov = 45
 
-local function GridFunc(grid, vbLineInfo, lwp, vbFadeInfo, fwp,  vbColor, cwp, ib, iwp, ibStart)
-	local count = math.ceil(gridLineLen / 2 / lineSpace)
+local function GridFunc(grid, vbLineInfo, lwp, vbFadeInfo, fwp, vbRange, rwp, vbColor, cwp, ib, iwp, ibStart)
+	local gridLineLenH = gridLineLen / 2
+	local count = math.ceil(gridLineLenH / lineSpace)
 	local lenH = lineSpace * count + lineSpace / 2
 	local len = lenH * 2
 	
@@ -411,16 +461,19 @@ local function GridFunc(grid, vbLineInfo, lwp, vbFadeInfo, fwp,  vbColor, cwp, i
 	local fade = 0
 	if (fadeLevel > 0) then
 		fadeCount = noneFadeCount / fadePerCount
-		local y0 = noneFadeCount * 0.5 / t
-		local y1 = math.max(y, y0 * fadePerCount * lineSpace * 0.25)
+		local y0 = noneFadeCount * lineSpace * 0.5 / t
+		local y1 = math.max(y, y0 * fadePerCount * 0.25)
 		fade = 1 - (y - y0) / (y1 - y0)
 	end
+	
+	local ceiling = gridLineLenH / t
 	
 	CMulAddFloat4(1, vbLineInfo, lwp, -lenH, x, z, 1)
 	CMulAddFloat4(1, vbLineInfo, APPEND, lenH, x, z, 1)
 	CMulAddFloat4(1, vbLineInfo, APPEND, lenH, x, z, 0)
 	CMulAddFloat4(1, vbLineInfo, APPEND, -lenH, x, z, 0)
 	CMulAddFloat4(4, vbFadeInfo, fwp, lineSpace, fadeCount, noneFadeCount, fade)
+	CMulAddFloat1(4, vbRange, rwp, math.min(500, math.max(50, y * t)))
 	CMulAddUByte4(4, vbColor, cwp, 150, 150, 150, 80)
 	
 	CAddLineListIndex(4, ib, iwp, ibStart)
@@ -450,10 +503,10 @@ function SceneWindow:ctor()
 	self.grid:Attach(self.scene)
 	
 	self.o = Model(g_cube)
-	self.o:Attach(self.scene)
+	--self.o:Attach(self.scene)
 	self.o1 = Model(g_cube)
 	self.o1:Move(-2.5, 0, 0)
-	self.o1:Attach(self.scene)
+	--self.o1:Attach(self.scene)
 	
 	self.objCoord = ObjectCoord(self.sceneView.camera)
 	self.objCoord.arrowX.pickable[self.sceneView] = true
@@ -662,7 +715,6 @@ function LoadEntrance()
 	cEntrance:AddPageWindow('new_proj', _('新建项目'), NewWindow_CreateProj())
 end
 
-local scenePanelSet = {panels = {}}
 scenePanelSet.panels.presets = PresetsWindow()
 scenePanelSet.panels.presets.title = _('预设')
 scenePanelSet.panels.viewport = SceneWindow()
@@ -711,14 +763,30 @@ local function LoadPanelSetLayout(panelSet, menu)
 	nb:LoadLayout(panelSet.layout)
 end
 
+local function OnMainFrameClose(w)
+	if (not g_projPath or modified) then
+		local b = cTerminal:MessageDialog('', _('是否保存项目？'), _('保存'), _('不保存'), _('取消'))
+		if (b) then
+			return SaveProject()
+		elseif (b == false) then
+			return true
+		end
+		return false
+	else
+		return true
+	end
+end
+
 function LoadMainFrame()
+	cMainFrame:SetTitle(_('* 无标题'))
+	cMainFrame.OnClose = OnMainFrameClose
 	scenePanelSet.nb = cMainFrame:AddPageNotebook('scene', _('场景'))
 	scenePanelSet.layout = 'notebook_layout0/1<presets>0|2<viewport>0|3<content*logMessage>0|4<hirachey>0|5<inspector>0|*|layout2|name=dummy;caption=;state=2098174;dir=3;layer=0;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=225;minh=225;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=1;caption=;state=2098172;dir=5;layer=0;row=0;pos=0;prop=100000;bestw=250;besth=250;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=2;caption=;state=2098172;dir=2;layer=0;row=1;pos=0;prop=100000;bestw=540;besth=346;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=3;caption=;state=2098172;dir=3;layer=1;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=4;caption=;state=2098172;dir=2;layer=2;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=5;caption=;state=2098172;dir=2;layer=2;row=0;pos=1;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|dock_size(5,0,0)=18|dock_size(2,0,1)=634|dock_size(3,1,0)=227|dock_size(2,2,0)=227|/'
 	
 	local mb = CMenuBar()
-	local m = mb:Add('menu', SaveLoadLayout(scenePanelSet))
-	m:AddItem(1, 'save')
-	m:AddItem(2, 'load')
+	-- local m = mb:Add('menu', SaveLoadLayout(scenePanelSet))
+	-- m:AddItem(1, 'save')
+	-- m:AddItem(2, 'load')
 	
 	m = mb:Add(_('面板'), ShowPanel(scenePanelSet))
 	LoadPanelSetLayout(scenePanelSet, m)

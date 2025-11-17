@@ -168,7 +168,7 @@ public:
 		return s.length();
 	}
 
-	void erase(size_t pos, size_t count)
+	void erase(size_t pos, int count)
 	{
 		if (m_text.use_count() > 1)
 			m_text = std::make_shared<std::wstring>(*m_text);

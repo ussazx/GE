@@ -702,7 +702,9 @@ function GridLayout:Layout(w, h)
 	local col = self.col
 	if (col == nil) then
 		col = math.max(1, (w or 0) // gw)
-		gw = math.max(gw, (w or 0) // col)
+		if (col == 1 or gw * self.children.n > w) then
+			gw = math.max(gw, (w or 0) // col)
+		end
 	end
 	local x = 0
 	local y = 0
@@ -1086,36 +1088,33 @@ UiTextLabel.FillVB = UiText.FillVB
 UiTextLabel.cached = true
 UiTextLabel.ellWidth = CMeasureText('...', -1, -1, UiWidget.font)
 
-function UiTextLabel:ctor(w, s, font)
+function UiTextLabel:ctor(max_w, s, font)
+	self.max_w = max_w
 	self.text = LString('')
 	self.fullText = LString('')
-	self:SetText(s, font)
-	self:SetSize(w, self.font.fontSize)
-	self:Show(self.text:length() > 0)
+	self.font = nil
+	self:SetText(s, UiTextLabel.font)
 end
 
 function UiTextLabel:SetText(s, font)
 	s = s or self.fullText
 	font = font or self.font
-	if (self.fullText ~= s or self.font ~= font) then
+	if (not self.fullText:same(s) or self.font ~= font) then
 		self:Refresh()
+		local w = CMeasureText(s, -1, -1, font)	
 		self.fullText:set(s)
-		self:Show(self.fullText:length() > 0)
+		self.tLen = self.fullText:length()
+		self:Show(self.tLen > 0)
 		if (self.font ~= font) then
 			self.ellWidth = CMeasureText('...', -1, -1, font)
-			if (self.font.fontSize ~= font.fontSize) then
-				self.SetSize(nil, font.fontSize)
-				self.font = font
-				return
-			end
 			self.font = font
-		end
-		self:OnSized()
+		end	
+		self:SetSize(math.min(w, self.max_w), font.fontSize)
 	end
 end
 	
 function UiTextLabel:OnSized()
-	local m = self.fullText:length()
+	local m = self.tLen
 	local w1 = self.rect.w
 	if (w1 < 1 or m < 2) then
 		return

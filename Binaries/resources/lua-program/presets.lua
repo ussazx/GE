@@ -56,7 +56,7 @@ end
 	
 function ObjectCoord:RenderBegin()
 	local x, y, z = self.mWorld:GetPosition()
-	_, _, z = self.camera.mView:PointTransform(x, y, z)
+	local _, _, z = self.camera.mView:PointTransform(x, y, z)
 	local n = math.abs(z) / 10
 	self:SetScale(n, n, n)
 end

@@ -295,9 +295,9 @@ end
 ---SceneObject---
 SceneObject = class(ObjectScene)
 for k, _ in pairs(CMatrix) do
-	if (k ~= '_class') then
+	if (k ~= '_class' and k ~= CMatrix) then
 		local s = 'return function(self, ...) self.scene.update = true return self.mRoot:'..k..'(...) end'
-		SceneObject[k] = load(s, '', 't')()
+		SceneObject[k] = load(s)()
 	end
 end
 

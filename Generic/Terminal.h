@@ -34,6 +34,7 @@ struct Terminal
 	static LuacObjNew<LString> ChooseDirDialog(LString title, LString home, bool mustExist);
 	static void NewDirectory(LString path);
 	static void SetCurrentDir(LString path);
+	static void MessageDialog(LuaReturn& ret, LString caption, LString message, LString yes, LString no, LString cancel);
 
 	static void OnLuaError(const char* err);
 	static void OnRequired(LuaState& lua, const char* requiredName);
@@ -51,7 +52,7 @@ struct Terminal
 
 	Lua_wrap_cpp_class(Terminal, Lua_abstract, Lua_mf(AddEvent), Lua_mf(FlushStdout), Lua_mf(FlushStderr), Lua_mf(NewTimer),
 		Lua_mf(NewFileFinder), Lua_mf(GetClipboardText), Lua_mf(SetClipboardText), Lua_mf(OpenFileDialog), Lua_mf(NewFileDialog),
-		Lua_mf(ChooseDirDialog), Lua_mf(NewDirectory), Lua_mf(SetCurrentDir))
+		Lua_mf(ChooseDirDialog), Lua_mf(NewDirectory), Lua_mf(SetCurrentDir), Lua_mf(MessageDialog))
 
 private:
 	static void LuaRegister()
@@ -61,7 +62,14 @@ private:
 		LuaRegisterCppClass<CFileFinder>(Lua());
 		LuaRegisterCppClass<CTimer>(Lua());
 		static Terminal t;
+
 		Lua().SetValue("cTerminal", Lua_set_cobj(&t));
+
+		wchar_t szExeName[MAX_PATH] = { 0 };
+		GetModuleFileName(GetModuleHandle(NULL), szExeName, MAX_PATH);
+		LString path(szExeName);
+		path.erase(path.rfind(L"\\") + 1, -1);
+		Lua().SetValue("cTerminal", "currentPath", path.utf8());
 	}
 
 	static LuaState* GetLua(bool free = false)
