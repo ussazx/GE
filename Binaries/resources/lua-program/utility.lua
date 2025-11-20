@@ -16,6 +16,8 @@ function tcount(t)
 	return #t
 end
 
+ser_array = setmetatable({}, {__mode = 'k'})
+
 local function Text(o)
 	t = type(o)
 	if (t == 'number') then
@@ -41,7 +43,11 @@ function SerializeToTableText(o)
 		if (ks) then
 			local vs = SerializeToTableText(v)
 			if (vs) then
-				s = s..comma..'['..ks..']'..'='..vs
+				if (ser_array[o]) then
+					s = s..comma..vs
+				else
+					s = s..comma..'['..ks..']'..'='..vs
+				end
 				comma = ', '
 			end
 		end
@@ -63,7 +69,11 @@ function SerializeToText(o)
 		if (ks) then
 			local vs = SerializeToTableText(v)
 			if (vs) then
-				s = s..newLine..'['..ks..']'..'='..vs
+				if (ser_array[o]) then
+					s = s..newLine..vs
+				else
+					s = s..newLine..'['..ks..']'..'='..vs
+				end
 				newLine = '\n'
 			end
 		end
@@ -71,7 +81,7 @@ function SerializeToText(o)
 	return s
 end
 
-function LoadFile(f, path, env)
+function LoadFile(f, path, env, run)
 	local input = f or CNewFileInput(false)
 	if (input:Open(path, false)) then
 		local c = CLoadInput(input)
@@ -82,10 +92,14 @@ function LoadFile(f, path, env)
 			if (env) then
 				CSetLoadedEnv(f, env)
 			end
-			return c
-		else
-			Print(c)
+			if (run) then
+				return true, c()
+			end
+			return true, c
 		end
+		return false, c
+	else
+		return false, path .. ' not found!'
 	end
 end
 
@@ -93,6 +107,14 @@ function LoadInput(input, env)
 	local c = CLoadInput(input)
 	CSetLoadedEnv(c, env)
 	return c
+end
+
+function WriteTableToFile(t, a, path, f)
+	f = f or CNewFileOutput()
+	f:Open(path, false)
+	ser_array[t] = a
+	f:WriteUtf8('return' .. SerializeToTableText(t))
+	f:Close()
 end
 
 function swap(a, b)

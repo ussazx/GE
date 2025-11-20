@@ -61,26 +61,27 @@ function NewCommonWindow()
 	local w = Window()
 end
 
-local function SaveProject(path)
-	if (not path) then
-		path = cTerminal.NewFileDialog('', '', '')
-		if (path:length() == 0) then
+local function SaveProject(dir)
+	if (not dir) then
+		dir = cTerminal.NewFileDialog('', '', '')
+		if (dir:length() == 0) then
 			return false
 		end
-		cTerminal.NewDirectory(path)
-		local f = CNewFileOutput()
-		f:Open(path .. '\\project', false)
+		g_projPath = dir
+		
+		local path = dir .. '\\project'
+		local name = dir:substr(dir:rfind('\\') + 1, -1)
+
+		g_proj.name = name
 		g_proj.panelLayout = scenePanelSet.nb:SaveLayout()
-		f:WriteUtf8('return' .. SerializeToTableText(g_proj))
-		f:Close()
-		cTerminal.NewDirectory(path .. '\\Content')
-		cTerminal.NewDirectory(path .. '\\Config')
-		local name = path:substr(path:rfind('\\') + 1, -1)
-		g_projPath = path
+		
+		cTerminal.NewDirectory(dir)
+		WriteTableToFile(g_proj, false, path)
+		cTerminal.NewDirectory(dir .. '\\Content')
+		cTerminal.NewDirectory(dir .. '\\Config')
+		
 		table.insert(savedList, {name = name, path = path})
-		f:Open(savedListPath, false)
-		f:WriteUtf8('return' .. SerializeToTableText(savedList))
-		f:Close()
+		WriteTableToFile(savedList, true, savedListPath)
 	end
 	return true
 end
@@ -274,156 +275,120 @@ function ContentPanel:OnDropFile(x, y, files)
 	end
 end
 
-function OnLoadButton(w)
-	cTerminal.OpenFileDialog(_('加载项目'), '', 'project')
+---CreateProjWindow---
+CreateProjWindow = class(Window)
+function CreateProjWindow:ctor()
+	self.color:set(50, 50, 50, 255)
+	self.dirText = LString('')
+	self.nameText = LString('')
+	self.finder = cTerminal.NewFileFinder()
+	
+	local v = VBoxLayout()
+	self:AddChild(v)
+	
+	local h = HBoxLayout()
+	v:AddChild(h, 1)
+	
+	self.btnCreate = UiButton(100 ,30, _('新建'))
+	self.btnCreate:SetDefaultColor(70, 70, 70, 255)
+	self.btnCreate:bind_event(EVT.LEFT_UP, self, self.OnCreate)
+	h:AddChild(self.btnCreate, nil, 5)
 end
 
-function NewWindow_LoadProj()
-	local w = Window()
-	w.color:set(70, 70, 70, 255)
+function CreateProjWindow:OnCreate()
+	cEntrance:Accept()
+end
+
+---LoadProjWindow---
+LoadProjWindow = class(Window)
+
+function LoadProjWindow:ctor()
+	self.color:set(50, 50, 50, 255)
+	self.selector = Selector()
+	self.selector:SetFocusInColor(255, 180, 0, 100)
+	self.selector:bind_event(Selector.EVT_CHANGED, self, self.OnSelection)
+	
+	local vLayout = VBoxLayout()
+	self:AddChild(vLayout)
 	
 	savedListPath = cTerminal.currentPath .. 'saved'
-	local c = LoadFile(nil, savedListPath, {})
-	if (c) then
-		savedList = c() or savedList
-		local layout = VBoxLayout()
-		w:AddChild(layout)
+	local f = CNewFileInput(false)
+	local b, c = LoadFile(f, savedListPath, {}, true)
+	if (b) then
+		savedList = c or savedList
 	
 		local t = UiTextInput(0, uiFont.fontSize)
-		layout:AddChild(t, nil, 20, 10, true, 20, 20)
+		vLayout:AddChild(t, nil, 20, 10, true, 20, 20)
 	
 		local grid = GridLayout()
 		local scrollPanel = UiScrollPanel()
 		scrollPanel:SetWidget(grid)
 		scrollPanel.color:set(0, 0, 0, 0)
-		layout:AddChild(scrollPanel, 1, 10, 10, true, 15, 15)
+		vLayout:AddChild(scrollPanel, 1, 10, 10, true, 15, 15)
 		
-		for _, v in pairs(savedList) do
-			local ww = UiWidget(150, 150)
-			ww.color:set(100, 100, 100, 100)
-			grid:AddChild(ww, 5, 5, 10, 10)
-			
-			local layout = VBoxLayout()
-			ww:AddChild(layout)
-			
-			ww = UiPolyIcon(g_iconFolder, true, 80, 45)
-			layout:AddChild(ww, 1)
-			
-			-- ww = UiPolyIcon(g_iconFolder, true)
-			-- layout:AddChild(ww, 1, Layout.ALIGN_LEFT|Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 5, 5, 5, 5)
-			
-			--ww = UiPolyIcon(g_iconFolder)
-			--layout:AddChild(ww, 1, 0, 5, 5, 5, 5)
-			
-			local t = UiText(v.name)
-			layout:AddChild(t)
-		end
-	else
-		local v = VBoxLayout()
-		v:AddChild(UiText(_('未找到本地项目')), 1)
-		local b = UiButton(100, 30, _('加载...'))
-		b:bind_event(EVT.LEFT_DOWN, w, OnLoadButton)
-		v:AddChild(b, nil, 10, 20, false, nil, 20)
-		w:AddChild(v)
-		return w
-	end
-	
-	return w
-end
-
-local function OnCreateProjWndUpdate(w)
-	local s = w.nameText
-	if (s ~= w.nameInput.text) then
-		local hint = nil
-		s:set(w.nameInput.text)
-		if (s:length() > 0) then
-			if (s:find(' ') == 0) then
-				hint = w.nameHint1
-			elseif (s:length() > 0 and
-				(s:find('\\') >= 0 or
-				s:find('/') >= 0 or
-				s:find(':') >= 0 or
-				s:find('*') >= 0 or
-				s:find('?') >= 0 or
-				s:find('\"') >= 0 or
-				s:find('<') >= 0 or
-				s:find('>') >= 0 or
-				s:find('|') >= 0)) then
-				hint = w.nameHint2 
+		for k, v in pairs(savedList) do
+			local b, c = LoadFile(f, v.path, {}, true)
+			if (b) then
+				local ww = self.selector:Add(150, 150, v)
+				grid:AddChild(ww, 5, 5, 10, 10) 
+				
+				local layout = VBoxLayout()
+				ww:AddChild(layout)
+				
+				ww = UiPolyIcon(g_iconFolder, true, 80, 45)
+				ww:EnableWriteId(false)
+				layout:AddChild(ww, 1)
+				
+				local t = UiTextLabel(50, c.name)
+				t:EnableWriteId(false)
+				layout:AddChild(t)
+			else
+				savedList[k] = nil
+				Print(c)
 			end
 		end
-		if (hint) then
-			w.hint:SetText(hint)
-			w.hint:Show(true)
-		else
-			w.hint:Show(false)
-		end
+	else
+		vLayout:AddChild(UiText(_('未找到本地项目')), 1)
 	end
-	local loc = w.nameInput.location
-	local rect = w.nameInput.rect
-	w.hint:SetPos(loc.x, loc.y + rect.h + 10)
-	local b = not hint and w.dirText:length() > 0 and s:length() > 0
-	w.btnCreate:Enable(b)
+	WriteTableToFile(savedList, true, savedListPath)
+	
+	local hLayout = HBoxLayout()
+	vLayout:AddChild(hLayout, nil, 10, 20, false, nil, 20)
+	local btn = UiButton(100, 30, _('浏览...'))
+	btn:bind_event(EVT.LEFT_UP, self, self.OnBrowse)
+	btn:SetDefaultColor(70, 70, 70, 255)
+	hLayout:AddChild(btn)
+	
+	self.btn = UiButton(100, 30, _('加载'))
+	self.btn:SetDefaultColor(70, 70, 70, 255)
+	self.btn:bind_event(EVT.LEFT_UP, self, self.OnLoad)
+	hLayout:AddChild(self.btn, nil, 20)
+	self.btn:Enable(false)
 end
 
-local function OnCreateProjWndDirButton(w)
-	local s = cTerminal.ChooseDirDialog('', '', true)
+function LoadProjWindow:OnSelection()
+	local o = self.selector:GetSelection()
+	self.proj = o
+	self.btn:Enable(o ~= nil)
+end
+
+function LoadProjWindow:OnBrowse()
+	local s = cTerminal.OpenFileDialog(_('加载项目'), '', 'project')
 	if (s:length() > 0) then
-		w.dirText = s
-		w.dirButton.text:Show(false)
-		w.dirButton.fzText:SetText(s)
+		local f = CNewFileInput(false)
+		local b, c = LoadFile(f, s, {}, true)
+		if (not b) then
+			Print(c)
+		return end
+		table.insert(savedList, {name = c.name, path = s})
+		WriteTableToFile(savedList, true, savedListPath)
+		self:OnLoad()
 	end
 end
 
-local function OnCreate()
+function LoadProjWindow:OnLoad()
 	cEntrance:Accept()
 end
-
-function NewWindow_CreateProj()
-	local w = Window()
-	--w.UpdateBegin = OnCreateProjWndUpdate
-	w.color:set(70, 70, 70, 255)
-	w.dirText = LString('')
-	w.nameText = LString('')
-	w.finder = cTerminal.NewFileFinder()
-	
-	local v = VBoxLayout()
-	w:AddChild(v)
-	
-	local h = HBoxLayout()
-	v:AddChild(h, 1)
-	
-	-- h:AddChild(UiText(_('目录')))
-	-- w.dirButton = UiButton(300, 30)
-	-- w.dirButton.text:SetText('...')
-	-- w.dirButton:SetDefaultColor(80, 80, 80, 255)
-	-- w.dirButton:bind_event(EVT.LEFT_UP, w, OnCreateProjWndDirButton)
-	-- w.dirButton.fzText = UiTextLabel(300)
-	-- w.dirButton.fzText:EnableWriteId(false)
-	-- w.dirButton.layout:AddChild(w.dirButton.fzText, 1, 0)
-	
-	-- h:AddChild(w.dirButton, nil, 10)
-
-	-- h:AddChild(UiText(_('名称')), nil, 20)
-	-- w.nameInput = UiTextInput(200, 30)
-	-- h:AddChild(w.nameInput, nil, 10)		
-	
-	w.btnCreate = UiButton(100 ,30, _('新建'))
-	--w.btnCreate:Enable(false)
-	w.btnCreate:bind_event(EVT.LEFT_UP, nil, OnCreate)
-	h:AddChild(w.btnCreate, nil, 5)
-	
-	--w.nameHint1 = _('项目名不能以空格开头')
-	--w.nameHint2 = _('项目名不能包含下列字符：\\/:*?\"<>|')
-	
-	-- w.hint = UiText('')
-	-- w.hint.color:set(255, 100, 100, 255)
-	-- w.hint:Show(false)
-	-- w:AddChild(w.hint)
-	
-	return w
-end
-
 
 PaneWindow = class(Window)
 function PaneWindow:ctor()
@@ -711,8 +676,8 @@ function PresetsWindow:OnItemLeftDown()
 end
 
 function LoadEntrance()
-	cEntrance:AddPageWindow('load_proj', _('加载项目'), NewWindow_LoadProj())
-	cEntrance:AddPageWindow('new_proj', _('新建项目'), NewWindow_CreateProj())
+	cEntrance:AddPageWindow('load_proj', _('加载项目'), LoadProjWindow())
+	cEntrance:AddPageWindow('new_proj', _('新建项目'), CreateProjWindow())
 end
 
 scenePanelSet.panels.presets = PresetsWindow()

@@ -1096,37 +1096,46 @@ function UiTextLabel:ctor(max_w, s, font)
 	self:SetText(s, UiTextLabel.font)
 end
 
+function UiTextLabel:SetMaxWidth(w)
+	self:SetSize(math.min(self.tw, self.max_w), self.font.fontSize)
+end
+
 function UiTextLabel:SetText(s, font)
 	s = s or self.fullText
 	font = font or self.font
 	if (not self.fullText:same(s) or self.font ~= font) then
 		self:Refresh()
-		local w = CMeasureText(s, -1, -1, font)	
 		self.fullText:set(s)
+		self.tw = CMeasureText(s, -1, -1, font)	
 		self.tLen = self.fullText:length()
 		self:Show(self.tLen > 0)
 		if (self.font ~= font) then
 			self.ellWidth = CMeasureText('...', -1, -1, font)
 			self.font = font
-		end	
-		self:SetSize(math.min(w, self.max_w), font.fontSize)
+		end
+		local w = math.min(self.tw, self.max_w)
+		if (w == self.rect.w and font.size == self.rect.h) then
+			OnSized()
+		else
+			self:SetSize(math.min(self.tw, self.max_w), font.fontSize)
+		end
 	end
 end
 	
 function UiTextLabel:OnSized()
+	local s = self.text
+	s:set(self.fullText)
 	local m = self.tLen
 	local w1 = self.rect.w
 	if (w1 < 1 or m < 2) then
 		return
 	end
 
-	local s = self.text
-	s:set(self.fullText)
-	local font = self.font
-	local w2 = CMeasureText(s, m, -1, font)
+	local w2 = self.tw
 	if (w2 <= w1) then
 		return
 	end
+	local font = self.font
 	local w3 = 0
 	local n = 0
 	while (w2 - w3 + self.ellWidth > w1 and n + 1 < m) do
@@ -1853,11 +1862,35 @@ Selector.EVT_KEY = {}
 
 function Selector:ctor()
 	self.selected = {}
+	self.cd = Color(0, 0, 0, 0)
+	self.ch = Color()
+	self.ch:copy(UiButton.colorHoverring)
+	self.cfi = Color(0, 130, 255, 100)
+	self.cfo = Color(100, 100, 100, 80)
+end
+
+function Selector:SetDefaultColor(r, g, b, a)
+	self.cd:set(r, g, b, a)
+end
+
+function Selector:SetHoverringColor(r, g, b, a)
+	self.ch:set(r, g, b, a)
+end
+
+function Selector:SetFocusInColor(r, g, b, a)
+	self.cfi:set(r, g, b, a)
+end
+
+function Selector:SetFocusOutColor(r, g, b, a)
+	self.cfo:set(r, g, b, a)
 end
  
 function Selector:Add(w, h, data)
 	local item = UiButton(w, h)
-	item:SetDefaultColor(0, 0, 0, 0)
+	local cd = self.cd
+	local ch = self.ch
+	item:SetDefaultColor(cd.r, cd.g, cd.b, cd.a)
+	item:SetHoverringColor(ch.r, ch.g, ch.b, ch.a)
 	item.data = data
 	item:bind_event(EVT.FOCUS_IN, self, Selector.OnFocus)
 	item:bind_event(EVT.FOCUS_OUT, self, Selector.OnFocus)
@@ -1874,17 +1907,21 @@ function Selector:Remove(item)
 end
 
 function Selector:OnFocus(e)
+	local cd = self.cd
+	local ch = self.ch
+	local cfi = self.cfi
+	local cfo = self.cfo
 	if (e == EVT.FOCUS_IN) then
 		self.focused = EVT.obj
 		for item in pairs(self.selected) do
-			item:SetAllColors(0, 130, 255, 100)
+			item:SetAllColors(cfi.r, cfi.g, cfi.b, cfi.a)
 			item:Refresh()
 		end
-	else
+	elseif (self.showFocusOut) then
 		self.focused = nil
 		for item in pairs(self.selected) do
-			item:ResetAllColors()
-			item:SetDefaultColor(100, 100, 100, 100)
+			item:SetDefaultColor(cfo.r, cfo.g, cfo.b, cfo.a)
+			item:SetHoverringColor(ch.r, ch.g, ch.b, ch.a)
 			item:Refresh()
 		end
 	end
@@ -1893,7 +1930,7 @@ end
 function Selector:OnMouse(e, x, y, n)
 	local item = EVT.obj
 	if (e == EVT.LEFT_DOWN) then
-		if (g_actWindow.keyDowns[SYS.VK_CONTROL] and self.SEL_MULTIPLE) then
+		if (g_actWindow.keyDowns[SYS.VK_CONTROL] and self.multipleOn) then
 			if (self.selected[item]) then
 				self:Select(item, false, true)
 			else
@@ -1916,19 +1953,23 @@ function Selector:OnKeyDown(t, k, left, right)
 end
 
 function Selector:Select(item, flag, notify)
+	local cd = self.cd
+	local ch = self.ch
+	local cfi = self.cfi
+	local cfo = self.cfo
 	local changed
 	if (flag) then
 		if (self.focused == item) then
-			item:SetAllColors(0, 130, 255, 100)
+			item:SetAllColors(cfi.r, cfi.g, cfi.b, cfi.a)
 		else
-			item:ResetAllColors()
-			item:SetDefaultColor(100, 100, 100, 100)
+			item:SetDefaultColor(cfo.r, cfo.g, cfo.b, cfo.a)
+			item:SetHoverringColor(ch.r, ch.g, ch.b, ch.a)
 		end
 		changed = self.selected[item] ~= item.data
 		self.selected[item] = item.data
 	else
-		item:ResetAllColors()
-		item:SetDefaultColor(0, 0, 0, 0)
+		item:SetDefaultColor(cd.r, cd.g, cd.b, cd.a)
+		item:SetHoverringColor(ch.r, ch.g, ch.b, ch.a)
 		changed = self.selected[item] ~= nil
 		self.selected[item] = nil
 	end
@@ -1961,11 +2002,10 @@ end
 
 -----UiTreeList-----
 UiTreeList = class(VBoxLayout)
-UiTreeList.EVT_MOUSE_NODE = {}
-UiTreeList.SEL_MULTIPLE = true
 
 function UiTreeList:ctor()
 	self.selector = Selector()
+	self.selector.showFocusOut = true
 
 	self:bind_event(EVT.SIZE, self, UiTreeList.OnListSized)
 	
@@ -2103,6 +2143,7 @@ function UiCombo:ctor(w, h)
 	self:bind_event(EVT.INACTIVE, self, UiCombo.OnInactive)
 
 	self.selector = Selector()
+	self.selector.showFocusOut = true
 	self:bind_event(EVT.LEFT_UP, self, UiCombo.OnLeftUp)
 	self.selector:bind_event(Selector.EVT_CHANGED, self, UiCombo.OnSelected)
 	
