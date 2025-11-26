@@ -70,10 +70,10 @@ function AddPoly2D(antiAlias, ...)
 	local y = 0
 	local nv = 0
 	local nvc = 0
+	local cwp = 0
 	local replaces
 	local color = Color()
 	color.wp = 0
-	local cwp = 0
 	color.aa = {}
 	for _, t in pairs({...}) do
 		if (antiAlias and not t.has_normal) then
@@ -94,7 +94,7 @@ function AddPoly2D(antiAlias, ...)
 				for i = 1, #t do
 					replaces, x, y, nv, nvc = AddPolyVertex2D(o, t, i, x, y, nv, nvc)
 				end
-				table.insert(color.aa, {SIZE_UINT1 * cwp, nv / 2 - 1})
+				table.insert(color.aa, {SIZE_UINT1 * cwp, nv // 2 - 1})
 				cwp = cwp + nv
 				nv = WritePolyIndex2D(o, nv, replaces)
 			end
@@ -104,7 +104,7 @@ function AddPoly2D(antiAlias, ...)
 			color.nvc = nvc
 			table.insert(o.colors, color)
 			color = Color()
-			color.wp = SIZE_FLOAT3 * o.vtx_count
+			color.wp = SIZE_UINT1 * o.vtx_count
 			color.aa = {}
 			nvc = 0
 			cwp = 0
@@ -132,30 +132,6 @@ function AddPoly2D(antiAlias, ...)
 	g_innerPolyIB.offset = g_innerPolyIB.offset + SIZE_UINT1 * o.idx_count
 	return o
 end
-
-g_iconFolder = AddPoly2D(true, { {5, 0}, {50, 0}, {55, 5},
-						{110, 5}, {110, 10}, {0, 10}, {0, 5} },
-						{ {0, 12}, {110, 12}, {110, 62}, {0, 62} })
-
-local s = 12
-local h = s / 2
-g_iconArrowHeadL = AddPoly2D(true, { {0, h}, {s, 0}, {s, s} })
-g_iconTriangleR = AddPoly2D(true, { {0, 0}, {s, h}, {0, s} })
-g_iconTriangleU = AddPoly2D(true, { {h, 0}, {s, s}, {0, s} })
-g_iconTriangleD = AddPoly2D(true, { {0, 0}, {s, 0}, {h, s} })
-g_iconTriangleDR = AddPoly2D(true, { {0, s}, {s, 0}, {s, s} })
-
-local r = 8
-g_iconMagnifier = AddPoly2D(true, DrawLine(3, false, true, MakeCircle(0, 0, r, 16)), 
-	DrawLine(4, true, false, {r + r - 4, r + r - 4}, {r + 15, r + 15}))
-
-g_iconLine = AddPoly2D(true, DrawLine(5, false, false, {0, 0}, {100, 0}, {50, 100}, {366, 210}, {500, 710}))
-
-local o = DrawLine(4, false, true, MakeCircle(0, 0, 10, 6))
-o.color = Color(255, 255, 255, 255)
-g_iconPreset = AddPoly2D(true, o)
-
-g_iconLine1 = AddPoly2D(false, DrawLine(10, false, false, {100, 100}, {100, 300}))
 
 --local vb = CMBuffer(1)
 --local uvb = CMBuffer(1)
@@ -225,16 +201,6 @@ f:Open('Resources/atlas2', true)
 uiFont = CLoadFontAtlas(f, 256)
 
 f:Close()
-
-function LoadLuaFile(path, isBin)
-	local f = CNewFileInput(false)
-	if (not f:Open(path, isBin)) then
-		return nil, false
-	end
-	local o = CLuaLoad(f)
-	f:Close()
-	return o, true
-end
 
 --pass
 cParamRenderPass:Reset(true, false)
