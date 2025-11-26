@@ -125,6 +125,12 @@ function Window:TimerPeriod()
 	return t
 end
 
+-- function Window:CaptureScreen(ssView, w, h)
+	-- if (not self.screenShotView) then
+		-- local w, h = self.rect.w, self.rect.h
+		-- self.screenShotView = cGI:NewTexture(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PRESENT, w, h)
+-- end		
+
 function Window:init(hwnd, w, h)
 	self.rect:set(0, 0, w, h)
 	self.sizegroup = SizeGroup(w, h)
@@ -134,17 +140,17 @@ function Window:init(hwnd, w, h)
 	self.idTargetView = cGI:NewTargetView(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PICK_ID, cGI.SAMPLE_COUNT_1_BIT, w, h)
 	self.idTexture = cGI:NewTexture(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PICK_ID, w, h)
 	self.depthStencilView = cGI:NewDepthStencilView(cGI.SAMPLE_COUNT_1_BIT, w, h)
-	self.idRecordView = cGI:NewTargetView(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PICK_ID, cGI.SAMPLE_COUNT_1_BIT, w, h)
+	self.idMarkedView = cGI:NewTargetView(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PICK_ID, cGI.SAMPLE_COUNT_1_BIT, w, h)
 	
 	self.resIdImage = ResourceHub(g_rlCIS)
-	self.resIdImage:BindImageWithSampler(self.idRecordView, g_idSampler, 0)
+	self.resIdImage:BindImageWithSampler(self.idMarkedView, g_idSampler, 0)
 	
 	cParamFrameBuffer:Reset()
 	cParamFrameBuffer:SetSwapchain(self.swapchain)
 	--cParamFrameBuffer:AddView(self.scTargetView, 0)
 	cParamFrameBuffer:AddView(self.idTargetView, 0)
 	cParamFrameBuffer:AddView(self.depthStencilView, 0)
-	cParamFrameBuffer:AddView(self.idRecordView, 0)
+	cParamFrameBuffer:AddView(self.idMarkedView, 0)
 	self.mainFrame = cGI:NewFrameBuffer(g_rp0, cParamFrameBuffer, w, h)
 	self.mainFrame.rp = g_rp0
 	
@@ -171,7 +177,7 @@ function Window:init(hwnd, w, h)
 	self.sizegroup:add_rtv(self.idTargetView, true)
 	self.sizegroup:add_rtv(self.idTexture, true)
 	self.sizegroup:add_rtv(self.depthStencilView, true)
-	self.sizegroup:add_rtv(self.idRecordView, true)
+	self.sizegroup:add_rtv(self.idMarkedView, true)
 	self.sizegroup:add_fb(self.postFrame)
 	
 	self.fp = FramePipeline()

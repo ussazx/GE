@@ -904,6 +904,10 @@ function FramePipeline:AddCopyImage(params)
 	table.insert(self.cmdList, {type = 1, params = params})
 end
 
+function FramePipeline:AddBlitImage(params)
+	table.insert(self.cmdList, {type = 2, params = params})
+end
+
 function FramePipeline:UpdateSurface(input)
 	self.subListUsed = 0
 	for surface, dcLists in pairs(self.foParams) do		
@@ -968,6 +972,9 @@ function FramePipeline:Bake()
 		elseif (c.type == 1) then
 			code = code..[[o = c.params cmd:CopyImage(o.srcView, o.srcLayer, o.src_x, o.src_y, 
 			o.dstView, o.dstLayer, o.dst_x, o.dst_y, o.numLayers, o.w, o.h)]]
+		elseif (c.type == 2) then
+			code = code..[[o = c.params cmd:BlitImage(o.srcView, o.srcLayer, o.src_x, o.src_y, o.dst_w, o.dst_h
+			o.dstView, o.dstLayer, o.dst_x, o.dst_y, o.dst_w, o.dst_h, o.numLayers, o.w, o.h, o.filter)]]
 		end
 	end
 	self.code = load(code, '', 't', self)

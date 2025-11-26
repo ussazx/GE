@@ -200,6 +200,9 @@ public:
 
 	virtual void CopyImage(LuacObj<Texture> src, int src_base_layer, int src_x, int src_y,
 		LuacObj<Texture> dst, int dst_base_layer, int dst_x, int dst_y, int num_layers, uint32_t w, uint32_t h) = 0;
+
+	virtual void BlitImage(LuacObj<Texture> src, int src_base_layer, int src_x, int src_y, int src_w, int src_h,
+		LuacObj<Texture> dst, int dst_base_layer, int dst_x, int dst_y, int dst_w, int dst_h, int num_layers, uint32_t filter) = 0;
 	
 	virtual void Execute() = 0;
 

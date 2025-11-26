@@ -517,18 +517,23 @@ void VKResourceSet::BindImageWithSampler(LuacObj<Texture> image, LuacObj<Sampler
 
 void VKResourceSet::BindInputAttachment(LuacObj<Texture> image, uint32_t binding)
 {
-	VkDescriptorImageInfo dii{};
-	//dii.imageView = ((VKTexture*)image)->m_vci.image;
+	VKTexture* t = (VKTexture*)image;
+	auto& info = m_ImageInfo[t][binding];
+
+	VkDescriptorImageInfo& dii = std::get<0>(info);
+	dii.imageView = ((VKTexture*)image)->m_srv;
 	dii.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	VkWriteDescriptorSet wds[1]{};
-	wds[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	wds[0].descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
-	wds[0].dstBinding = binding;
-	wds[0].descriptorCount = 1;
-	wds[0].pImageInfo = &dii;
-	wds[0].dstSet = m_set;
-	vkUpdateDescriptorSets(g->device, 1, wds, 0, NULL);
+	VkWriteDescriptorSet& wds = std::get<1>(info);
+	wds.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	wds.descriptorType = VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+	wds.dstBinding = binding;
+	wds.descriptorCount = 1;
+	wds.pImageInfo = &dii;
+	wds.dstSet = m_set;
+	vkUpdateDescriptorSets(g->device, 1, &wds, 0, NULL);
+
+	t->m_holders.insert(this);
 }
 
 VKPipeline::~VKPipeline()
@@ -610,6 +615,7 @@ void VKDrawIndirectCmd::AddDrawIndexed(int32_t vertexOffset, uint32_t firstIndex
 
 VkImageMemoryBarrier VKCommand::m_imb[2];
 VkImageCopy VKCommand::m_copy;
+VkImageBlit VKCommand::m_blit;
 
 VKCommand::~VKCommand()
 {
@@ -851,7 +857,7 @@ void VKCommand::CopyImage(LuacObj<Texture> src, int src_base_layer, int src_x, i
 {
 	VKTexture* s = (VKTexture*)src;
 	VKTexture* d = (VKTexture*)dst;
-	m_imb[0].oldLayout = m_imb[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	m_imb[0].oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	m_imb[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	m_imb[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	m_imb[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
@@ -860,9 +866,10 @@ void VKCommand::CopyImage(LuacObj<Texture> src, int src_base_layer, int src_x, i
 	m_imb[0].subresourceRange.baseArrayLayer = src_base_layer;
 	m_imb[0].subresourceRange.layerCount = num_layers;
 
+	m_imb[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	m_imb[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	m_imb[1].srcAccessMask = 0;
-	m_imb[1].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	m_imb[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 	m_imb[1].image = d->m_vci.image;
 	m_imb[1].subresourceRange = d->m_vci.subresourceRange;
 	m_imb[1].subresourceRange.baseArrayLayer = dst_base_layer;
@@ -886,13 +893,64 @@ void VKCommand::CopyImage(LuacObj<Texture> src, int src_base_layer, int src_x, i
 	m_imb[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	m_imb[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	m_imb[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-	m_imb[0].dstAccessMask = 0;
+	m_imb[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
 	
 	m_imb[1].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 	m_imb[1].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	m_imb[1].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-	m_imb[1].dstAccessMask = 0;
-	vkCmdPipelineBarrier(m_cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, NULL, 0, NULL, 2, m_imb);
+	m_imb[1].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+	vkCmdPipelineBarrier(m_cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT|VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 2, m_imb);
+}
+
+void VKCommand::BlitImage(LuacObj<Texture> src, int src_base_layer, int src_x, int src_y, int src_w, int src_h,
+	LuacObj<Texture> dst, int dst_base_layer, int dst_x, int dst_y, int dst_w, int dst_h, int num_layers, uint32_t filter)
+{
+	VKTexture* s = (VKTexture*)src;
+	VKTexture* d = (VKTexture*)dst;
+	m_imb[0].oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	m_imb[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	m_imb[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	m_imb[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	m_imb[0].image = s->m_vci.image;
+	m_imb[0].subresourceRange = s->m_vci.subresourceRange;
+	m_imb[0].subresourceRange.baseArrayLayer = src_base_layer;
+	m_imb[0].subresourceRange.layerCount = num_layers;
+
+	m_imb[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	m_imb[1].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	m_imb[1].srcAccessMask = 0;
+	m_imb[1].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	m_imb[1].image = d->m_vci.image;
+	m_imb[1].subresourceRange = d->m_vci.subresourceRange;
+	m_imb[1].subresourceRange.baseArrayLayer = dst_base_layer;
+	m_imb[1].subresourceRange.layerCount = num_layers;
+	vkCmdPipelineBarrier(m_cmd, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 2, m_imb);
+
+	m_blit.srcOffsets[0] = { src_x, src_y };
+	m_blit.srcOffsets[1] = { src_w, src_h };
+	m_blit.srcSubresource.aspectMask = m_imb[0].subresourceRange.aspectMask;
+	m_blit.srcSubresource.baseArrayLayer = m_imb[0].subresourceRange.baseArrayLayer;
+	m_blit.srcSubresource.layerCount = m_imb[0].subresourceRange.layerCount;
+	m_blit.srcSubresource.mipLevel = m_imb[0].subresourceRange.baseMipLevel;
+	m_blit.dstOffsets[0] = { dst_x, dst_y };
+	m_blit.dstOffsets[1] = { dst_w, dst_h };
+	m_blit.dstSubresource.aspectMask = m_imb[1].subresourceRange.aspectMask;
+	m_blit.dstSubresource.baseArrayLayer = m_imb[1].subresourceRange.baseArrayLayer;
+	m_blit.dstSubresource.layerCount = m_imb[1].subresourceRange.layerCount;
+	m_blit.dstSubresource.mipLevel = m_imb[1].subresourceRange.baseMipLevel;
+	vkCmdBlitImage(m_cmd, s->m_vci.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, d->m_vci.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &m_blit, (VkFilter)filter);
+
+	m_imb[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+	m_imb[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	m_imb[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	m_imb[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+
+	m_imb[1].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	m_imb[1].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	m_imb[1].srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	m_imb[1].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_SHADER_READ_BIT;
+	vkCmdPipelineBarrier(m_cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT|VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 2, m_imb);
 }
 
 void VKCommand::Execute()
@@ -998,7 +1056,7 @@ bool VKGraphic::CreateInstance()
 	ai.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	ai.pApplicationName = "vkapp";
 	ai.pEngineName = "vkapp";
-	ai.apiVersion = VK_API_VERSION_1_0;
+	ai.apiVersion = VK_API_VERSION_1_3;
 
 	VkInstanceCreateInfo ci{};
 	ci.pApplicationInfo = &ai;
@@ -1117,7 +1175,7 @@ bool VKGraphic::GetSupportedSufaceFormats()
 	sci.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 #ifdef WIN32
 	sci.hinstance = hInst;
-	sci.hwnd = NULL;
+	sci.hwnd = ::GetDesktopWindow();
 	vkCreateWin32SurfaceKHR(inst, &sci, {}, &baseSurface);
 #endif
 

@@ -5,7 +5,6 @@ require 'presets'
 local savedList = {}
 local savedListPath
 local scenePanelSet = {panels = {}}
-g_proj = {}
 
 function WindowRecord(w, redo, o)
 	if (redo) then
@@ -67,27 +66,21 @@ local function SaveProject(dir)
 		if (dir:length() == 0) then
 			return false
 		end
-		g_projPath = dir
 		
-		local path = dir .. '\\project'
 		local name = dir:substr(dir:rfind('\\') + 1, -1)
-
 		g_proj.name = name
 		g_proj.panelLayout = scenePanelSet.nb:SaveLayout()
 		
-		cTerminal.NewDirectory(dir)
-		WriteTableToFile(g_proj, false, path)
-		cTerminal.NewDirectory(dir .. '\\Content')
-		cTerminal.NewDirectory(dir .. '\\Config')
+		g_projPath = dir .. '\\'
+		cTerminal.NewDirectory(g_projPath)
+		WriteTableToFile(g_proj, false, g_projPath .. 'project')
+		cTerminal.NewDirectory(g_projPath .. 'Content')
+		cTerminal.NewDirectory(g_projPath .. 'Config')
 		
-		table.insert(savedList, {name = name, path = path})
+		table.insert(savedList, {path = g_projPath})
 		WriteTableToFile(savedList, true, savedListPath)
 	end
 	return true
-end
-
-function LoadProject()
-	--LoadAssets(g_projPath)
 end
 
 function LoadContent(path)
@@ -314,6 +307,8 @@ function LoadProjWindow:ctor()
 	savedListPath = cTerminal.currentPath .. 'saved'
 	local f = CNewFileInput(false)
 	local b, c = LoadFile(f, savedListPath, {}, true)
+	local scrollPanel = UiScrollPanel()
+	local n = 0
 	if (b) then
 		savedList = c or savedList
 	
@@ -321,15 +316,14 @@ function LoadProjWindow:ctor()
 		vLayout:AddChild(t, nil, 20, 10, true, 20, 20)
 	
 		local grid = GridLayout()
-		local scrollPanel = UiScrollPanel()
 		scrollPanel:SetWidget(grid)
 		scrollPanel.color:set(0, 0, 0, 0)
-		vLayout:AddChild(scrollPanel, 1, 10, 10, true, 15, 15)
 		
 		for k, v in pairs(savedList) do
-			local b, c = LoadFile(f, v.path, {}, true)
+			local b, c = LoadFile(f, v.path .. 'project', {}, true)
 			if (b) then
-				local ww = self.selector:Add(150, 150, v)
+				c.path = v.path
+				local ww = self.selector:Add(150, 150, c)
 				grid:AddChild(ww, 5, 5, 10, 10) 
 				
 				local layout = VBoxLayout()
@@ -342,34 +336,44 @@ function LoadProjWindow:ctor()
 				local t = UiTextLabel(50, c.name)
 				t:EnableWriteId(false)
 				layout:AddChild(t)
+				n = n + 1
 			else
 				savedList[k] = nil
 				Print(c)
 			end
 		end
-	else
-		vLayout:AddChild(UiText(_('未找到本地项目')), 1)
 	end
-	WriteTableToFile(savedList, true, savedListPath)
 	
 	local hLayout = HBoxLayout()
-	vLayout:AddChild(hLayout, nil, 10, 20, false, nil, 20)
 	local btn = UiButton(100, 30, _('浏览...'))
 	btn:bind_event(EVT.LEFT_UP, self, self.OnBrowse)
 	btn:SetDefaultColor(70, 70, 70, 255)
 	hLayout:AddChild(btn)
 	
-	self.btn = UiButton(100, 30, _('加载'))
-	self.btn:SetDefaultColor(70, 70, 70, 255)
-	self.btn:bind_event(EVT.LEFT_UP, self, self.OnLoad)
-	hLayout:AddChild(self.btn, nil, 20)
-	self.btn:Enable(false)
+	if (n > 0) then
+		vLayout:AddChild(scrollPanel, 1, 10, 10, true, 15, 15)
+		self.btn = UiButton(100, 30, _('加载'))
+		self.btn:SetDefaultColor(70, 70, 70, 255)
+		self.btn:bind_event(EVT.LEFT_UP, self, self.OnLoad)
+		hLayout:AddChild(self.btn, nil, 20)
+		self.btn:Enable(false)
+	else
+		vLayout:AddChild(UiText(_('未找到本地项目')), 1)
+	end
+	
+	vLayout:AddChild(hLayout, nil, 10, 20, false, nil, 20)
+	
+	WriteTableToFile(savedList, true, savedListPath)
 end
 
 function LoadProjWindow:OnSelection()
 	local o = self.selector:GetSelection()
-	self.proj = o
 	self.btn:Enable(o ~= nil)
+	if (o) then
+		g_proj.name = o.name
+		g_proj.panelLayout = o.panelLayout
+		g_projPath = o.path
+	end
 end
 
 function LoadProjWindow:OnBrowse()
@@ -380,7 +384,12 @@ function LoadProjWindow:OnBrowse()
 		if (not b) then
 			Print(c)
 		return end
-		table.insert(savedList, {name = c.name, path = s})
+		
+		g_proj.name = c.name
+		g_proj.panelLayout = c.panelLayout
+		s:erase(s:rfind('\\') + 1, -1)
+		g_projPath = s:utf8()
+		table.insert(savedList, {path = g_projPath})
 		WriteTableToFile(savedList, true, savedListPath)
 		self:OnLoad()
 	end
@@ -676,6 +685,7 @@ function PresetsWindow:OnItemLeftDown()
 end
 
 function LoadEntrance()
+	g_proj = {}
 	cEntrance:AddPageWindow('load_proj', _('加载项目'), LoadProjWindow())
 	cEntrance:AddPageWindow('new_proj', _('新建项目'), CreateProjWindow())
 end
@@ -737,16 +747,23 @@ local function OnMainFrameClose(w)
 			return true
 		end
 		return false
-	else
+	elseif (g_projPath) then
+		local layout = scenePanelSet.nb:SaveLayout()
+		if (g_proj.panelLayout ~= layout) then
+			g_proj.panelLayout = layout
+			WriteTableToFile(g_proj, false, g_projPath .. 'project')
+		end
 		return true
 	end
 end
 
 function LoadMainFrame()
-	cMainFrame:SetTitle(_('* 无标题'))
+	local name = g_proj.name
+	local layout = g_proj.panelLayout or 'notebook_layout0/1<presets>0|2<viewport>0|3<content*logMessage>0|4<hirachey>0|5<inspector>0|*|layout2|name=dummy;caption=;state=2098174;dir=3;layer=0;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=225;minh=225;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=1;caption=;state=2098172;dir=5;layer=0;row=0;pos=0;prop=100000;bestw=250;besth=250;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=2;caption=;state=2098172;dir=2;layer=0;row=1;pos=0;prop=100000;bestw=540;besth=346;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=3;caption=;state=2098172;dir=3;layer=1;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=4;caption=;state=2098172;dir=2;layer=2;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=5;caption=;state=2098172;dir=2;layer=2;row=0;pos=1;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|dock_size(5,0,0)=18|dock_size(2,0,1)=634|dock_size(3,1,0)=227|dock_size(2,2,0)=227|/'
+	cMainFrame:SetTitle(name or '*' .. _('无标题'))
 	cMainFrame.OnClose = OnMainFrameClose
 	scenePanelSet.nb = cMainFrame:AddPageNotebook('scene', _('场景'))
-	scenePanelSet.layout = 'notebook_layout0/1<presets>0|2<viewport>0|3<content*logMessage>0|4<hirachey>0|5<inspector>0|*|layout2|name=dummy;caption=;state=2098174;dir=3;layer=0;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=225;minh=225;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=1;caption=;state=2098172;dir=5;layer=0;row=0;pos=0;prop=100000;bestw=250;besth=250;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=2;caption=;state=2098172;dir=2;layer=0;row=1;pos=0;prop=100000;bestw=540;besth=346;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=3;caption=;state=2098172;dir=3;layer=1;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=4;caption=;state=2098172;dir=2;layer=2;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=5;caption=;state=2098172;dir=2;layer=2;row=0;pos=1;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|dock_size(5,0,0)=18|dock_size(2,0,1)=634|dock_size(3,1,0)=227|dock_size(2,2,0)=227|/'
+	scenePanelSet.layout = layout
 	
 	local mb = CMenuBar()
 	-- local m = mb:Add('menu', SaveLoadLayout(scenePanelSet))
@@ -758,26 +775,6 @@ function LoadMainFrame()
 	
 	scenePanelSet.mb = mb
 	cMainFrame:SetMenuBar(scenePanelSet.mb)
-	
-	if (1) then return end
-
-	cMainFrame:AddPageWindow('presets', _('预设'), PaneWindow())
-	
-	cMainFrame:AddPageWindow('scene', _('场景'), SceneWindow())
-	
-	local w = PaneWindow()
-	local layout = VBoxLayout()
-	w:AddChild(layout)
-	local cp = ContentPanel()
-	cp:ScanDirectory()
-	layout:AddChild(cp, 1, 0, 0, true)
-	cMainFrame:AddPageWindow('content', _('内容'), w)
-	
-	cMainFrame:AddPageWindow('outline', '大纲', PaneWindow())
-	
-	w = PaneWindow()
-	w:AddChild(FrameBufferPanel())
-	cMainFrame:AddPageWindow('inspector', '细节', w)
 end
 
 function AppCleanUp()

@@ -214,7 +214,7 @@ bool MyApp::OnInit()
 	if (en.ShowModal() != wxID_OK)
 		return false;
 
-	Terminal::Lua().GetValue("LoadProject", LuaCall());
+	//Terminal::Lua().GetValue("LoadProject", LuaCall());
 
 	MainFrame* mf = new MainFrame(nullptr, wxID_ANY, "", "cMainFrame");
 	Terminal::Lua().SetValue("cMainFrame", Lua_set_cobj(mf));

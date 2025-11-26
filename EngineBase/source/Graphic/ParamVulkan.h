@@ -118,7 +118,7 @@ struct VKParamRenderPass : public ParamRenderPass
 			std::vector<uint32_t> reads;
 			for (auto j = i.second.begin(); j != i.second.end(); j++)
 			{
-				//w.a.r
+				//read -> write
 				if (reads.size() > 0 && j->second)
 				{
 					for (auto k : reads)
@@ -143,13 +143,13 @@ struct VKParamRenderPass : public ParamRenderPass
 				dependencies.back().srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 				dependencies.back().dstSubpass = j->first;
 				dependencies.back().dstStageMask = dependencies.back().srcStageMask;
-				//w.a.w
+				//write -> write
 				if (j->second)
 				{
 					dependencies.back().dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 					src = j->first;
 				}
-				//r.a.w
+				//write -> read
 				else
 				{
 					dependencies.back().dstAccessMask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
