@@ -152,6 +152,10 @@ end
 math.d_pi = 2 * math.pi
 math.h_pi = math.pi * 0.5
 
+------MakeRect-----
+function MakeRect(x, y, w, h)
+	return { {x, y}, {x + w, y}, {x + w, y + h}, {x, y + h} }
+end
 
 ------MakeCircle-----
 function MakeCircle(x, y, radius, segNum)

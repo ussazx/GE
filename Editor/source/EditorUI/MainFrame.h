@@ -19,10 +19,27 @@ public:
 
 		Bind(wxEVT_CLOSE_WINDOW, &MainFrame::OnEvtClose, this);
 	}
-	Lua_wrap_cpp_class_derived(vmFrame, MainFrame, Lua_abstract, Lua_mf(OnClose))
+	Lua_wrap_cpp_class_derived(vmFrame, MainFrame, Lua_abstract, Lua_mf(OnClose), 
+		Lua_mf(SetSize), Lua_mf(GetSize), Lua_mf(Maximize), Lua_mf(IsMaximized))
 	~MainFrame()
 	{
 		wxFrame::SetMenuBar({});
+	}
+	void Maximize()
+	{
+		wxFrame::Maximize();
+	}
+	bool IsMaximized()
+	{
+		return wxFrame::IsMaximized();
+	}
+	void SetSize(int x, int y)
+	{
+		wxFrame::SetSize(x, y);
+	}
+	std::tuple<int, int> GetSize()
+	{
+		return { wxFrame::GetSize().x, wxFrame::GetSize().y };
 	}
 
 	void OnEvtClose(wxCloseEvent& e)

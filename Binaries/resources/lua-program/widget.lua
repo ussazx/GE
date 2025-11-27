@@ -1780,17 +1780,19 @@ function UiPolyIcon:ctor(iconPoly, stretch, w, h)
 		return
 	end
 	
-	SetColors = 'local c, o, aa '
+	SetColors = [[return function(self, vbColor, wpColor) 
+		local oldColors, newColors = self.poly.colors, self.colors
+		local c, o, aa ]]
 	for k, v in pairs(self.poly.colors) do
-		SetColors = SetColors .. 'o = oldColors[' .. k .. '] '
-		SetColors = SetColors .. 'c = newColors[' .. k .. '] or o '
+		SetColors = SetColors .. string.format('o = oldColors[%q] ', k)
+		SetColors = SetColors .. string.format('c = newColors[%q] or o ', k)
 		SetColors = SetColors .. 'CMulAddUByte4(o.nvc, vbColor, wpColor + o.wp, c.r, c.g, c.b, c.a) '
 		for k, _ in pairs(v.aa) do
-			SetColors = SetColors .. 'aa = o.aa[' .. k .. '] '
+			SetColors = SetColors .. string.format('aa = o.aa[%q] ', k)
 			SetColors = SetColors .. 'CMulAddUByte4(aa[2], vbColor, wpColor + o.wp + aa[1], c.r, c.g, c.b, 0) '
 		end
 	end
-	self.SetColors = load(SetColors, '', 't', UiPolyIcon)
+	self.SetColors = load(SetColors .. 'end')()
 	UiPolyIcon.funcSetColors[iconPoly] = self.SetColors
 end
 
@@ -1846,11 +1848,7 @@ function UiPolyIcon:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp
 	end
 	CMulAddFloat3(n, vbUVW, wpUVW, self.font.pixels, 0, 0)
 	
-	UiPolyIcon.oldColors = self.poly.colors
-	UiPolyIcon.newColors = self.colors
-	UiPolyIcon.vbColor = vbColor
-	UiPolyIcon.wpColor = wpColor
-	self.SetColors()
+	self:SetColors(vbColor, wpColor)
 	CCopyIndexBuffer(ib, iwp, g_innerPolyIB, self.poly.ib_offset, self.poly.idx_count, ibStart)
 	return n, self.poly.idx_count
 end

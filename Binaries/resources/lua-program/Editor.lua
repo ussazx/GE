@@ -60,29 +60,6 @@ function NewCommonWindow()
 	local w = Window()
 end
 
-local function SaveProject(dir)
-	if (not dir) then
-		dir = cTerminal.NewFileDialog('', '', '')
-		if (dir:length() == 0) then
-			return false
-		end
-		
-		local name = dir:substr(dir:rfind('\\') + 1, -1)
-		g_proj.name = name
-		g_proj.panelLayout = scenePanelSet.nb:SaveLayout()
-		
-		g_projPath = dir .. '\\'
-		cTerminal.NewDirectory(g_projPath)
-		WriteTableToFile(g_proj, false, g_projPath .. 'project')
-		cTerminal.NewDirectory(g_projPath .. 'Content')
-		cTerminal.NewDirectory(g_projPath .. 'Config')
-		
-		table.insert(savedList, {path = g_projPath})
-		WriteTableToFile(savedList, true, savedListPath)
-	end
-	return true
-end
-
 function LoadContent(path)
 	-- local o = LoadLuaFile(path, isBin)
 	-- if (o) then
@@ -322,8 +299,7 @@ function LoadProjWindow:ctor()
 		for k, v in pairs(savedList) do
 			local b, c = LoadFile(f, v.path .. 'project', {}, true)
 			if (b) then
-				c.path = v.path
-				local ww = self.selector:Add(150, 150, c)
+				local ww = self.selector:Add(150, 150, {o = c, path = v.path})
 				grid:AddChild(ww, 5, 5, 10, 10) 
 				
 				local layout = VBoxLayout()
@@ -369,9 +345,8 @@ end
 function LoadProjWindow:OnSelection()
 	local o = self.selector:GetSelection()
 	self.btn:Enable(o ~= nil)
-	if (o) then
-		g_proj.name = o.name
-		g_proj.panelLayout = o.panelLayout
+	if (o.o) then
+		g_proj = o.o
 		g_projPath = o.path
 	end
 end
@@ -380,23 +355,49 @@ function LoadProjWindow:OnBrowse()
 	local s = cTerminal.OpenFileDialog(_('加载项目'), '', 'project')
 	if (s:length() > 0) then
 		local f = CNewFileInput(false)
-		local b, c = LoadFile(f, s, {}, true)
+		local b, o = LoadFile(f, s, {}, true)
 		if (not b) then
-			Print(c)
+			Print(o)
 		return end
 		
-		g_proj.name = c.name
-		g_proj.panelLayout = c.panelLayout
 		s:erase(s:rfind('\\') + 1, -1)
 		g_projPath = s:utf8()
 		table.insert(savedList, {path = g_projPath})
 		WriteTableToFile(savedList, true, savedListPath)
+		
+		g_proj = o
 		self:OnLoad()
 	end
 end
 
 function LoadProjWindow:OnLoad()
 	cEntrance:Accept()
+end
+
+
+local function SaveProject(dir)
+	if (not dir) then
+		dir = cTerminal.NewFileDialog('', '', '')
+		if (dir:length() == 0) then
+			return false
+		end
+		
+		local name = dir:substr(dir:rfind('\\') + 1, -1)
+		g_proj.name = name
+		g_proj.panelLayout = scenePanelSet.nb:SaveLayout()
+		g_proj.maximized = cMainFrame:IsMaximized()
+		g_proj.w, g_proj.h = cMainFrame:GetSize()
+		
+		g_projPath = dir .. '\\'
+		cTerminal.NewDirectory(g_projPath)
+		WriteTableToFile(g_proj, false, g_projPath .. 'project')
+		cTerminal.NewDirectory(g_projPath .. 'Content')
+		cTerminal.NewDirectory(g_projPath .. 'Config')
+		
+		table.insert(savedList, {path = g_projPath})
+		WriteTableToFile(savedList, true, savedListPath)
+	end
+	return true
 end
 
 PaneWindow = class(Window)
@@ -749,8 +750,15 @@ local function OnMainFrameClose(w)
 		return false
 	elseif (g_projPath) then
 		local layout = scenePanelSet.nb:SaveLayout()
-		if (g_proj.panelLayout ~= layout) then
+		local maximized = cMainFrame:IsMaximized()
+		local w, h = cMainFrame:GetSize()
+		if (g_proj.panelLayout ~= layout or 
+			g_proj.maximized ~= maximized or
+			g_proj.w ~= w or g_proj.h ~= h) then
 			g_proj.panelLayout = layout
+			g_proj.maximized = maximized
+			g_proj.w = w
+			g_proj.h = h
 			WriteTableToFile(g_proj, false, g_projPath .. 'project')
 		end
 		return true
@@ -764,6 +772,11 @@ function LoadMainFrame()
 	cMainFrame.OnClose = OnMainFrameClose
 	scenePanelSet.nb = cMainFrame:AddPageNotebook('scene', _('场景'))
 	scenePanelSet.layout = layout
+	if (g_proj.maximized) then
+		cMainFrame:Maximize()
+	elseif (g_proj.w and g_proj.h) then
+		cMainFrame:SetSize(g_proj.w, g_proj.h)
+	end
 	
 	local mb = CMenuBar()
 	-- local m = mb:Add('menu', SaveLoadLayout(scenePanelSet))

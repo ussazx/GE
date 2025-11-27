@@ -25,6 +25,16 @@ g_iconPreset = AddPoly2D(true, o)
 
 g_iconLine1 = AddPoly2D(false, DrawLine(10, false, false, {100, 100}, {100, 300}))
 
+local file = { {0, 0}, {40, 0}, {50, 10}, {50, 60}, {0, 60} }
+file.color = Color(150, 150, 150, 255)
+local o1 = MakeRect(10, 15, 30, 10)
+o1.color = Color(255, 0, 0, 180)
+local o2 = MakeRect(10, 25, 30, 10)
+o2.color = Color(0, 255, 0, 180)
+local o3 = MakeRect(10, 35, 30, 10)
+o3.color = Color(0, 0, 255, 180)
+g_iconFB = AddPoly2D(true, file, o1, o2, o3)
+
 -----Camera-----
 Camera = class(SceneObject)
 function Camera:ctor()
