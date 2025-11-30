@@ -1,7 +1,7 @@
 #pragma once
 #include "vmWindow.h"
 
-class MainFrame : public vmFrame, public wxFrame
+class MainFrame : public wxFrame, public vmFrame
 {
 public:
 	MainFrame(wxWindow* parent, wxWindowID id, const wxString& title, const std::string name)
@@ -24,14 +24,6 @@ public:
 	~MainFrame()
 	{
 		wxFrame::SetMenuBar({});
-	}
-	void Maximize()
-	{
-		wxFrame::Maximize();
-	}
-	bool IsMaximized()
-	{
-		return wxFrame::IsMaximized();
 	}
 	void SetSize(int x, int y)
 	{

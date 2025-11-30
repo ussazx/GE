@@ -36,12 +36,12 @@ public:
 
 	void Accept() override
 	{
-		EndModal(wxID_OK);
+		AcceptAndClose();
 	}
 
 	void Reject() override
 	{
-		EndModal(wxID_CANCEL);
+		Close();
 	}
 
 private:

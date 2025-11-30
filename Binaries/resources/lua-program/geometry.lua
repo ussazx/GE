@@ -313,9 +313,10 @@ SceneObject.ATTACH_WORLD = 2
 SceneObject.ATTACH_ROT_AFFECT_POS = 1
 SceneObject.ATTACH_ROT_IGNORE = 2
 
+local mId = CMatrix[CMatrix]
 function SceneObject:ctor(parent)
 	self.mRoot = CMatrix()
-	self[0] = self.mRoot[0]
+	self[mId] = self.mRoot[mId]
 	self.mCache = CMatrix()
 	self.mModel = CMatrix()
 	self.mWorld = self.mRoot

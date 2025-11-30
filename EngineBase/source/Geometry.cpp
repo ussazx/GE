@@ -118,6 +118,6 @@ public:
 	//void SkinningTransform(CSkinning& skn, )
 	bool m_hasNormal;
 	std::unordered_map<size_t, std::unordered_map<size_t, std::vector<Factors>>> m_factors;
-	Lua_wrap_cpp_class(CTransformer, Lua_ctor(), Lua_mf(AddFactors), Lua_mf(MatrixTransform))
+	Lua_wrap_cpp_class(CTransformer, Lua_ctor_void, Lua_mf(AddFactors), Lua_mf(MatrixTransform))
 };
 Lua_global_add_cpp_class(CTransformer);

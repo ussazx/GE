@@ -362,8 +362,18 @@ function LoadProjWindow:OnBrowse()
 		
 		s:erase(s:rfind('\\') + 1, -1)
 		g_projPath = s:utf8()
-		table.insert(savedList, {path = g_projPath})
-		WriteTableToFile(savedList, true, savedListPath)
+		
+		local new = true
+		for _, v in pairs(savedList) do
+			if (v.path == g_projPath) then
+				new = false
+				break
+			end
+		end
+		if (new) then
+			table.insert(savedList, {path = g_projPath})
+			WriteTableToFile(savedList, true, savedListPath)
+		end
 		
 		g_proj = o
 		self:OnLoad()
@@ -773,7 +783,7 @@ function LoadMainFrame()
 	scenePanelSet.nb = cMainFrame:AddPageNotebook('scene', _('场景'))
 	scenePanelSet.layout = layout
 	if (g_proj.maximized) then
-		cMainFrame:Maximize()
+		cMainFrame:Maximize(true)
 	elseif (g_proj.w and g_proj.h) then
 		cMainFrame:SetSize(g_proj.w, g_proj.h)
 	end

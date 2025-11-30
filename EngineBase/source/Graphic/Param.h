@@ -1,5 +1,8 @@
 #pragma once
-#include "Graphic.h"
+
+class Swapchain;
+class Texture;
+class ResourceLayout;
 
 struct ParamRenderPass
 {

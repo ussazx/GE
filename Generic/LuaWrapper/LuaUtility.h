@@ -1,6 +1,7 @@
 #include "LuaGlobalReflect.h"
 #include <string>
 #include <codecvt>
+#include <locale>
 
 class LString : public LuaCustomParam<LString>
 {
@@ -58,27 +59,33 @@ public:
 	{
 		m_cvt = std::make_shared<Cvt>();
 		m_text = std::make_shared<std::wstring>(m_cvt->cvt.from_bytes(utf8));
+		return *this;
 	}
 	const LString& operator = (const wchar_t* s)
 	{
 		m_text = std::make_shared<std::wstring>(s);
+		return *this;
 	}
 	const LString& operator = (const std::string& utf8)
 	{
 		m_cvt = std::make_shared<Cvt>();
 		m_text = std::make_shared<std::wstring>(m_cvt->cvt.from_bytes(utf8));
+		return *this;
 	}
 	const LString& operator = (const std::wstring& s)
 	{
 		m_text = std::make_shared<std::wstring>(s);
+		return *this;
 	}
 	const LString& operator = (std::wstring&& s)
 	{
 		m_text = std::make_shared<std::wstring>(std::forward<std::wstring>(s));
+		return *this;
 	}
 	const LString& operator = (const LString& s)
 	{
 		m_text = s.m_text;
+		return *this;
 	}
 	const LString& operator = (LString&& s)
 	{
@@ -215,7 +222,7 @@ protected:
 	std::shared_ptr<Cvt> m_cvt;
 	std::shared_ptr<std::wstring> m_text;
 };
-inline LString LuaCustomParam<LString>::GetValue(const LuaIdx& idx)
+template<> inline LString LuaCustomParam<LString>::GetValue(const LuaIdx& idx)
 {
 	if (idx.GetValue(nullptr) == LUA_TSTRING)
 	{

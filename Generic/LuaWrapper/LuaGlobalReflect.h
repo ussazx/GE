@@ -7,7 +7,8 @@ static int lua_nop_##func = LuaRegGlobalReflected(nullptr, { #func, Lua_cf(func)
 
 #define Lua_global_add_cpp_class(cpp_class) \
 static int lua_nop_##cpp_class = LuaRegGlobalReflected(nullptr, {}, #cpp_class, \
-{cpp_class::LuaGetBaseName(), sizeof(cpp_class), cpp_class::LuaGetObjectCtor(), LuaObjectDtor<cpp_class>, cpp_class::LuaSetClassTable});
+{cpp_class::LuaGetBaseName(), sizeof(cpp_class), cpp_class::LuaGetObjectCtor(), \
+	LuaObjectDtor<cpp_class>, typeid(cpp_class).hash_code(), cpp_class::LuaSetClassTable});
 
 struct LuaCppClassReg
 {
@@ -15,6 +16,7 @@ struct LuaCppClassReg
 	size_t size;
 	lua_CFunction objectCtor;
 	lua_CFunction objectDtor;
+	size_t id;
 	void(*setClassTable)(const LuaState&, const lua_Idx&);
 };
 
@@ -35,7 +37,7 @@ inline int LuaRegGlobalReflected(LuaState* lua, const luaL_Reg& funcReg = {}, co
 		
 		for (auto it = luaCppClass.begin(); it != luaCppClass.end(); it++)
 			LuaRegisterCppClass(*lua, it->first, it->second.baseClass, it->second.size, 
-				it->second.objectCtor, it->second.objectDtor, it->second.setClassTable);
+				it->second.objectCtor, it->second.objectDtor, it->second.id, it->second.setClassTable);
 	}
 	return 0;
 }

@@ -752,7 +752,7 @@ public:
 
 	std::list<void*> list;
 
-	Lua_wrap_cpp_class(CList, Lua_ctor(), Lua_mf(push_back));
+	Lua_wrap_cpp_class(CList, Lua_ctor_void, Lua_mf(push_back));
 };
 Lua_global_add_cpp_class(CList);
 

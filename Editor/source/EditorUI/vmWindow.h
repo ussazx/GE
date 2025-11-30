@@ -444,7 +444,7 @@ public:
 	{
 		item->Check(check);
 	}
-	Lua_wrap_cpp_class(CMenu, Lua_ctor(), Lua_mf(AddItem), Lua_mf(AddCheckItem), Lua_mf(AddSubMenu), 
+	Lua_wrap_cpp_class(CMenu, Lua_ctor_void, Lua_mf(AddItem), Lua_mf(AddCheckItem), Lua_mf(AddSubMenu), 
 		Lua_mf(BindOnOpen), Lua_mf(Check), Lua_mf(Popup), Lua_mf(Clear));
 
 	wxMenu sub;
@@ -470,36 +470,40 @@ public:
 		ret.Push(Lua_set_cobj(sub));
 		Append(sub, text.c_str());
 	}
-	Lua_wrap_cpp_class(CMenuBar, Lua_ctor(), Lua_mf(Clear), Lua_mf(Add));
+	Lua_wrap_cpp_class(CMenuBar, Lua_ctor_void, Lua_mf(Clear), Lua_mf(Add));
 };
 Lua_global_add_cpp_class(CMenuBar)
 
 class CNotebook
 {
 public:
-	static void AddPage(LuacObj<FloatableNotebook> fnb, const char* name, LString title, LuaIdx wnd)
+	CNotebook(FloatableNotebook* nb) : m_nb(nb) {}
+	void AddPage(const char* name, LString title, LuaIdx wnd)
 	{
-		fnb->AddPage(new vmWindow(fnb, name, wnd), title.c_str());
+		m_nb->AddPage(new vmWindow(m_nb, name, wnd), title.c_str());
 	}
-	static void SaveLayout(LuaReturn& ret, LuacObj<FloatableNotebook> fnb)
+	void SaveLayout(LuaReturn& ret)
 	{
-		ret.Push(fnb->SavePerspective().c_str());
+		ret.Push(m_nb->SavePerspective().c_str());
 	}
-	static void LoadLayout(LuacObj<FloatableNotebook> fnb, const char* layout)
+	void LoadLayout(const char* layout)
 	{
-		fnb->LoadPerspective(layout);
+		m_nb->LoadPerspective(layout);
 	}
-	static void ShowPage(LuacObj<FloatableNotebook> fnb, LuacObj<wxWindow> wnd)
+	void ShowPage(LuacObj<vmWindow> wnd)
 	{
-		fnb->ShowPage(wnd);
+		m_nb->ShowPage(wnd);
 	}
-	static bool IsPageShown(LuacObj<FloatableNotebook> fnb, LuacObj<wxWindow> wnd)
+	bool IsPageShown(LuacObj<vmWindow> wnd)
 	{
-		return fnb->IsPageShown(wnd);
+		return m_nb->IsPageShown(wnd);
 	}
 	Lua_wrap_cpp_class(CNotebook, Lua_abstract, Lua_mf(AddPage), Lua_mf(SaveLayout), Lua_mf(LoadLayout),
 		Lua_mf(ShowPage), Lua_mf(IsPageShown));
+
+	FloatableNotebook* m_nb{};
 };
+Lua_global_add_cpp_class(CNotebook)
 
 class vmFrame
 {
@@ -513,13 +517,12 @@ public:
 		AddPageWnd(new vmWindow(m_self, name, wnd), title.c_str());
 	}
 
-	void AddPageNotebook(LuaReturn& ret, const char* name, LString title)
+	LuacObjNew<CNotebook> AddPageNotebook(const char* name, LString title)
 	{
-		this;
 		FloatableNotebook* nb = new FloatableNotebook(m_self, new UiManager);
 		nb->SetName(name);
 		AddPageWnd(nb, title.c_str());
-		ret.Push(LuaSub(0, nb), LuaSub(1, typeid(decltype(nb)).hash_code()), (LuaCustomSet)CNotebook::LuaSetClassTable);
+		return new CNotebook(nb);
 	}
 
 	void SetMenuBar(LuacObj<CMenuBar> mb)

@@ -57,7 +57,7 @@ struct AA
 		int a = 5;
 	}
 	void f() {}
-	Lua_wrap_cpp_class(AA, Lua_ctor(), Lua_mf(f))
+	Lua_wrap_cpp_class(AA, Lua_ctor_void, Lua_mf(f))
 };
 Lua_global_add_cpp_class(AA)
 
@@ -81,6 +81,25 @@ void ff(int a, int b)
 
 }
 Lua_global_add_cfunc(ff)
+
+struct Q1
+{
+	int f() { return a; };
+	int a = 1;
+};
+
+struct Q2
+{
+	void ff() {};
+	int* b{};
+	Lua_wrap_cpp_class(Q2, Lua_ctor_void, Lua_mf(ff));
+};
+
+struct QQ : public Q2, public Q1
+{
+	Lua_wrap_cpp_class_derived(Q2, QQ, Lua_ctor_void, Lua_mf(f));
+};
+Lua_global_add_cpp_class(QQ)
 
 bool MyApp::OnInit()
 {
@@ -128,6 +147,10 @@ bool MyApp::OnInit()
 
 	LuaRegGlobalReflected(&Terminal::Lua());
 
+	Terminal::Lua().SetValue("aa", 1, LuaFEnv(), LuaGet("aa"));
+	Terminal::Lua().SetValue("aa", 1, LuaMeta(), 1, 2);
+	//Terminal::Lua().SetValue("aa", LuaFEnv(), LuaLoad(""));
+
 
 	Terminal::Lua().Run("a = 1.1");
 	uint32_t n;
@@ -168,6 +191,8 @@ bool MyApp::OnInit()
 	assert(fd.IsLoaded());
 	Terminal::Lua().Run((char*)fd.GetData(), fd.GetSize());
 	fd.Release();
+
+	Terminal::Lua().Run("local q = QQ() Print(q:f())");
 
 	Terminal::Lua().Run("function z() return a, b end zz = {a = 'abc', b = '123'} w = {z = z} o = {zz = zz}");
 	Terminal::Lua().SetValue("w", "z", LuaFEnv(), LuaGet("o", "zz"));

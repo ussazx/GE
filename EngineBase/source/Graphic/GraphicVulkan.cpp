@@ -1056,7 +1056,7 @@ bool VKGraphic::CreateInstance()
 	ai.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	ai.pApplicationName = "vkapp";
 	ai.pEngineName = "vkapp";
-	ai.apiVersion = VK_API_VERSION_1_3;
+	ai.apiVersion = VK_API_VERSION_1_0;
 
 	VkInstanceCreateInfo ci{};
 	ci.pApplicationInfo = &ai;

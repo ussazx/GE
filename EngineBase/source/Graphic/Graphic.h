@@ -2,12 +2,7 @@
 #include "../../include/EngineBase.h"
 #include "../../include/EngineInterface.h"
 #include "../Functional.h"
-
-struct ParamRenderPass;
-struct ParamResourceLayout;
-struct ParamPipeline;
-struct ParamFrameBuffer;
-struct ParamSampler;
+#include "Param.h"
 
 class Texture
 {

@@ -72,10 +72,12 @@ inline void LuaPushValue(lua_State* lua, unsigned long v)
 	lua_pushinteger(lua, v);
 }
 
+#ifdef _M_X64
 inline void LuaPushValue(lua_State* lua, uint64_t v)
 {
 	lua_pushinteger(lua, v);
 }
+#endif
 
 inline void LuaPushValue(lua_State* lua, lua_Number v)
 {
@@ -117,7 +119,8 @@ inline void LuaPushTupleValue(lua_State *L, const std::tuple<T...>& t)
 inline void LuaPushTupleValue(lua_State *L, const std::tuple<>&) {}
 
 template<typename T>
-inline typename std::enable_if<std::_Is_nonbool_integral<T>::value, T>::type LuaGetValue(lua_State* lua, int i)
+inline typename std::enable_if<std::is_integral<T>::value && 
+	!std::is_same<T, bool>::value, T>::type LuaGetValue(lua_State* lua, int i)
 {
 	Assert(abs(i) <= lua_gettop(lua));
 	Assert(lua_type(lua, i) == LUA_TNUMBER);
