@@ -38,7 +38,8 @@ struct AtlasInfo
 	uint32_t numPixels;
 	struct Font
 	{
-		uint32_t fontSize;
+		uint32_t maxWidth;
+		uint32_t maxHeight;
 		float xAdvance;
 		int ascender;
 		int descender;

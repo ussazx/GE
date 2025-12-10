@@ -98,9 +98,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>..\include;..\..\ThirdParty\lua-5.4.1\src;..\..\ThirdParty\vulkan\1.3.296.0\Include;..\..\ThirdParty\vulkan\source;..\..\;$(IncludePath)</IncludePath>
+    <IncludePath>..\include;..\..\ThirdParty\lua-5.4.1\src;..\..\ThirdParty\vulkan\1.3.296.0\Include;..\..\ThirdParty\vulkan\source;..\..\ThirdParty\freetype-2.12.1\include;..\..\;$(IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)Binaries\output-windows\$(Platform)\$(Configuration)\</OutDir>
-    <LibraryPath>$(SolutionDir)Binaries\output-windows\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(SolutionDir)Binaries\output-windows\$(Platform)\$(Configuration)\;..\..\ThirdParty\freetype-2.12.1\lib\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -108,8 +108,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)Binaries\output-windows\$(Platform)\$(Configuration)\</OutDir>
-    <IncludePath>..\include;..\..\ThirdParty\lua-5.4.1\src;..\..\ThirdParty\vulkan\1.3.296.0\Include;..\..\ThirdParty\vulkan\source;..\..\;$(IncludePath)</IncludePath>
-    <LibraryPath>$(SolutionDir)Binaries\output-windows\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
+    <IncludePath>..\include;..\..\ThirdParty\lua-5.4.1\src;..\..\ThirdParty\vulkan\1.3.296.0\Include;..\..\ThirdParty\vulkan\source;..\..\ThirdParty\freetype-2.12.1\include;..\..\;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)Binaries\output-windows\$(Platform)\$(Configuration)\;..\..\ThirdParty\freetype-2.12.1\lib\x64\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -138,7 +138,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>lua.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>lua.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -175,7 +175,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>lua.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>lua.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

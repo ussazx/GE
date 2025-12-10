@@ -316,7 +316,7 @@ local function FindScene(w, x, y)
 		return
 	end
 	for i = w.children.n, 1, -1 do
-		local v = FindScene(w.children[i], x, y)
+		local v = FindScene(w.children(i), x, y)
 		if (v) then
 			return v
 		end
@@ -336,6 +336,10 @@ local function CheckScene(obj, w, x, y)
 end
 
 function Window:on_mouse(e, x, y, w, m)
+	e = EVT.trans(e)
+	if (not e) then 
+	return self:TimerPeriod(), self.cursor end
+	
 	g_actWindow = self
 	
 	local id 
@@ -352,19 +356,21 @@ function Window:on_mouse(e, x, y, w, m)
 			obj = scene
 		end
 	end
-		
-	if (EVT.entered_id ~= id) then
+	
+	if (EVT.entered_id ~= id or e == EVT.LEAVE_WINDOW) then
 		local last_obj = get_object(EVT.entered_id)
 		if (last_obj) then
 			last_obj:process_event(EVT.MOVE_OUT)
 		end
-		if (obj) then
+		if (e ~= EVT.LEAVE_WINDOW and obj) then
 			obj:process_event(EVT.MOVE_IN)
+			EVT.entered_id = id
+		else
+			EVT.entered_id = nil
 		end
-		EVT.entered_id = id
 	end
 	
-	if (e == EVT.LEFT_DOWN or e == EVT.RIGHT_DOWN) then
+	if (e == EVT.LEFT_DOWN or (obj.rightFocus and e == EVT.RIGHT_DOWN)) then
 		if (obj) then
 			self:SetFocus(obj, true)
 			self:SetActive(obj, true)
@@ -447,22 +453,21 @@ function Window:on_dragging(x, y, type, text)
 	obj = CheckScene(obj, self, x, y)
 	while (obj) do
 		if (type == 1) then
-			if (obj.OnDropFile) then
+			if (obj.acceptFile) then
 				return true
 			end
 		elseif (obj.dropId[Window.dragId]) then
+			x = x - obj.location.x
+			y = y - obj.location.y
 			if (Window.dragOn ~= obj) then
 				if (Window.dragOn) then
-					Window.dragOn:OnInnerDragLeave(Window.dragId, Window.dragData)
+					Window.dragOn:process_event(EVT.INNER_DRAG_LEAVE, Window.dragId, Window.dragData)
 				end
-				obj:OnInnerDragEnter(x, y, Window.dragId, Window.dragData)
+				obj:process_event(EVT.INNER_DRAG_ENTER, Window.dragId, Window.dragData, x, y)
+			else
+				obj:process_event(EVT.INNER_DRAGGING, Window.dragId, Window.dragData, x, y)
 			end
 			Window.dragOn = obj
-			if (obj.OnInnerDragging) then
-				local dx = obj.location.x
-				local dy = obj.location.y
-				obj:OnInnerDragging(x - dx, y - dy, Window.dragId, Window.dragData)
-			end
 			return true
 		end
 		obj = obj.parent
@@ -472,7 +477,7 @@ end
 
 function Window:on_drag_leave()
 	if (Window.dragOn) then
-		Window.dragOn:OnInnerDragLeave(Window.dragId, Window.dragData)
+		Window.dragOn:process_event(EVT.INNER_DRAG_LEAVE, Window.dragId, Window.dragData)
 		Window.dragOn = nil
 	end
 end
@@ -483,14 +488,14 @@ function Window:on_drop(x, y, type, text)
 	obj = get_object(id) or self
 	obj = CheckScene(obj, self, x, y)
 	while (obj) do
+		local dx = x - obj.location.x
+		local dy = y - obj.location.y
 		if (type == 1)then
-			if (obj.OnDropFile) then
-				obj:OnDropFile(x, y, load('return '..text, '', 't')())
+			if (obj.acceptFile) then
+				obj:process_event(EVT.FILE_DROP, load('return '..text)(), dx, dy)
 			end
 		elseif (obj.dropId[Window.dragId]) then
-			local dx = obj.location.x
-			local dy = obj.location.y
-			obj:OnInnerDrop(x - dx, y - dy, Window.dragId, Window.dragData)
+			obj:process_event(EVT.INNER_DROP, Window.dragId, Window.dragData, dx, dy)
 		end
 		obj = obj.parent
 	end

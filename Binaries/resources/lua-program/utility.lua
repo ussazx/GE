@@ -391,6 +391,9 @@ end
 
 --ObjectArray---
 local objNotifier = Object()
+local function ObjectArrayGet(o, idx)
+	return o.array[idx]
+end
 
 function DelistObject(obj)
 	objNotifier:process_event(EVT.DELIST, obj)
@@ -400,28 +403,32 @@ end
 ObjectArray = class(Object)
 function ObjectArray:ctor(mode)
 	self.n = 0
+	self.array = {}
+	getmetatable(self).__call = ObjectArrayGet
 	objNotifier:bind_event(EVT.DELIST, self, ObjectArray.on_object_delist)
 	
 	local o = self
 	self.newPairs = function()
 		local i = o.i
+		local a = self.array
 		i = i + 1
-		if (o[i]) then
+		if (a[i]) then
 			o.i = i
-			return i, o[i]
+			return i, a[i]
 		end
 	end
 	self.filterredPairs = function()
 		local i = o.i
+		local a = self.array
 		i = i + 1
 		local filter_func = o.filter_func
 		local filter_param = o.filter_param
-		while (o[i] and not filter_func(o[i], filter_param)) do
+		while (a[i] and not filter_func(a[i], filter_param)) do
 			i = i + 1
 		end
-		if (o[i]) then
+		if (a[i]) then
 			o.i = i
-			return i, o[i]
+			return i, a[i]
 		end
 	end
 end
@@ -432,14 +439,14 @@ end
 
 function ObjectArray:insert(obj, idx)
 	self.n = self.n + 1
-	table.insert(self, idx or self.n, obj)
+	table.insert(self.array, idx or self.n, obj)
 	return idx or self.n
 end
 
 function ObjectArray:remove_idx(idx)
-	local obj = self[idx]
+	local obj = self.array[idx]
 	if (obj) then
-		table.remove(self, idx)
+		table.remove(self.array, idx)
 		self.n = self.n - 1
 	end
 	return obj
@@ -448,18 +455,27 @@ end
 function ObjectArray:remove_obj(obj)
 	for i, v in self:pairs() do
 		if (obj == v) then
-			table.remove(self, i)
+			table.remove(self.array, i)
 			self.n = self.n - 1
 		end
 	end
 end
 
 function ObjectArray:back()
-	return self[self.n]
+	return self.array[self.n]
 end
 
 function ObjectArray:pop_back()
 	return self:remove_idx(self.n)
+end
+
+function ObjectArray:clear()
+	if (self.n > 0) then
+		self.n = 0
+		self.array = {}
+		return true
+	end
+	return false
 end
 
 function ObjectArray:pairs(filter_func, filter_param)

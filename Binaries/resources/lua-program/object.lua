@@ -53,9 +53,39 @@ function Object:bind_event(e, obj, func)
 end
 
 function Object:unbind_event(e, obj, func)
-	if (obj == nil) then
+	if (not e) then
+		if (not obj) then
+			for _, t in pairs(self.event_table) do
+				for k, v in pairs(t) do
+					if (v == func) then
+						table.remove(t, k)
+						break
+					end
+				end
+			end
+			return
+		end
+		for _, t in pairs(self.event_table_obj) do
+			if (not func) then
+				t[obj] = nil
+			else
+				for k, v in pairs(t) do
+					if (v == func) then
+						table.remove(t, k)
+						break
+					end
+				end
+			end
+		end
+		return
+	end			
+	if (not obj) then
 		local t = self.event_table[e]
 		if (t) then
+			if (not func) then
+				self.event_table[e] = nil
+				return
+			end
 			for k, v in pairs(t) do
 				if (v == func) then
 					table.remove(t, k)
@@ -67,8 +97,16 @@ function Object:unbind_event(e, obj, func)
 	end
 	local t = self.event_table_obj[e]
 	if (t) then
+		if (not obj) then
+			self.event_table_obj[e] = nil
+			return
+		end
 		t = self.event_table_obj[e][obj]
 		if (t) then
+			if (not func) then
+				self.event_table_obj[e][obj] = nil
+				return
+			end
 			for k, v in pairs(t) do
 				if (v == func) then
 					table.remove(t, k)
@@ -80,7 +118,7 @@ function Object:unbind_event(e, obj, func)
 end
 
 function Object:process_event(e, ...)
-	EVT.obj = self
+	e.obj = self
 	local t = self.event_table[e]
 	if (t) then
 		for _, f in pairs(t) do
@@ -99,5 +137,5 @@ function Object:process_event(e, ...)
 			end
 		end
 	end
-	EVT.obj = nil
+	e.obj = nil
 end

@@ -2,9 +2,39 @@
 require 'window'
 require 'presets'
 
+PaneWindow = class(Window)
+function PaneWindow:ctor()
+	self.color:set(70, 70, 70, 255)
+end
+
 local savedList = {}
 local savedListPath
 local scenePanelSet = {panels = {}}
+
+local fileList = {}
+local content = Object()
+
+local nameHintBegin = _('名称不能以空格开头')
+local nameHintChar = _('名称不能包含下列字符：') .. '\\/:*?\"<>|'
+local nameHintExist = _('名称已存在')
+
+local function CheckName(s)
+	if (s:length() > 0) then
+		if (s:find(' ') == 0) then
+			return nameHintSpace
+		elseif (s:find('\\') >= 0 or
+			s:find('/') >= 0 or
+			s:find(':') >= 0 or
+			s:find('*') >= 0 or
+			s:find('?') >= 0 or
+			s:find('\"') >= 0 or
+			s:find('<') >= 0 or
+			s:find('>') >= 0 or
+			s:find('|') >= 0) then
+			return nameHintChar
+		end
+	end
+end
 
 function WindowRecord(w, redo, o)
 	if (redo) then
@@ -18,7 +48,7 @@ function LoadSavedList(w)
 	local layout = VBoxLayout()
 	w:AddChild(layout)
 	
-	--local t = UiTextInput(0, uiFont.fontSize)
+	--local t = UiTextInput(0, uiFont.maxHeight)
 	--layout:AddChild(t, nil, 20, 10, true, 20, 20)
 	
 	local grid = GridLayout()
@@ -182,67 +212,252 @@ local function NewUI()
 	
 end
 
----ContentPanel---
-ContentPanel = class(HSizerLayout)
+---ContentWindow---
+local CONT_FOLDER = 1
+local icons = {}
+icons[CONT_FOLDER] = g_iconFolder
 
-function ContentPanel:ctor()
-	self.list = UiTreeList()
-	self:AddChild(UiScrollPanel(self.list), 1, 0, 0, true)
+Folder = class()
+
+function Folder:ctor()
+	self.files = {}
+	self.folders = {}
+end
+function Folder:Add(o)
+	if (o.type == CONT_FOLDER) then
+		table.insert(self.folders, o)
+	else
+		table.insert(self.files, o)
+	end
+end
+
+function Folder:Remove(o)
+	local t
+	if (o.type == CONT_FOLDER) then
+		t = self.folders
+	else
+		t = self.files
+	end
+	for i, v in pairs(t) do
+		if (v == o) then
+			table.remove(t, i)
+		end
+	end
+end
+
+content.folder = Folder()
+content.EVT = EVT.new()
+
+function content:Update(panel, folder)
+	content:process_event(content.EVT, panel, folder or panel.curFolder)
+end
+
+local itemMenus = {}
+local m = CMenu()
+m:AddItem(1, _('重命名'))
+m:AddItem(2, _('删除'))
+itemMenus[CONT_FOLDER] = m
+
+local contentMenu = CMenu()
+contentMenu:AddItem(1, _('新建文件夹'))
+contentMenu:AddItem(2, _('新建FrameBuffer'))
+
+ContentWindow = class(PaneWindow)
+
+function ContentWindow:ctor()
+	local hsLayout = HSizerLayout()
+	hsLayout:SetBarDftColor(70, 70, 70, 255)
+	self:AddChild(hsLayout)
+	
+	self.tree = UiTreeList()
+	local o = hsLayout:AddChild(UiScrollPanel(self.tree), 1, 0, 0, true)
+	o.limit = 300
 	
 	local mag = UiPolyIcon(g_iconMagnifier)
-	self.searcher = UiTextInput(0, uiFont.fontSize)
+	self.searcher = UiTextInput(0, uiFont.maxHeight)
 	local h = HBoxLayout()
-	h:AddChild(mag, nil, 5, 5, false)
-	h:AddChild(self.searcher, 1, 0, 0, false)
+	h:AddChild(mag, nil, 5, 0, false)
+	h:AddChild(self.searcher, 1, 7, 12, false)
 	h:SetSize()
 	
-	local bkg = UiWidget(0, h.rect.h + 2)
-	bkg.color:copy(self.searcher.crColor)
-	bkg:AddChild(h)
-	
 	local v = VBoxLayout()
-	v:AddChild(bkg, nil, 5, 0, true)
+	v:AddChild(h, nil, 5, 0, true)
 	
 	self.grid = GridLayout()
-	local panel = UiScrollPanel(self.grid)
-	panel:bind_event(EVT.RIGHT_UP, self, ContentPanel.OnMouse)
-	v:AddChild(panel, 1, 8, 0, true)
+	local vv = VBoxLayout()
+	vv:AddChild(self.grid, nil, 0, 0, true, 5, 5)
+	local pane = UiScrollPanel(vv)
+	pane.acceptFile = true
+	pane:EnableDrop(PresetsWindow, true)
+	pane:bind_event(EVT.RIGHT_UP, self, self.OnMouse)
+	pane:bind_event(EVT.INNER_DROP, self, self.OnPresetDrop)
+	pane:bind_event(EVT.FILE_DROP, self, self.OnDropFile)
+	v:AddChild(pane, 1, 8, 0, true)
+	self.pane = pane
+	self.selector = Selector()
+	self.selector.showFocusOut = true
+	self.selector:SetFocusOutColor(0, 0, 0, 0)
+	self.curPath = ''
+	
+	self.color:copy(self.pane.color)
 	
 	local w = UiWidget()
 	w.gpuClip = true
 	w.drawSelf = false
 	w:AddChild(v)
 	
-	self:AddChild(w, 3, 0, 0, true)
+	hsLayout:AddChild(w, 3, 0, 0, true)
 	
-	self.menu = CMenu()
-	self.menu:AddItem(1, _('新建场景'))
-	self.menu:AddItem(2, _('新建UI'))
-	local m = self.menu:AddSubMenu(_('Sub'))
-	m:AddItem(3, 'zz')
+	--self.menu:AddItem(1, _('新建场景'))
+	--self.menu:AddItem(2, _('新建UI'))
+	--local m = self.menu:AddSubMenu(_('Sub'))
+	--m:AddItem(3, 'zz')
+	self.nameHint = UiText()
+	self.nameHint.drawClipRect = true
+	self.nameHint.crColor:set(160, 0, 0, 255)
+	self.nameHint:Show(false)
+	self:AddChild(self.nameHint)
+	
+	self.curFolder = content.folder
+	content:bind_event(content.EVT, self, self.OnContentUpdated)
 end
 
-function ContentPanel:OnMouse(e)
-	if (e == EVT.RIGHT_UP) then
-		local b, id = self.menu:Popup(g_actWindow)
-		if (not b) then return end
-		if (id == 1) then
-			NewScene()
+function ContentWindow:OnPresetDrop(e, id, geom)
+	
+end
+
+function ContentWindow:OnDropFile(e, files)
+	for _, f in pairs(files) do
+		Print(f)
+	end
+end
+
+function ContentWindow:OnContentUpdated(e, panel, folder)
+	if (panel ~= self and folder == self.curFolder) then
+		self.grid:ClearChildren()
+		self.selector = Selector()
+		self.selector.showFocusOut = true
+		self.selector:SetFocusOutColor(0, 0, 0, 0)
+		for _, item in pairs(folder.folders) do
+			self:AddItem(item)
 		end
+	end
+end
+
+function ContentWindow:OnTextFocusOut(e)
+	local item = e.obj.item
+	item.input:Show(false)
+	item.name:Show(true)
+	if (item.nameNew) then
+		item.name:SetText(item.input.text)
+		item.meta.name = item.input.text:utf8()
+	else
+		item.input:SetText(item.name.text)
+	end
+	self.nameHint:Show(false)
+	
+	content:Update(self)
+end
+
+function ContentWindow:OnTextKeyDown(e, k)
+	if (k == SYS.VK_RETURN) then
+		self:OnTextFocusOut(e)
+	end
+end
+
+function ContentWindow:OnText(e)
+	self.nameHint:Show(false)
+	local item = e.obj.item
+	item.nameNew = true
+	local s = item.input.text
+	local hint = CheckName(s)
+	if (hint) then
+		item.nameNew = false
+		local x = item.icon.location.x
+		local y = item.input.location.y
+		local h = item.input.rect.h
+		self.nameHint:SetText(hint)
+		self.nameHint:SetPos(x, y + h + 2)
+		self.nameHint:Show(true)
+	elseif (s:length() == 0) then
+		item.nameNew = false
+	end
+end
+
+function ContentWindow:AddItem(o)
+	local item = self.selector:Add(100, 80, {})
+	item:bind_event(EVT.RIGHT_UP, self, self.OnItemMenu)
+	self.grid:AddChild(item, 0, 0, 5, 10)
+	
+	local layout = VBoxLayout()
+	item:AddChild(layout)
+	
+	item.meta = o
+	item.menu = itemMenus[o.type]
+	item.icon = UiPolyIcon(icons[o.type], true)
+	item.icon:EnableWriteId(false)
+	layout:AddChild(item.icon, 1, 10, 10, true, 20, 20)
+	
+	item.input = UiTextInput(0, uiFont2.maxHeight, o.name, uiFont2)
+	item.input:Show(false)
+	item.input:FixTextSize(true, 80)
+	item.input:bind_event(EVT.FOCUS_OUT, self, self.OnTextFocusOut)
+	item.input:bind_event(EVT.KEY_DOWN, self, self.OnTextKeyDown)
+	item.input:bind_event(UiTextInput.EVT, self, self.OnText)
+	item.input.item = item
+	layout:AddChild(item.input) 
+	
+	item.name = UiTextLabel(80, o.name, uiFont2)
+	layout:AddChild(item.name)
+	return item
+end
+
+function ContentWindow:OnItemMenu(e)
+	local item = e.obj
+	local id = item.menu:Popup(self)
+	if (not id) then
+	return end
+	
+	if (item.meta.type == CONT_FOLDER) then
+		if (id == 1) then
+			item.name:Show(false)
+			item.input:Show(true)
+			item.input:SelectAll()
+			item.input:SetFocus(true)
+		elseif (id == 2) then
+			self.grid:RemoveChild(item)
+			self.selector:Remove(item)
+			self.curFolder:Remove(item.meta)
+			content:Update(self)
+		end
+	end
+	self.item = item
+end
+
+function ContentWindow:OnMouse(e)
+	if (e == EVT.RIGHT_UP) then
+		local id = contentMenu:Popup(self)
+		if (not id) then return end
+		
+		local o = {}
+		if (id == 1) then
+			o.type = CONT_FOLDER
+			o.name = _('新建文件夹')
+			self.curFolder:Add(o)
+		end
+		local item = self:AddItem(o)
+		item.input:SelectAll()
+		item.input:Show(true)
+		item.name:Show(false)
+		self:SetFocus(item.input, true)
 	else
 	end
 end
 
-function ContentPanel:ScanDirectory(d)
+function ContentWindow:ScanDirectory(d)
 	local n = self.list:AddNode(nil, g_iconFolder, 'main')
 	n = self.list:AddNode(n, g_iconFolder, 'sub')
 	self.list:AddNode(n, g_iconFolder, 'sub111111111111111')
-end
-
-function ContentPanel:OnDropFile(x, y, files)
-	for _, f in pairs(files) do
-		Print(f)
-	end
 end
 
 ---CreateProjWindow---
@@ -275,8 +490,16 @@ LoadProjWindow = class(Window)
 function LoadProjWindow:ctor()
 	self.color:set(50, 50, 50, 255)
 	self.selector = Selector()
-	self.selector:SetFocusInColor(255, 180, 0, 100)
 	self.selector:bind_event(Selector.EVT_CHANGED, self, self.OnSelection)
+	
+	--self:AddChild(UiPolyIcon(g_iconGeom), 100, 100)
+	--self:AddChild(UiPolyIcon(g_iconUnsaved), 100, 100)
+	--local z = UiText('斑鸠')
+	--z.cpuClip = false
+	--self:AddChild(z, 100, 100)
+	--self:AddChild(UiPolyIcon(g_iconLNavi), 100, 100)
+	--self:AddChild(UiPolyIcon(g_iconRNavi), 100 + 30, 100)
+	--if (1) then return end
 	
 	local vLayout = VBoxLayout()
 	self:AddChild(vLayout)
@@ -289,7 +512,7 @@ function LoadProjWindow:ctor()
 	if (b) then
 		savedList = c or savedList
 	
-		local t = UiTextInput(0, uiFont.fontSize)
+		local t = UiTextInput(0, uiFont.maxHeight)
 		vLayout:AddChild(t, nil, 20, 10, true, 20, 20)
 	
 		local grid = GridLayout()
@@ -410,11 +633,6 @@ local function SaveProject(dir)
 	return true
 end
 
-PaneWindow = class(Window)
-function PaneWindow:ctor()
-	self.color:set(70, 70, 70, 255)
-end
-
 local gridLineLen = 1000
 local lineSpace = 1
 local fadePerCount = 10 
@@ -493,6 +711,11 @@ function SceneWindow:ctor()
 	self.o1:Move(-2.5, 0, 0)
 	--self.o1:Attach(self.scene)
 	
+	self:bind_event(EVT.INNER_DRAG_ENTER, self, self.OnInnerDragEnter)
+	self:bind_event(EVT.INNER_DRAGGING, self, self.OnInnerDragging)
+	self:bind_event(EVT.INNER_DRAG_LEAVE, self, self.OnInnerDragLeave)
+	self:bind_event(EVT.INNER_DROP, self, self.OnInnerDrop)
+	
 	self.objCoord = ObjectCoord(self.sceneView.camera)
 	self.objCoord.arrowX.pickable[self.sceneView] = true
 	self.objCoord.arrowY.pickable[self.sceneView] = true
@@ -519,7 +742,7 @@ end
 
 function SceneWindow:OnCoord(e, x, y, w, m)
 	local c = self.objCoord
-	local o = EVT.obj
+	local o = e.obj
 	if (e == EVT.MOVE_IN) then
 		if (o == c.arrowX) then
 			c:SetColorX(255, 255, 0, 200)
@@ -628,7 +851,7 @@ function SceneWindow:UpdateDragging(x, y, m)
 	return true
 end
 
-function SceneWindow:OnInnerDragEnter(x, y, id, data)
+function SceneWindow:OnInnerDragEnter(e, id, data, x, y)
 	if (not g_previews[data]) then
 		g_previews[data] = Model(data)
 	end
@@ -643,7 +866,7 @@ function SceneWindow:OnInnerDragEnter(x, y, id, data)
 	end
 end
 	
-function SceneWindow:OnInnerDragging(x, y)
+function SceneWindow:OnInnerDragging(e, id, data, x, y)
 	local m = self.dragging
 	if (self:UpdateDragging(x, y, m)) then
 		self:Refresh()
@@ -658,9 +881,9 @@ function SceneWindow:OnInnerDragLeave()
 	self:render()
 end
 
-function SceneWindow:OnInnerDrop(x, y, id, data)
+function SceneWindow:OnInnerDrop(e, id, data, x, y)
 	self.dragging:EnableWriteId(true)
-	g_previews[data] = Model(data)
+	g_previews[data] = nil
 	self:Refresh()
 end
 
@@ -678,8 +901,9 @@ end
 
 function PresetsWindow:AddPresetItem(item, text)
 	local o = UiButton(0, 28)
+	o.color0:set(0, 0, 0, 0)
 	o.color2 = o.color1
-	local icon = UiPolyIcon(g_iconPreset)
+	local icon = UiPolyIcon(g_iconGeom1)
 	icon:EnableWriteId(false)
 	
 	o.layout:AddChild(icon, nil, 7)
@@ -691,8 +915,8 @@ function PresetsWindow:AddPresetItem(item, text)
 	o:bind_event(EVT.LEFT_DOWN, self, PresetsWindow.OnItemLeftDown)
 end
 
-function PresetsWindow:OnItemLeftDown()
-	self:Drag(PresetsWindow, EVT.obj.item)
+function PresetsWindow:OnItemLeftDown(e)
+	self:Drag(PresetsWindow, e.obj.item)
 end
 
 function LoadEntrance()
@@ -711,8 +935,7 @@ scenePanelSet.panels.inspector = PaneWindow()
 scenePanelSet.panels.inspector.title = _('细节')
 scenePanelSet.panels.logMessage = PaneWindow()
 scenePanelSet.panels.logMessage.title = _('日志消息')
-scenePanelSet.panels.content = PaneWindow()
-scenePanelSet.panels.content:AddChild(ContentPanel())
+scenePanelSet.panels.content = ContentWindow()
 scenePanelSet.panels.content.title = _('内容')
 
 local function SaveLoadLayout(set)
@@ -778,7 +1001,7 @@ end
 function LoadMainFrame()
 	local name = g_proj.name
 	local layout = g_proj.panelLayout or 'notebook_layout0/1<presets>0|2<viewport>0|3<content*logMessage>0|4<hirachey>0|5<inspector>0|*|layout2|name=dummy;caption=;state=2098174;dir=3;layer=0;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=225;minh=225;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=1;caption=;state=2098172;dir=5;layer=0;row=0;pos=0;prop=100000;bestw=250;besth=250;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=2;caption=;state=2098172;dir=2;layer=0;row=1;pos=0;prop=100000;bestw=540;besth=346;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=3;caption=;state=2098172;dir=3;layer=1;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=4;caption=;state=2098172;dir=2;layer=2;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=5;caption=;state=2098172;dir=2;layer=2;row=0;pos=1;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|dock_size(5,0,0)=18|dock_size(2,0,1)=634|dock_size(3,1,0)=227|dock_size(2,2,0)=227|/'
-	cMainFrame:SetTitle(name or '*' .. _('无标题'))
+	cMainFrame:SetTitle(name or _('未命名') .. '*')
 	cMainFrame.OnClose = OnMainFrameClose
 	scenePanelSet.nb = cMainFrame:AddPageNotebook('scene', _('场景'))
 	scenePanelSet.layout = layout

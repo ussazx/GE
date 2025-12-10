@@ -197,11 +197,6 @@ id_ps = cGI:NewShaderModule(f)
 f:Open('Resources/shaders/'..cGI:Type()..'/id_outline.psc', true)
 id_outline_ps = cGI:NewShaderModule(f)
 
-f:Open('Resources/atlas2', true)
-uiFont = CLoadFontAtlas(f, 256)
-
-f:Close()
-
 --pass
 cParamRenderPass:Reset(true, false)
 cParamRenderPass:AddViewDesc(cGI.FORMAT_PICK_ID, cGI.SAMPLE_COUNT_1_BIT, false, true, false, false)
@@ -241,6 +236,18 @@ cParamResourceLayout:Reset()
 cParamResourceLayout:Add(cGI.RESOURCE_TYPE_UNIFORM_TEXEL_BUFFER, 0, 1, cGI.SHADER_STAGE_FRAGMENT_BIT)
 g_rlTB = cGI:NewResourceLayout(cParamResourceLayout)
 
+f:Open('Resources/font/simsun18', true)
+uiFont = CLoadFontAtlas(f, 256)
+uiFont.res = ResourceHub(g_rlTB)
+uiFont.res:BindTexelView(uiFont.view, 0)
+
+f:Open('Resources/font/simsun15', true)
+uiFont2 = CLoadFontAtlas(f, 256)
+uiFont2.res = ResourceHub(g_rlTB)
+uiFont2.res:BindTexelView(uiFont2.view, 0)
+
+f:Close()
+
 --sampler
 cParamSampler:Reset()
 cParamSampler:SetFilterMode(cGI.FILTER_NEAREST, cGI.FILTER_NEAREST)
@@ -266,7 +273,7 @@ g_plUi = cGI:NewPipeline(g_rp0, 0, 1, ui_vs, 'main', ui_ps, 'main', cParamPipeli
 --ui3d pipeline
 cParamPipeline:AddResourceLayout(g_rlUB)
 cParamPipeline:AddResourceLayout(g_rlUB)
-g_plui3d = cGI:NewPipeline(g_rp0, 0, 1, ui3d_vs, 'main', ui_ps, 'main', cParamPipeline)
+--g_plui3d = cGI:NewPipeline(g_rp0, 0, 1, ui3d_vs, 'main', ui_ps, 'main', cParamPipeline)
 
 cParamPipeline:Reset()
 cParamPipeline:AddResourceLayout(g_rlUB)
@@ -279,8 +286,7 @@ g_plId2D = cGI:NewPipeline(g_rp0, 1, 1, ui_id_vs, 'main', id_ps, 'main', cParamP
 
 --ui materal
 g_mtlUi = {inst = g_perObjInstance}
-g_mtlUi.resFont = ResourceHub(g_rlTB)
-g_mtlUi.resFont:BindTexelView(uiFont.view, 0)
+g_mtlUi.resFont = uiFont.res
 
 g_mtlUi.vbLayout = NewVBLayout(1|2|4, false, SIZE_FLOAT3, SIZE_FLOAT3, SIZE_UINT1)
 

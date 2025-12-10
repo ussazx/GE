@@ -12,10 +12,9 @@ public:
 	}
 	LString(LuaIdx idx)
 	{
-		if (idx.GetValue(nullptr) == LUA_TSTRING)
+		const char* utf8{};
+		if (idx.GetValue(&utf8) == LUA_TSTRING)
 		{
-			const char* utf8{};
-			idx.GetValue(&utf8);
 			m_cvt = std::make_shared<Cvt>();
 			m_text = std::make_shared<std::wstring>(m_cvt->cvt.from_bytes(utf8));
 		}
@@ -224,12 +223,9 @@ protected:
 };
 template<> inline LString LuaCustomParam<LString>::GetValue(const LuaIdx& idx)
 {
-	if (idx.GetValue(nullptr) == LUA_TSTRING)
-	{
-		const char* s{};
-		idx.GetValue(&s);
+	const char* s{};
+	if (idx.GetValue(&s) == LUA_TSTRING)
 		return s;
-	}
 	return *idx.GetCppObj<LString>();
 }
 Lua_global_add_cpp_class(LString)

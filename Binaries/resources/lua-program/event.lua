@@ -1,64 +1,74 @@
 ---event---
 require 'object'
+
+EVT = {}
 local i = 0
-function new_event(name)
-	i = i + 1
-	local e = i
+local t = {}
+function EVT.new(name)
+	local e = {}
 	if (name) then
-		cTerminal:AddEvent(name, e)
+		i = i + 1
+		cTerminal:AddEvent(name, i)
+		t[i] = e
 	end
 	return e
 end
 
-EVT = {}
-EVT.TIMER = new_event()
-EVT.RENDER = new_event()
-EVT.FOCUS_IN = new_event()
-EVT.FOCUS_OUT = new_event()
-EVT.ACTIVE = new_event()
-EVT.INACTIVE = new_event()
+function EVT.trans(e)
+	return t[e]
+end
 
-EVT.CHAR = new_event()
-EVT.KEY_DOWN = new_event()
-EVT.KEY_UP = new_event()
-EVT.ACC_KEY = new_event()
-EVT.CAPTURE_LOST = new_event()
+EVT.TIMER = EVT.new()
+EVT.RENDER = EVT.new()
+EVT.FOCUS_IN = EVT.new()
+EVT.FOCUS_OUT = EVT.new()
+EVT.ACTIVE = EVT.new()
+EVT.INACTIVE = EVT.new()
 
-EVT.SHOW = new_event()
-EVT.SIZE = new_event()
-EVT.MOVE = new_event()
+EVT.CHAR = EVT.new()
+EVT.KEY_DOWN = EVT.new()
+EVT.KEY_UP = EVT.new()
+EVT.ACC_KEY = EVT.new()
+EVT.CAPTURE_LOST = EVT.new()
 
-EVT.DELIST = new_event()
-EVT.WIDGET_ADDED = new_event()
-EVT.WIDGET_REMOVED = new_event()
+EVT.SHOW = EVT.new()
+EVT.SIZE = EVT.new()
+EVT.MOVE = EVT.new()
 
-EVT.OBJ_DELIST = new_event()
+EVT.DELIST = EVT.new()
+EVT.WIDGET_ADDED = EVT.new()
+EVT.WIDGET_REMOVED = EVT.new()
 
-EVT.DRAG_HOLDING = new_event()
-EVT.DROP = new_event()
+EVT.OBJ_DELIST = EVT.new()
 
-EVT.UNDEFINED = new_event('EVT_UNDEFINED')
---EVT.ENTER_WINDOW = new_event('EVT_ENTER_WINDOW')
---EVT.LEAVE_WINDOW = new_event('EVT_LEAVE_WINDOW')
-EVT.MOVE_IN = new_event()
-EVT.MOVE_OUT = new_event()
-EVT.LEFT_DOWN = new_event('EVT_LEFT_DOWN')
-EVT.LEFT_UP = new_event('EVT_LEFT_UP')
-EVT.MIDDLE_DOWN = new_event('EVT_MIDDLE_DOWN')
-EVT.MIDDLE_UP = new_event('EVT_MIDDLE_UP')
-EVT.RIGHT_DOWN = new_event('EVT_RIGHT_DOWN')
-EVT.RIGHT_UP = new_event('EVT_RIGHT_UP')
-EVT.MOTION = new_event('EVT_MOTION')
-EVT.LEFT_DCLICK = new_event('EVT_LEFT_DCLICK')
-EVT.MIDDLE_DCLICK = new_event('EVT_MIDDLE_DCLICK')
-EVT.RIGHT_DCLICK = new_event('EVT_RIGHT_DCLICK')
-EVT.MOUSEWHEEL = new_event('EVT_MOUSEWHEEL')
-EVT.AUX1_DOWN = new_event('EVT_AUX1_DOWN')
-EVT.AUX1_UP = new_event('EVT_AUX1_UP')
-EVT.AUX1_DCLICK = new_event('EVT_AUX1_DCLICK')
-EVT.AUX2_DOWN = new_event('EVT_AUX2_DOWN')
-EVT.AUX2_UP = new_event('EVT_AUX2_UP')
-EVT.MAGNIFY = new_event('EVT_MAGNIFY')
+EVT.INNER_DRAG_ENTER = EVT.new()
+EVT.INNER_DRAG_LEAVE = EVT.new()
+EVT.INNER_DRAGGING = EVT.new()
+EVT.INNER_DROP = EVT.new()
+EVT.FILE_DROP = EVT.new()
+
+EVT.UNDEFINED = EVT.new('EVT_UNDEFINED')
+--EVT.ENTER_WINDOW = EVT.new('EVT_ENTER_WINDOW')
+EVT.LEAVE_WINDOW = EVT.new('EVT_LEAVE_WINDOW')
+EVT.MOVE_IN = EVT.new()
+EVT.MOVE_OUT = EVT.new()
+EVT.LEFT_DOWN = EVT.new('EVT_LEFT_DOWN')
+EVT.LEFT_UP = EVT.new('EVT_LEFT_UP')
+EVT.MIDDLE_DOWN = EVT.new('EVT_MIDDLE_DOWN')
+EVT.MIDDLE_UP = EVT.new('EVT_MIDDLE_UP')
+EVT.RIGHT_DOWN = EVT.new('EVT_RIGHT_DOWN')
+EVT.RIGHT_UP = EVT.new('EVT_RIGHT_UP')
+EVT.MOTION = EVT.new('EVT_MOTION')
+EVT.LEFT_DCLICK = EVT.new('EVT_LEFT_DCLICK')
+EVT.MIDDLE_DCLICK = EVT.new('EVT_MIDDLE_DCLICK')
+EVT.RIGHT_DCLICK = EVT.new('EVT_RIGHT_DCLICK')
+EVT.MOUSEWHEEL = EVT.new('EVT_MOUSEWHEEL')
+EVT.AUX1_DOWN = EVT.new('EVT_AUX1_DOWN')
+EVT.AUX1_UP = EVT.new('EVT_AUX1_UP')
+EVT.AUX1_DCLICK = EVT.new('EVT_AUX1_DCLICK')
+EVT.AUX2_DOWN = EVT.new('EVT_AUX2_DOWN')
+EVT.AUX2_UP = EVT.new('EVT_AUX2_UP')
+EVT.MAGNIFY = EVT.new('EVT_MAGNIFY')
 
 local mouseAll = {
 	EVT.MOVE_IN, 

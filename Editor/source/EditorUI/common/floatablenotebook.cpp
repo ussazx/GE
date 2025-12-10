@@ -738,7 +738,7 @@ bool FloatableNotebook::LoadPerspective(const wxString& s)
 			nb->m_frame = pFrame;
 			pFrame->m_mgr.AddPane(nb, wxAuiPaneInfo().CenterPane());
 			pFrame->m_mgr.Update();
-			pFrame->Show();
+			pFrame->Show(false);
 		}
 
 		nb->Freeze();
@@ -808,6 +808,8 @@ bool FloatableNotebook::Load(const wxString& s)
 			pageNames = pageNames.AfterFirst(wxT('*'));
 		}
 	}
+	if (pageAdded == 0)
+		return false;
 	m_mgr.LoadPerspective(input);
 
 	wxWindow* first_good = nullptr;

@@ -6,6 +6,7 @@ require 'presets'
 
 -----Widget2D-----
 Widget2D = class(Object)
+Widget2D.EVT_CLEAR_CHILDREN = EVT.new()
 
 function Widget2D:ctor(parent)
 	if (parent) then
@@ -29,15 +30,6 @@ end
 
 function Widget2D:EnableDrop(id, flag)
 	self.dropId[id] = flag
-end
-
-function Widget2D:OnInnerDragEnter(id, data)
-end
-
-function Widget2D:OnInnerDragLeave(id, data)
-end
-
-function Widget2D:OnInnerDrop(x, y)
 end
 
 function Widget2D:EnableActive(flag)
@@ -65,7 +57,7 @@ function Widget2D:AddChild(widget, ...)
 	widget.active = widget.active or self.active
 	widget.parent = self
 	widget.window = self.window
-	widget.w_idx = self.children:insert(widget)
+	self.children:insert(widget)
 	if (self.window) then
 		self.window.update = true
 	end
@@ -83,13 +75,19 @@ function Widget2D:RemoveChild(widget)
 		end
 		widget.parent = nil
 		widget.window = nil
-		self.children:remove_idx(widget.w_idx)
+		self.children:remove_obj(widget)
 		if (self.window) then
 			self.window:OnWidgetShow(self, show)
 		end
 		if (self.OnRemoveChild) then
 			self:OnRemoveChild(widget)
 		end
+	end
+end
+
+function Widget2D:ClearChildren()
+	if (self.children:clear()) then
+		self:process_event(Widget2D.EVT_CLEAR_CHILDREN)
 	end
 end
 
@@ -163,7 +161,7 @@ function Widget2D:SetPos(x, y)
 		return
 	end
 	local b = self:DoSetPos(x, y)
-	if (self.window) then
+	if (self.window and b) then
 		self.window.update = b
 	end
 end
@@ -220,7 +218,8 @@ function Layout:ctor()
 	self.props = setmetatable({}, {__mode = 'k'})
 	self.update = true
 	self.sized = false
-	self.expands = {}
+	self.expands = setmetatable({}, {__mode = 'v'})
+	self.limits = setmetatable({}, {__mode = 'v'})
 end
 
 function Layout:SetSize(w, h)
@@ -248,6 +247,7 @@ function Layout:OnAddChild(w, ...)
 	w.inLayout = self
 	self:SetUpdate(true)
 	local o = {}
+	o.layout = self
 	self.props[w] = o
 	self.InitProp(o, ...)
 	return o
@@ -276,7 +276,144 @@ function Layout:DoUpdate(...)
 	return true, ...
 end
 
-local function InitVBoxLayoutProp(o, ratio, gapTop, gapBottom, hExpand, gapLeft, gapRight)
+---BoxLayout---
+local function BoxLayout(layout, w, h)
+	local sLenA, sLenB = layout.GetLens(w, h)
+	local a = 0
+	local scale = 0
+	local expands = layout.expands
+	local expNum = 0
+	local limits = layout.limits
+	local limNum = 0
+	for _, v in layout:ChildrenPairs() do
+		local prop = layout.props[v]
+		local lenA, lenB = layout.GetCSize(v)
+		local gapA1, gapA2, gapB1, gapB2 = layout.GetGaps(prop)
+		
+		if (prop.expand) then
+			if (prop.ratio) then
+				scale = scale + prop.ratio
+				if (prop.limit) then
+					limNum = limNum + 1
+					limits[limNum] = v
+					prop.sized = false
+				end
+			else
+				expNum = expNum + 1
+				expands[expNum] = v
+			end
+		else
+			v:SetSize()
+			sLenB = math.max(sLenB, gapB1 + lenB + gapB2)
+			if (prop.ratio) then
+				scale = scale + prop.ratio
+				if (prop.limit) then
+					limNum = limNum + 1
+					limits[limNum] = v
+					prop.sized = false
+				end
+			else
+				a = a + layout.GetCSize(v)
+			end
+		end
+		a = a + gapA1 + gapA2
+	end
+	
+	for i = 1, expNum do
+		local v = expands[i]
+		local prop = layout.props[v]
+		local _, _, gapB1, gapB2 = layout.GetGaps(prop)
+		
+		layout.SetCSize(v, nil, math.max(sLenB - gapB1 - gapB2))
+		a = a + layout.GetCSize(v)
+	end
+	
+	local flex = math.max(0, sLenA - a)
+	for i = 1, limNum do
+		local v = limits[i]
+		local prop = layout.props[v]
+		local _, _, gapB1, gapB2 = layout.GetGaps(prop)
+		local alignA1, alignA2 = layout.GetAligns(prop)
+		
+		local n
+		if (prop.expand) then
+			n = math.max(0, sLenB - gapB1 - gapB2)
+		end
+		local m = 0
+		if (flex > 0 and scale > 0) then
+			m = math.floor(prop.ratio / scale * flex)
+		end
+		local limit = prop.limit
+		if (m > limit) then
+			m = limit
+			prop.sized = true
+			flex = math.max(0, flex - limit)
+			scale = math.max(0, scale - prop.ratio)
+		end
+		if (alignA1 and alignA2) then
+			layout.SetCSize(v, m, n)
+		else
+			layout.SetCSize(v, nil, n)
+		end
+	end
+	layout.flex = flex
+	layout.scale = scale
+	
+	sLenA = 0
+	for _, v in layout:ChildrenPairs() do
+		local prop = layout.props[v]
+		local gapA1, gapA2, gapB1, gapB2 = layout.GetGaps(prop)
+		local alignA1, alignA2, alignB1, alignB2 = layout.GetAligns(prop)
+		
+		local m = 0
+		if (prop.ratio and not prop.sized) then
+			if (flex > 0 and scale > 0) then
+				m = math.floor(prop.ratio / scale * flex)
+			end
+			local n
+			if (prop.expand) then
+				n = math.max(0, math.floor(sLenB - gapB1 - gapB2))
+			end
+			if (alignA1 and alignA2) then
+				layout.SetCSize(v, m, n)
+			else
+				layout.SetCSize(v, nil, n)
+			end
+		end
+			
+		local lenA, lenB = layout.GetCSize(v)
+		
+		local b = 0
+		if (alignB1) then
+			b = gapB1
+		elseif (alignB2) then
+			b = sLenB - lenB - gapB2
+		else
+			b = (sLenB - lenB) // 2
+		end
+		
+		local d = math.max(0, m - lenA)
+		if (alignA1) then
+			sLenA = sLenA + gapA1
+		elseif (prop.alignA2) then
+			sLenA = sLenA + d
+			d = 0
+		else
+			local dd = d // 2
+			sLenA = sLenA + dd
+			d = d - dd
+		end
+		layout.DoSetCPos(v, sLenA, b)
+		sLenA = sLenA + lenA + d + gapA2
+	end
+	layout:_SetSize(sLenA, sLenB)
+end
+
+-----VBoxLayout-----
+VBoxLayout = class(Layout)
+VBoxLayout.Layout = BoxLayout
+
+function VBoxLayout.InitProp(o, ratio, gapTop, gapBottom, hExpand, gapLeft, gapRight)
 	o.ratio = ratio
 	o.expand = hExpand
 	o.left = gapLeft or 0
@@ -288,403 +425,297 @@ local function InitVBoxLayoutProp(o, ratio, gapTop, gapBottom, hExpand, gapLeft,
 	o.bottom = gapBottom or 0
 	o.alignB = gapBottom
 end
-
-local function InitHBoxLayoutProp(o, ratio, gapLeft, gapRight, expand, gapTop, gapBottom)
-	InitVBoxLayoutProp(o, ratio, gapTop, gapBottom, expand, gapLeft, gapRight)
+function VBoxLayout.GetLens(w, h)
+	return h, w
 end
-
-local function InitGridLayoutProp(o, gapLeft, gapRight, gapTop, gapBottom)
-	o.gapLeft = gapLeft or 0
-	o.gapRight = gapRight or 0
-	o.gapTop = gapTop or 0
-	o.gapBottom = gapBottom or 0
+function VBoxLayout:_SetSize(a, b)
+	self.rect.w = b
+	self.rect.h = a
 end
-
------VBoxLayout-----
-VBoxLayout = class(Layout)
-VBoxLayout.InitProp = InitVBoxLayoutProp
-
-function VBoxLayout:Layout(w, h)
-	local ww = w
-	local y = 0
-	local scale = 0
-	local expands = self.expands
-	local exnum = 0
-	for k, v in self:ChildrenPairs() do
-		local prop = self.props[v]
-	
-		if (prop.expand) then
-			if (prop.ratio) then
-				scale = scale + prop.ratio
-			else
-				exnum = exnum + 1
-				expands[exnum] = k
-			end
-		else
-			v:SetSize()
-			ww = math.max(ww, prop.left + v.rect.w + prop.right)
-			if (prop.ratio) then
-				scale = scale + prop.ratio
-			else
-				y = y + v.rect.h
-			end
-		end
-		y = y + prop.top + prop.bottom
-	end
-	for i = 1, exnum do
-		local v = self.children[expands[i]]
-		local prop = self.props[v]
-		v:SetSize(math.max(0, math.floor(ww - prop.left - prop.right)), nil)
-		y = y + v.rect.h
-	end
-	self.flex = math.max(0, h - y)
-	self.scale = math.max(0, scale)
-	
-	h = 0
-	for k, v in self:ChildrenPairs() do
-		local prop = self.props[v]
-		
-		local rh = 0
-		if (self.flex > 0 and self.scale > 0) then
-			rh = math.floor((prop.ratio or 0) / self.scale * self.flex)
-		end
-		if (prop.ratio) then
-			local rw
-			if (prop.expand) then
-				rw = math.max(0, math.floor(ww - prop.left - prop.right))
-			end
-			if (prop.alignT and prop.alignB) then
-				v:SetSize(rw, rh)
-			else
-				v:SetSize(rw, nil)
-			end
-		end
-		
-		local x = 0
-		if (prop.alignL) then
-			x = prop.left
-		elseif (prop.alignR) then
-			x = ww - v.rect.w - prop.right
-		else
-			x = (ww - v.rect.w) // 2
-		end
-		
-		local d = math.max(0, rh - v.rect.h)
-		if (prop.alignT) then
-			h = h + prop.top
-		elseif (prop.alignB) then
-			h = h + d
-			d = 0
-		else
-			local dd = d // 2
-			h = h + dd
-			d = d - dd
-		end
-		v:DoSetPos(x, h)
-		h = h + v.rect.h + d + prop.bottom
-	end
-	self.rect.w = ww
-	self.rect.h = h
+function VBoxLayout.GetCSize(c)
+	return c.rect.h, c.rect.w
+end
+function VBoxLayout.SetCSize(c, a, b)
+	c:SetSize(b, a)
+end
+function VBoxLayout.DoSetCPos(c, a, b)
+	c:DoSetPos(b, a)
+end
+function VBoxLayout.GetGaps(prop)
+	return prop.top, prop.bottom, prop.left, prop.right
+end
+function VBoxLayout.GetAligns(prop)
+	return prop.alignT, prop.alignB, prop.alignL, prop.alignR
 end
 
 -----HBoxLayout-----
 HBoxLayout = class(Layout)
-HBoxLayout.InitProp = InitHBoxLayoutProp
+HBoxLayout.Layout = BoxLayout
 
-function HBoxLayout:Layout(w, h)
-	local hh = h
-	local x = 0
-	local scale = 0
-	local expands = self.expands
-	local exnum = 0
-	for k, v in self:ChildrenPairs() do
-		local prop = self.props[v]
-		
-		if (prop.expand) then
-			if (prop.ratio) then
-				scale = scale + prop.ratio
-			else
-				exnum = exnum + 1
-				expands[exnum] = k
-			end
-		else
-			v:SetSize()
-			hh = math.max(hh, prop.top + v.rect.h + prop.bottom)
-			if (prop.ratio) then
-				scale = scale + prop.ratio
-			else
-				x = x + v.rect.w
-			end
-		end
-		x = x + prop.left + prop.right
-	end
-	for i = 1, exnum do
-		local v = self.children[expands[i]]
-		local prop = self.props[v]
-		v:SetSize(nil, math.max(0, hh - prop.top - prop.bottom))
-		x = x + v.rect.w
-	end
-	self.flex = math.max(0, w - x)
-	self.scale = math.max(0, scale)
-	
-	w = 0
-	for _, v in self:ChildrenPairs() do
-		local prop = self.props[v]
-		
-		local rw = 0
-		if (self.flex > 0 and self.scale > 0) then
-			rw = math.floor((prop.ratio or 0) / self.scale * self.flex)
-		end
-		if (prop.ratio) then
-			local rh
-			if (prop.expand) then
-				rh = math.max(0, hh - math.floor(prop.top - prop.bottom))
-			end
-			if (prop.alignL and prop.alignR) then
-				v:SetSize(rw, rh)
-			else
-				v:SetSize(nil, rh)
-			end
-		end
-		
-		local y = 0
-		if (prop.alignT) then
-			y = prop.top
-		elseif (prop.alignB) then
-			y = hh - v.rect.h - prop.bottom
-		else
-			y = (hh - v.rect.h) // 2
-		end
-		
-		local d = math.max(0, rw - v.rect.w)
-		if (prop.alignL) then
-			w = w + prop.left
-		elseif (prop.alignR) then
-			w = w + d
-			d = 0
-		else
-			local dd = d // 2
-			w = w + dd
-			d = d - dd
-		end
-		v:DoSetPos(w, y)
-		w = w + v.rect.w + d + prop.right
-	end
-	self.rect.w = w
-	self.rect.h = hh
+function HBoxLayout.InitProp(o, ratio, gapLeft, gapRight, expand, gapTop, gapBottom)
+	VBoxLayout.InitProp(o, ratio, gapTop, gapBottom, expand, gapLeft, gapRight)
+end
+function HBoxLayout.GetLens(w, h)
+	return w, h
+end
+function HBoxLayout:_SetSize(a, b)
+	self.rect.w = a
+	self.rect.h = b
+end
+function HBoxLayout.GetCSize(c)
+	return c.rect.w, c.rect.h
+end
+function HBoxLayout.SetCSize(c, a, b)
+	c:SetSize(a, b)
+end
+function HBoxLayout.DoSetCPos(c, a, b)
+	c:DoSetPos(a, b)
+end
+function HBoxLayout.GetGaps(prop)
+	return prop.left, prop.right, prop.top, prop.bottom
+end
+function HBoxLayout.GetAligns(prop)
+	return prop.alignL, prop.alignR, prop.alignT, prop.alignB
 end
 
 -----SizerLayout-----
-local function SizerLayout_GetVLen(w)
-	return w.rect.h
+local function SizerLayout(base_layout)
+
+local SizerLayout = class(base_layout)
+SizerLayout.barWidth = 7
+
+function SizerLayout:ctor()
+	self.sizers = setmetatable({}, {__mode = 'k'})
+	self.barDftColor = Color(0, 0, 0, 0)
 end
 
-local function SizerLayout_GetHLen(w)
-	return w.rect.w
+function SizerLayout:OnAddChild(w, ...)
+	if (self.addBar) then
+		SizerLayout._base.OnAddChild(self, w, ...)
+		return
+	end
+
+	local n = self.children.n
+	if (n > 2 and self.children(n - 2).show) then
+		self.children(n - 1):Show(true)
+	end
+	
+	local o = SizerLayout._base.OnAddChild(self, w, ...)
+	
+	local sizer
+	local align
+	if (self.vertical) then
+		sizer = UiButton(0, self.barWidth)
+	else
+		sizer = UiButton(self.barWidth, 0)
+	end
+	local c = self.barDftColor
+	sizer:SetDefaultColor(c.r, c.g, c.b, c.a)
+	sizer:bind_event(EVT.MOVE_IN, self, SizerLayout.OnMouse)
+	sizer:bind_event(EVT.MOVE_OUT, self, SizerLayout.OnMouse)
+	sizer:bind_event(EVT.LEFT_DOWN, self, SizerLayout.OnMouse)
+	sizer:bind_event(EVT.MOTION, self, SizerLayout.OnMouse)
+	sizer:bind_event(EVT.LEFT_UP, self, SizerLayout.OnMouse)
+	sizer:bind_event(EVT.CAPTURE_LOST, self, SizerLayout.OnCaptureLost)
+	sizer:Show(false)
+	self.sizers[w] = sizer
+	w:bind_event(EVT.SHOW, self, SizerLayout.OnWidgetShow)
+	self.addBar = true
+	self:AddChild(sizer, nil, 0, 0, true)
+	self.addBar = false
+	return o
 end
 
-local function SizerLayout_SetVLen(w, n)
-	w:SetSize(nil, n)
+function SizerLayout:OnWidgetShow(e)
+	local w = e.obj
+	if (w.show) then
+		local b = 0
+		for _, c in self:ChildrenPairs() do
+			if (c == w) then
+				b = b + 1
+			elseif (b > 0) then
+				b = b + 1
+				break
+			end
+		end
+		self.sizers[w]:Show(b > 2)
+	else
+		self.sizers[w]:Show(false)
+	end
 end
 
-local function SizerLayout_SetHLen(w, n)
-	w:SetSize(n, nil)
+function SizerLayout:OnRemoveChild(w)
+	local sizer = self.sizers[w]
+	if (sizer) then
+		self:OnRemoveChild(sizer)
+	end
 end
 
-local function SizerLayout_OnSizerCaptureLost(layout)
+function SizerLayout:SetBarDftColor(r, g, b, a)
+	self.barDftColor:set(r, g, b, a)
+	for _, sizer in pairs(self.sizers) do
+		sizer:SetDefaultColor(r, g, b, a)
+	end
+end
+
+function SizerLayout:OnCaptureLost()
 	self.mp = false
 	g_actWindow.cursor = SYS.CURSOR_ARROW
 end
 
-local function SizerLayout_OnSizerMouse(layout, e, x, y)
-	local GetLen = layout.GetLen
-	local SetLen = layout.SetLen
+function SizerLayout:OnMouse(e, x, y)
 	local p
-	if (layout.vertical) then
+	if (self.vertical) then
 		p = y
 	else
 		p = x
 	end
 	if (e == EVT.MOVE_IN) then
-		g_actWindow.cursor = layout.cursor
+		g_actWindow.cursor = self.cursor
 	elseif (e == EVT.MOVE_OUT) then
 		g_actWindow.cursor = SYS.CURSOR_ARROW
 	elseif (e == EVT.LEFT_DOWN) then
-		layout.c0 = nil
-		layout.c1 = nil
+		self.c0 = nil
+		self.c1 = nil
 		local sizer
-		for _, c in layout:ChildrenPairs() do
-			if (c == EVT.obj) then
-				if (not layout.c0) then
+		for _, c in self:ChildrenPairs() do
+			if (c == e.obj) then
+				if (not self.c0) then
 					return
 				end
 				sizer = c
 			elseif (sizer) then
-				layout.c1 = c
+				self.c1 = c
 				break
 			else
-				layout.c0 = c
+				self.c0 = c
 			end
 		end
-		if (layout.c0 and layout.c1) then
-			if (layout.vertical) then
-				layout.mp = y
+		if (self.c0 and self.c1) then
+			if (self.vertical) then
+				self.mp = y
 			else
-				layout.mp = x
+				self.mp = x
 			end
-			g_actWindow:CaptureMouse(EVT.obj)
+			g_actWindow:CaptureMouse(e.obj)
 		end
 	elseif (e == EVT.MOTION) then
-		if (layout.mp) then
-			local c0 = layout.c0
-			local c1 = layout.c1
-			local len0 = GetLen(c0)
-			local len1 = GetLen(c1)
-			local dp = p - layout.mp
-			if (dp == 0 or (dp < 0 and len0 == 0) or (dp > 0 and len1 == 0) or 
-				(GetLen(c0) == 0 and len1 == 0)) then
-				return
-			end
-			if (dp > 0) then
-				dp = math.min(dp, len1)
-			else
-				dp = math.max(dp, -GetLen(c0))
-			end
+		if (self.mp) then
+			local c0 = self.c0
+			local c1 = self.c1
+			local prop0 = self.props[c0]
+			local prop1 = self.props[c1]
 			
-			local prop0 = layout.props[c0]
-			local prop1 = layout.props[c1]
+			local len0 = self.GetCSize(c0)
+			local len1 = self.GetCSize(c1)
+			local gapA0, gapB0 = self.GetGaps(prop0)
+			local gapA1, gapB1 = self.GetGaps(prop1)
+			local alignA0, alignB0 = self.GetAligns(prop0)
+			local alignA1, alignB1 = self.GetAligns(prop1)
+			
+			local glen0 = len0 + gapA0 + gapB0
+			local glen1 = len1 + gapA1 + gapB1
+			
+			local dp = p - self.mp
+			if (dp == 0) then
+			return end
+			
+			local scale = math.max(0, self.scale)
+			local flex = math.max(0, self.flex)
 			local max0, max1 = 0, 0
 			if (prop0.ratio) then
 				if (prop1.ratio) then
-					if (layout.flex > 0 and layout.scale > 0) then
-						if (not prop0.alignL or not prop0.alignR) then
-							max0 = layout.scale * len0 / layout.flex
+					if (flex > 0) then
+						if (not alignA0 or not alignB0) then
+							max0 = scale * len0 / flex
 						end
-						if (not prop1.alignL or not prop1.alignR) then
-							max1 = layout.scale * len1 / layout.flex
+						if (not alignA1 or not alignB1) then
+							max1 = scale * len1 / flex
 						end	
 						local total = prop0.ratio + prop1.ratio
 						if (dp < 0) then
-							prop0.ratio = math.max(max0, prop0.ratio + layout.scale * dp / layout.flex)
+							prop0.ratio = math.max(max0, prop0.ratio + scale * dp / flex)
 							prop1.ratio = total - prop0.ratio
+							if (prop1.limit) then
+								prop1.ratio = math.min(prop1.ratio, scale * prop1.limit / flex)
+								prop0.ratio = total - prop1.ratio
+							end
 						else
-							prop1.ratio = math.max(max1, prop1.ratio - layout.scale * dp / layout.flex)
+							prop1.ratio = math.max(max1, prop1.ratio - scale * dp / flex)
 							prop0.ratio = total - prop1.ratio
+							if (prop0.limit) then
+								prop0.ratio = math.min(prop0.ratio, scale * prop0.limit / flex)
+								prop1.ratio = total - prop0.ratio
+							end
 						end
 					end
 				else
-					if (prop0.ratio < layout.scale and layout.flex > 0) then
-						if (not prop0.alignL or not prop0.alignR) then
-							max0 = layout.scale * len0 / layout.flex
+					if (self.flex > 0) then
+						if (not alignA0 or not alignB0) then
+							max0 = self.scale * len0 / flex
 						end
-						prop0.ratio = math.max(max0, prop0.ratio + layout.scale * dp / layout.flex)
+						prop0.ratio = math.max(max0, prop0.ratio + scale * dp / flex)
+						if (prop0.limit) then
+							prop0.ratio = math.min(prop0.ratio, scale * prop0.limit / flex)
+						end
 					end
-					SetLen(c1, len1 - dp)
+					self.SetCSize(c1, len1 - dp)
 				end
 			else
-				SetLen(c0, len0 + dp)
+				self.SetCSize(c0, len0 + dp)
 				if (prop1.ratio) then
-					if (prop1.ratio < layout.scale and layout.flex > 0) then
-						if (not prop1.alignL or not prop1.alignR) then
-							max1 = layout.scale * len1 / layout.flex
+					if (flex > 0) then
+						if (not alignA1 or not alignB1) then
+							max1 = scale * len1 / flex
 						end	
-						prop1.ratio = math.max(max1, prop1.ratio - layout.scale * dp / layout.flex)
+						prop1.ratio = math.max(max1, prop1.ratio - scale * dp / flex)
+						if (prop1.limit) then
+							prop1.ratio = math.min(prop1.ratio, scale * prop1.limit / flex)
+						end
 					end
 				else
-					SetLen(c1, len1 - dp)
+					self.SetCSize(c1, len1 - dp)
 				end
 			end
-			if (layout.vertical) then
-				layout.mp = y
+			if (self.vertical) then
+				self.mp = y
 			else
-				layout.mp = x
+				self.mp = x
 			end
-			layout:SetUpdate(false, true)
+			self:SetUpdate(false, true)
 		end
 	elseif (e == EVT.LEFT_UP) then
-		if (g_actWindow.captured == EVT.obj) then
-			layout.mp = false
+		if (g_actWindow.captured == e.obj) then
+			self.mp = false
 			g_actWindow:ReleaseCaptured()
 		end
 	end
-end
+end 
+return SizerLayout end
 
-local function SizerLayout_AddChild(layout, w, ...)
-	local sizer
-	local align
-	if (layout.vertical) then
-		sizer = UiButton(0, layout.sizerWidth)
-	else
-		sizer = UiButton(layout.sizerWidth, 0)
-	end
-	sizer:SetDefaultColor(0, 0, 0, 0)
-	sizer:bind_event(EVT.MOVE_IN, layout, SizerLayout_OnSizerMouse)
-	sizer:bind_event(EVT.MOVE_OUT, layout, SizerLayout_OnSizerMouse)
-	sizer:bind_event(EVT.LEFT_DOWN, layout, SizerLayout_OnSizerMouse)
-	sizer:bind_event(EVT.MOTION, layout, SizerLayout_OnSizerMouse)
-	sizer:bind_event(EVT.LEFT_UP, layout, SizerLayout_OnSizerMouse)
-	sizer:bind_event(EVT.CAPTURE_LOST, layout, SizerLayout_OnSizerCaptureLost)
-	local show = false
-	for _, c in layout:ChildrenPairs() do
-		show = true
-		break
-	end
-	sizer:Show(show)
-	Widget2D.AddChild(layout, sizer, nil, 0, 0, true)
-	layout.sizers[w] = sizer
-	
-	w:bind_event(EVT.SHOW, layout, SizerLayout_OnWidgetShow)
-	Widget2D.AddChild(layout, w, ...)
-end
-
-local function SizerLayout_Ctor(layout)
-	layout.sizers = setmetatable({}, {__mode = 'k'})
-end
-
-local function SizerLayout_OnWidgetShow(layout)
-	if (EVT.obj.show) then
-		layout.sizers[w]:Show(true)
-	else
-		layout.sizers[w]:Show(false)
-	end
-end
-
-local function SizerLayout_OnRemoveChild(layout, w)
-	local sizer = layout.sizers[w]
-	if (sizer) then
-		layout:OnRemoveChild(sizer)
-	end
-end
-
-VSizerLayout = class(VBoxLayout)
+VSizerLayout = class(SizerLayout(VBoxLayout))
 VSizerLayout.vertical = true
-VSizerLayout.ctor = SizerLayout_Ctor
-VSizerLayout.OnRemoveChild = SizerLayout_OnRemoveChild
-VSizerLayout.AddChild = SizerLayout_AddChild
-VSizerLayout.GetLen = SizerLayout_GetVLen
-VSizerLayout.SetLen = SizerLayout_SetVLen
 VSizerLayout.cursor = SYS.CURSOR_SIZENS
-VSizerLayout.sizerWidth = 7
 
-HSizerLayout = class(HBoxLayout)
+HSizerLayout = class(SizerLayout(HBoxLayout))
 HSizerLayout.vertical = false
-HSizerLayout.ctor = SizerLayout_Ctor
-VSizerLayout.OnRemoveChild = SizerLayout_OnRemoveChild
-HSizerLayout.AddChild = SizerLayout_AddChild
-HSizerLayout.GetLen = SizerLayout_GetHLen
-HSizerLayout.SetLen = SizerLayout_SetHLen
 HSizerLayout.cursor = SYS.CURSOR_SIZEWE
-HSizerLayout.sizerWidth = 7
 
 -----GridLayout-----
 GridLayout = class(Layout)
-GridLayout.InitProp = InitGridLayoutProp
 
 function GridLayout:ctor(col)
 	if (col and col < 1) then
 		col = 1
 	end
 	self.col = col
+end
+
+function GridLayout.InitProp(o, gapLeft, gapRight, gapTop, gapBottom)
+	o.gapLeft = gapLeft or 0
+	o.gapRight = gapRight or 0
+	o.gapTop = gapTop or 0
+	o.gapBottom = gapBottom or 0
 end
 
 function GridLayout:Layout(w, h)
@@ -699,12 +730,16 @@ function GridLayout:Layout(w, h)
 	if (gw == 0 or gh == 0) then
 		return
 	end
+	local n = self.children.n
+	local w1 = gw * n
 	local col = self.col
-	if (col == nil) then
+	if (col) then
+		col = math.min(col, n)
+	elseif (w1 > w) then
 		col = math.max(1, (w or 0) // gw)
-		if (col == 1 or gw * self.children.n > w) then
-			gw = math.max(gw, (w or 0) // col)
-		end
+		gw = math.max(gw, (w or 0) // col)
+	else
+		col = n
 	end
 	local x = 0
 	local y = 0
@@ -736,6 +771,8 @@ UiWidget.bakeCount = 4
 UiWidget.drawClipRect = false
 UiWidget.acceptFocus = true
 UiWidget.drawSelf = true
+UiWidget.fontMtl = {}
+UiWidget.fontMtl[uiFont] = g_mtlUi
 
 function UiWidget:ctor(w, h)
 	self.rect:set(0, 0, w, h)
@@ -755,6 +792,33 @@ function UiWidget:ctor(w, h)
 	self.rcRenderer:SetMaterial(g_mtlUi)
 	
 	self.enable = true
+end
+
+function UiWidget:SetFont(font, noNotify)
+	font = font or self.font
+	if (font == self.font) then
+	return end
+	local mtl = UiWidget.fontMtl[font]
+	if (not mtl) then
+		mtl = Material(g_mtlUi)
+		mtl.resFont = font.res
+		UiWidget.fontMtl[font] = mtl
+	end
+	self.renderer:SetMaterial(mtl)
+	self.font = font
+	self:Refresh()
+	if (not noNotify) then
+		self:OnFontChanged()
+	end
+end
+
+function UiWidget:OnFontChanged()
+end
+
+function UiWidget:SetFocus(flag)
+	if (self.window) then
+		self.window:SetFocus(self, flag)
+	end
 end
 
 function UiWidget:Enable(flag)
@@ -954,6 +1018,10 @@ function UiButtonBase:ctor()
 	self:bind_event(EVT.LEFT_UP, self, UiButtonBase.OnMouse)
 end
 
+function UiButtonBase:BindLelfUp(obj, func)
+	self:bind_event(EVT.LEFT_UP, obj, func)
+end
+
 function UiButtonBase:OnMouse(e)
 	if (e == EVT.LEFT_DOWN) then
 		self.down = true
@@ -1051,26 +1119,27 @@ UiText.cached = true
 
 function UiText:ctor(s, font)
 	self.text = LString('')
-	self:SetText(s, font)
-	self:Show(self.text:length() > 0)
+	self:SetText(s, font or uiFont)
 end
 
 function UiText:SetText(s, font)
 	s = s or self.text
-	font = font or uiFont
-	if (self.text ~= s or self.font ~= font) then
+	font = font or self.font
+	if (not self.text:same(s) or self.font ~= font) then
 		self.text:set(s)
-		self.font = font
-		self:SetSize(CMeasureText(s, -1, -1, font), font.fontSize)
-		self:Refresh()
-		self:Show(self.text:length() > 0)
+		self:SetFont(font, true)
+		self:SetSize(CMeasureText(s, -1, -1, font), font.maxHeight)
 	end
+end
+
+function UiText:OnFontChanged()
+	self:SetText(nil, self.font)
 end
 
 function UiText:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iwp, ibStart)
 	local n
 	if (self.cpuClip) then
-		n = CAddTextClip(self.location.x - self.cr.x, self.location.y - self.cr.y + self.font.fontSize + self.font.descender,
+		n = CAddTextClip(self.location.x - self.cr.x, self.location.y - self.cr.y + self.font.maxHeight + self.font.descender,
 			self.cr.x, self.cr.y, self.cr.w, self.cr.h, Z_2D, self.text, self.font,
 			vbPos, wpPos, vbUVW, wpUVW)
 	else
@@ -1084,6 +1153,7 @@ end
 
 ---UiTextLabel---
 UiTextLabel = class(UiWidget)
+UiTextLabel.OnFontChanged = UiText.OnFontChanged
 UiTextLabel.FillVB = UiText.FillVB
 UiTextLabel.cached = true
 UiTextLabel.ellWidth = CMeasureText('...', -1, -1, UiWidget.font)
@@ -1093,11 +1163,11 @@ function UiTextLabel:ctor(max_w, s, font)
 	self.text = LString('')
 	self.fullText = LString('')
 	self.font = nil
-	self:SetText(s, UiTextLabel.font)
+	self:SetText(s, font or UiTextLabel.font)
 end
 
 function UiTextLabel:SetMaxWidth(w)
-	self:SetSize(math.min(self.tw, self.max_w), self.font.fontSize)
+	self:SetSize(math.min(self.tw, self.max_w), self.font.maxHeight)
 end
 
 function UiTextLabel:SetText(s, font)
@@ -1108,16 +1178,15 @@ function UiTextLabel:SetText(s, font)
 		self.fullText:set(s)
 		self.tw = CMeasureText(s, -1, -1, font)	
 		self.tLen = self.fullText:length()
-		self:Show(self.tLen > 0)
 		if (self.font ~= font) then
 			self.ellWidth = CMeasureText('...', -1, -1, font)
-			self.font = font
+			self:SetFont(font, true)
 		end
 		local w = math.min(self.tw, self.max_w)
 		if (w == self.rect.w and font.size == self.rect.h) then
 			OnSized()
 		else
-			self:SetSize(math.min(self.tw, self.max_w), font.fontSize)
+			self:SetSize(math.min(self.tw, self.max_w), font.maxHeight)
 		end
 	end
 end
@@ -1148,6 +1217,7 @@ end
 	
 -----TextInput-----
 UiTextInput = class(UiWidget)
+UiTextInput.EVT = EVT.new()
 UiTextInput.cached = true
 UiTextInput.cpuClip = true
 UiTextInput.drawClipRect = true
@@ -1171,7 +1241,7 @@ local function TextInputAssign(a, b)
 	end
 end
 
-function UiTextInput:ctor(w, h, font)
+function UiTextInput:ctor(w, h, text, font)
 	self.rect:set(0, 0, w, h)
 	
 	self.crColor:set(80, 80, 80, 255)
@@ -1190,7 +1260,7 @@ function UiTextInput:ctor(w, h, font)
 	self.insertIdx = 0
 	
 	self.text = LString('')
-	self:SetText('', font or uiFont)
+	self:SetText(text, font or uiFont, true)
 	
 	self.timer = Timer()
 	self.timer:bind_event(EVT.TIMER, self, UiTextInput.OnTimer)
@@ -1219,7 +1289,22 @@ function UiTextInput:ctor(w, h, font)
 	TextInputAssign(self.record, self)
 end
 
+function UiTextInput:FixTextSize(flag, maxWidth)
+	self.fitTextSize = flag
+	self.maxWidth = maxWidth
+	if (flag) then
+		local w = CMeasureText(self.text, -1, -1, self.font)
+		w = math.min(w, self.maxWidth or w)
+		self:SetSize(math.max(1, w), self.font.maxHeight)
+	end
+end
+
 function UiTextInput:Record()
+	if (self.fitTextSize) then
+		self:FixTextSize(true, self.maxWidth)
+	end
+	self:process_event(UiTextInput.EVT)
+
 	local o = {redo = {}, undo = self.record}
 	TextInputAssign(o.redo, self)
 	g_recorder:Record(self, self.HandleRecord, o)
@@ -1393,7 +1478,7 @@ function UiTextInput:RemoveText(idx, count, recorded)
 	self:RestrictCaretPos(self.caret.rect.x)
 	self:ClearSelected()
 	
-	if (recorded == nil) then
+	if (not recorded) then
 		self:Record()
 	end
 	return s
@@ -1520,20 +1605,22 @@ function UiTextInput:RestrictCaretPos(x, remainCaret)
 	end
 end
 
-function UiTextInput:SetText(s, font)
+function UiTextInput:SetText(s, font, recorded)
 	s = s or ''
-	font = font or uiFont
-	if (self.text ~= s or self.font ~= font) then
+	font = font or self.font
+	if (not self.text:same(s) or self.font ~= font) then
 		self.text:set(s)
-		self.font = font
+		self:SetFont(font, true)
 		self.insertIdx = 0
 		self.caret:SetSize(1, self.rect.h)
 		self.caret:SetPos(0, self.rect.h - self.caret.rect.h)
-		if (s ~= '') then
-			local w
-			w, self.insertIdx = CMeasureText(s, -1, -1, self.font)
-			self:RestrictCaretPos(w)
+		if (self.text:length() > 0) then
+			self.textWidth, self.insertIdx = CMeasureText(s, -1, -1, self.font)
+			self:RestrictCaretPos(self.textWidth)
 		end
+	end
+	if (not recorded) then
+		self:Record()
 	end
 end
 
@@ -1561,8 +1648,8 @@ function UiTextInput:FillVB(vbPos, wpPos, vbUVW, wpUVW, vbColor, wpColor, ib, iw
 		wpColor = APPEND
 	end
 	local h = self.rect.h
-	if (h > self.font.fontSize) then
-		h = h - (h - self.font.fontSize) // 2
+	if (h > self.font.maxHeight) then
+		h = h - (h - self.font.maxHeight) // 2
 	end
 	n = n + CAddTextClip(self.textOffset, h + self.font.descender, 
 	rect.x, rect.y, rect.w, rect.h, Z_2D, self.text, self.font, vbPos, wpPos, vbUVW, wpUVW)
@@ -1855,15 +1942,16 @@ end
 
 -----Selector-----
 Selector = class(Object)
-Selector.EVT_CHANGED = {}
-Selector.EVT_KEY = {}
+Selector.EVT_CHANGED = EVT.new()
+Selector.EVT_KEY = EVT.new()
 
 function Selector:ctor()
 	self.selected = {}
 	self.cd = Color(0, 0, 0, 0)
 	self.ch = Color()
 	self.ch:copy(UiButton.colorHoverring)
-	self.cfi = Color(0, 130, 255, 100)
+	--self.cfi = Color(0, 130, 255, 100)
+	self.cfi = Color(255, 180, 0, 100)
 	self.cfo = Color(100, 100, 100, 80)
 end
 
@@ -1895,6 +1983,7 @@ function Selector:Add(w, h, data)
 	item:bind_event(EVT.MOVE_IN, self, Selector.OnMouse)
 	item:bind_event(EVT.MOVE_OUT, self, Selector.OnMouse)
 	item:bind_event(EVT.LEFT_DOWN, self, Selector.OnMouse)
+	item:bind_event(EVT.RIGHT_DOWN, self, Selector.OnMouse)
 	item:bind_event(EVT.RIGHT_UP, self, Selector.OnMouse)
 	item:bind_event(EVT.KEY_DOWN, self, Selector.OnKeyDown)
 	return item
@@ -1902,6 +1991,7 @@ end
 
 function Selector:Remove(item)
 	self:Select(item, false, true)
+	item:unbind_event(nil, self, nil)
 end
 
 function Selector:OnFocus(e)
@@ -1910,7 +2000,7 @@ function Selector:OnFocus(e)
 	local cfi = self.cfi
 	local cfo = self.cfo
 	if (e == EVT.FOCUS_IN) then
-		self.focused = EVT.obj
+		self.focused = e.obj
 		for item in pairs(self.selected) do
 			item:SetAllColors(cfi.r, cfi.g, cfi.b, cfi.a)
 			item:Refresh()
@@ -1926,8 +2016,8 @@ function Selector:OnFocus(e)
 end
 
 function Selector:OnMouse(e, x, y, n)
-	local item = EVT.obj
-	if (e == EVT.LEFT_DOWN) then
+	local item = e.obj
+	if (e == EVT.LEFT_DOWN or e == EVT.RIGHT_DOWN) then
 		if (g_actWindow.keyDowns[SYS.VK_CONTROL] and self.multipleOn) then
 			if (self.selected[item]) then
 				self:Select(item, false, true)
@@ -1963,8 +2053,8 @@ function Selector:Select(item, flag, notify)
 			item:SetDefaultColor(cfo.r, cfo.g, cfo.b, cfo.a)
 			item:SetHoverringColor(ch.r, ch.g, ch.b, ch.a)
 		end
-		changed = self.selected[item] ~= item.data
-		self.selected[item] = item.data
+		changed = self.selected[item] ~= item
+		self.selected[item] = item
 	else
 		item:SetDefaultColor(cd.r, cd.g, cd.b, cd.a)
 		item:SetHoverringColor(ch.r, ch.g, ch.b, ch.a)
@@ -1979,10 +2069,9 @@ function Selector:Select(item, flag, notify)
 end
 
 function Selector:GetSelection(item)
-	local data
-	item, data = next(self.selected, item)
-	if (data) then
-		return data, self:GetSelection(item)
+	item = next(self.selected, item)
+	if (item) then
+		return item.data, self:GetSelection(item)
 	end
 end
 
@@ -2165,7 +2254,7 @@ function UiCombo:ctor(w, h)
 end
 
 function UiCombo:SetDefault(index)
-	local item = self.list.children[index]
+	local item = self.list.children(index)
 	if (item) then
 		self.text:SetText(item.text.text)
 		self.selector:Select(item.highlight, true, true)
