@@ -1,17 +1,3 @@
-///////////////////////////////////////////////////////////////////////////////
-// Name:        src/aui/auibook.cpp
-// Purpose:     wxaui: wx advanced user interface - notebook
-// Author:      Benjamin I. Williams
-// Modified by: Jens Lody
-// Created:     2006-06-28
-// Copyright:   (C) Copyright 2006, Kirix Corporation, All Rights Reserved
-// Licence:     wxWindows Library Licence, Version 3.1
-///////////////////////////////////////////////////////////////////////////////
-
-// ----------------------------------------------------------------------------
-// headers
-// ----------------------------------------------------------------------------
-
 #include "wx/wxprec.h"
 
 #ifdef __BORLANDC__

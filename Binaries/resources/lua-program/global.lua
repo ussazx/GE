@@ -118,11 +118,13 @@ function AddPoly2D(antiAlias, ...)
 	if (x < 0 or y < 0) then
 		if (x < 0) then
 			x = -x
+			o.w = o.w + x
 		else
 			x = 0
 		end
 		if (y < 0) then
 			y = -y
+			o.h = o.h + y
 		else
 			y = 0
 		end

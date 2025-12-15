@@ -118,10 +118,11 @@ function Object:unbind_event(e, obj, func)
 end
 
 function Object:process_event(e, ...)
-	e.obj = self
+	local oldObj = EVT.obj
 	local t = self.event_table[e]
 	if (t) then
 		for _, f in pairs(t) do
+			EVT.obj = self
 			f(e, ...)
 		end
 	end
@@ -130,6 +131,7 @@ function Object:process_event(e, ...)
 		for obj, v in pairs(t) do
 			if (global_objects[obj.id] == obj) then
 				for _, f in pairs(v) do
+					EVT.obj = self
 					f(obj, e, ...)
 				end
 			else
@@ -137,5 +139,5 @@ function Object:process_event(e, ...)
 			end
 		end
 	end
-	e.obj = nil
+	EVT.obj = oldObj
 end

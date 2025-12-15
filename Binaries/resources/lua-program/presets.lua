@@ -13,9 +13,9 @@ g_iconTriangleU = AddPoly2D(true, { {h, 0}, {s, s}, {0, s} })
 g_iconTriangleD = AddPoly2D(true, { {0, 0}, {s, 0}, {h, s} })
 g_iconTriangleDR = AddPoly2D(true, { {0, s}, {s, 0}, {s, s} })
 
-local r = 8
+local r = 10
 g_iconMagnifier = AddPoly2D(true, DrawLine(3, false, true, MakeCircle(0, 0, r, 16)), 
-	DrawLine(4, true, false, {r + r - 4, r + r - 4}, {r + 15, r + 15}))
+	DrawLine(4, true, false, {r + r - 4, r + r - 4}, {r + 10, r + 10}))
 
 g_iconLine = AddPoly2D(true, DrawLine(5, false, false, {0, 0}, {100, 0}, {50, 100}, {366, 210}, {500, 710}))
 
@@ -60,9 +60,9 @@ local o3 = MakeRect(10, 35, 30, 10)
 o3.color = Color(0, 0, 255, 180)
 g_iconFB = AddPoly2D(true, file, o1, o2, o3)
 
-local n = 7
-g_iconLNavi = AddPoly2D(true, DrawLine(5, true, false, {n, 0}, {0, n}, {n, n * 2}))
-g_iconRNavi = AddPoly2D(true, DrawLine(5, true, false, {0, 0}, {n, n}, {0, n * 2}))
+local n = 10
+g_iconLNavi = AddPoly2D(true, DrawLine(7, true, false, {n, 0}, {0, n}, {n, n * 2}))
+g_iconRNavi = AddPoly2D(true, DrawLine(7, true, false, {0, 0}, {n, n}, {0, n * 2}))
 
 -----Camera-----
 Camera = class(SceneObject)

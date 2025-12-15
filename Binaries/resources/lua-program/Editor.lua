@@ -12,11 +12,33 @@ local savedListPath
 local scenePanelSet = {panels = {}}
 
 local fileList = {}
-local content = Object()
 
 local nameHintBegin = _('名称不能以空格开头')
 local nameHintChar = _('名称不能包含下列字符：') .. '\\/:*?\"<>|'
 local nameHintExist = _('名称已存在')
+
+local SearchInput = class(UiWidget)
+function SearchInput:ctor(w, font)
+	self.drawSelf = false
+	local h = HBoxLayout()
+	self:AddChild(h)
+	
+	w = w or 0
+	font = font or uiFont
+	local th = font.maxHeight + 4
+	
+	local mag = UiPolyIcon(g_iconMagnifier)
+	local ww = UiWidget(mag.rect.w + 10, th)
+	ww:AddChild(mag, 5, math.ceil((th - mag.rect.h) / 2))
+
+	self.input = UiTextInput(w, th, '', font)
+	ww.color:copy(self.input.crColor)
+	
+	h:AddChild(ww, nil, 0)
+	h:AddChild(self.input, 1, 0, 0)
+	h:SetSize()
+	self:SetSize(h.rect.w, h.rect.h)
+end
 
 local function CheckName(s)
 	if (s:length() > 0) then
@@ -84,10 +106,6 @@ function LoadSavedList(w)
 	layoutBottom:AddChild(UiButton(100, 30, _('Load')), 1, nil, 0, false)
 	layout:AddChild(layoutBottom, nil, 10, 10, true, 10, 10)
 	--layout:AddChild(UiButton(0, 0, 100, 30, _('Load')), 0, Layout.ALIGN_RIGHT|Layout.ALIGN_TOP|Layout.ALIGN_BOTTOM, 0, 10, 10, 10)
-end
-
-function NewCommonWindow()
-	local w = Window()
 end
 
 function LoadContent(path)
@@ -213,56 +231,96 @@ local function NewUI()
 end
 
 ---ContentWindow---
-local CONT_FOLDER = 1
+local content = Object()
+content.FOLDER = 1
 local icons = {}
-icons[CONT_FOLDER] = g_iconFolder
+icons[content.FOLDER] = g_iconFolder
 
 Folder = class()
 
-function Folder:ctor()
+function Folder:ctor(meta)
+	self.meta = meta
 	self.files = {}
 	self.folders = {}
 end
-function Folder:Add(o)
-	if (o.type == CONT_FOLDER) then
+function Folder:Add(panel, o, nonFresh)
+	if (o.type == content.FOLDER) then
+		o.data = Folder(o)
+		o.data.parent = self
 		table.insert(self.folders, o)
 	else
 		table.insert(self.files, o)
 	end
+	if (not nonFresh) then
+		content:Update(panel, self, o, content.OP_ADD)
+	end
 end
 
-function Folder:Remove(o)
-	local t
-	if (o.type == CONT_FOLDER) then
+function Folder:Remove(panel, o, nonFresh)
+	local t, f
+	if (o.type == content.FOLDER) then
+		f = o.data
 		t = self.folders
 	else
 		t = self.files
 	end
 	for i, v in pairs(t) do
 		if (v == o) then
+			if (f) then
+				f:Clear(true)
+			end
 			table.remove(t, i)
+			if (t == self.folders) then
+				content:Update(panel, nil, v, content.OP_REMOVE)
+			end
+			if (not nonFresh) then
+				content:Update(panel, self)
+			end
+			break
 		end
 	end
 end
 
-content.folder = Folder()
-content.EVT = EVT.new()
+function Folder:Clear(nonFresh)
+	for _, v in pairs(self.folders) do
+		v.data:Clear(nonFresh)
+		content:Update(nil, nil, v, content.OP_REMOVE)
+	end
+	for i, v in pairs(self.files) do
+		--remove
+		content:Update(nil, nil, v, content.OP_REMOVE)
+	end
+	self.folders = {}
+	self.files = {}
+	if (not nonFresh) then
+		content:Update(nil, self)
+	end
+end
 
-function content:Update(panel, folder)
-	content:process_event(content.EVT, panel, folder or panel.curFolder)
+local o = {type = content.FOLDER, name = _('内容')}
+o.data = Folder(o)
+content.folder = o.data
+content.EVT = EVT.new()
+content.OP_ADD = 1
+content.OP_RENAME = 2
+content.OP_REMOVE = 3
+
+function content:Update(panel, folder, meta, op)
+	content:process_event(content.EVT, panel, folder, meta, op)
 end
 
 local itemMenus = {}
 local m = CMenu()
 m:AddItem(1, _('重命名'))
 m:AddItem(2, _('删除'))
-itemMenus[CONT_FOLDER] = m
+itemMenus[content.FOLDER] = m
 
 local contentMenu = CMenu()
 contentMenu:AddItem(1, _('新建文件夹'))
 contentMenu:AddItem(2, _('新建FrameBuffer'))
 
 ContentWindow = class(PaneWindow)
+ContentWindow.fMax = 20
 
 function ContentWindow:ctor()
 	local hsLayout = HSizerLayout()
@@ -270,18 +328,43 @@ function ContentWindow:ctor()
 	self:AddChild(hsLayout)
 	
 	self.tree = UiTreeList()
-	local o = hsLayout:AddChild(UiScrollPanel(self.tree), 1, 0, 0, true)
-	o.limit = 300
+	self.tree.selector:bind_event(Selector.EVT_CHANGED, self, self.OnTreeSelected)
+	hsLayout:AddChild(UiScrollPanel(self.tree), 1, 2, 0, true, 5)
 	
-	local mag = UiPolyIcon(g_iconMagnifier)
-	self.searcher = UiTextInput(0, uiFont.maxHeight)
 	local h = HBoxLayout()
-	h:AddChild(mag, nil, 5, 0, false)
-	h:AddChild(self.searcher, 1, 7, 12, false)
-	h:SetSize()
+	
+	self.bkwd = UiPolyIcon(g_iconLNavi)
+	self.bkwd:SetDefaultColor(1, 150, 150, 150, 255)
+	self.bkwd:SetHoverringColor(1, 200, 200, 200, 255)
+	self.bkwd:SetPressingColor(1, 230, 230, 230, 255)
+	self.bkwd:SetDisableColor(1, 90, 90, 90, 255)
+	self.bkwd:Enable(false)
+	self.bkwd:bind_event(EVT.LEFT_UP, self, self.OnBackward)
+	
+	self.frwd = UiPolyIcon(g_iconRNavi)
+	self.frwd:SetDefaultColor(1, 150, 150, 150, 255)
+	self.frwd:SetHoverringColor(1, 200, 200, 200, 255)
+	self.frwd:SetPressingColor(1, 230, 230, 230, 255)
+	self.frwd:SetDisableColor(1, 90, 90, 90, 255)
+	self.frwd:Enable(false)
+	self.frwd:bind_event(EVT.LEFT_UP, self, self.OnForward)
+	
+	h:AddChild(self.bkwd, nil, 10, 0, false, 0)
+	h:AddChild(self.frwd, nil, 15, 0, false, 0)
+	
+	self.pathLayout = HBoxLayout()
+	self.pathScroll = UiScrollPanel(self.pathLayout)
+	self.pathScroll.drawSelf = false
+	self.pathScroll.sliderOut = true
+	self.pathScroll:SetSliderWidth(8)
+	self.pathLayout:bind_event(EVT.SIZE, self, self.OnPathSized)
+	h:AddChild(self.pathScroll, nil, 20, 20, false, 0)
+	
+	local searcher = SearchInput()
+	h:AddChild(searcher, 1, 12, 12, false, 0)
 	
 	local v = VBoxLayout()
-	v:AddChild(h, nil, 5, 0, true)
+	v:AddChild(h, nil, 10, 0, true)
 	
 	self.grid = GridLayout()
 	local vv = VBoxLayout()
@@ -297,11 +380,10 @@ function ContentWindow:ctor()
 	self.selector = Selector()
 	self.selector.showFocusOut = true
 	self.selector:SetFocusOutColor(0, 0, 0, 0)
-	self.curPath = ''
 	
 	self.color:copy(self.pane.color)
 	
-	local w = UiWidget()
+	w = UiWidget()
 	w.gpuClip = true
 	w.drawSelf = false
 	w:AddChild(v)
@@ -318,8 +400,148 @@ function ContentWindow:ctor()
 	self.nameHint:Show(false)
 	self:AddChild(self.nameHint)
 	
-	self.curFolder = content.folder
+	self.fIdx = 0
+	self.fRecord = WeakTable()
+	
 	content:bind_event(content.EVT, self, self.OnContentUpdated)
+	
+	self.tid = {}
+	self.tid[content.folder] = self.tree:AddNode(nil, g_iconFolder, _('内容'), content.folder.meta)
+	self:LoadFolder(content.folder)
+end
+
+function ContentWindow:OnTreeSelected()
+	local o = self.tree.selector:GetSelection()
+	if (o) then
+		self:LoadFolder(o.data)
+	end
+end
+
+function ContentWindow:OnPathSized()
+	local w, h = self.pathLayout.rect.w, self.pathLayout.rect.h
+	self.pathScroll:SetSize(math.min(500, w), math.max(self.pathScroll.rect.h, h))
+end
+
+function ContentWindow:OnForward()
+	if (self.fIdx < self.fSaved) then
+		self.fIdx = self.fIdx + 1
+		self:LoadFolder(self.fRecord[self.fIdx], true)
+	end
+end
+
+function ContentWindow:OnBackward()
+	if (self.fIdx > 1) then
+		self.fIdx = self.fIdx - 1
+		self:LoadFolder(self.fRecord[self.fIdx], true)
+	end
+end
+
+function ContentWindow:RemoveRecord(folder)
+	local k, v = next(self.fRecord)
+	while (v) do
+		if (v == folder) then
+			table.remove(self.fRecord, k)
+			v = self.fRecord[k]
+			if (self.fIdx >= k) then
+				self.fIdx = self.fIdx - 1
+			end
+			self.fSaved = self.fSaved - 1
+		else
+			k, v = next(self.fRecord, k)
+		end
+	end
+	
+	local f = self.fRecord[self.fIdx]
+	local k, v = next(self.fRecord, self.fIdx)
+	while (v and self.fSaved > self.fIdx) do
+		if (v ~= f) then
+		break end
+		table.remove(self.fRecord, k)
+		v = self.fRecord[k]
+		self.fSaved = self.fSaved - 1
+	end
+	while (self.fIdx > 1) do
+		if (self.fRecord[self.fIdx - 1] ~= f) then
+		break end
+		self.fSaved = self.fSaved - 1
+		self.fIdx = self.fIdx - 1
+	end
+		
+	if (f ~= self.curFolder) then
+		self:LoadFolder(f, true)
+	else
+		self.frwd:Enable(self.fIdx < self.fSaved)
+		self.bkwd:Enable(self.fIdx > 1)
+	end
+end
+
+function ContentWindow:Open(e)
+	local o = EVT.obj.meta
+	if (o.type == content.FOLDER) then
+		self:LoadFolder(o.data)
+	else
+		
+	end
+end
+
+function ContentWindow:SetPathButtons(folder)
+	self.pathLayout:ClearChildren()
+	local o = {}
+	local n = 0
+	local f = folder
+	while (f) do
+		local t = UiTextLabel(100, f.meta.name)
+		t:EnableWriteId(false)
+		local b = UiButton(t.rect.w + 10, t.rect.h + 4)
+		b.text = t
+		b.layout:AddChild(t, 1)
+		b:SetDefaultColor(0, 0, 0, 0)
+		b:bind_event(EVT.LEFT_UP, self, self.Open)
+		b.meta = f.meta
+		table.insert(o, b)
+		f = f.parent
+		n = n + 1
+	end
+	for i = n, 1, -1 do
+		if (i < n) then
+			local s = UiWidget(1, o[i].rect.h)
+			s.color:set(100, 100, 100, 255)
+			self.pathLayout:AddChild(s, nil, 0, 0)
+		end
+		self.pathLayout:AddChild(o[i])
+	end
+	self.pathLayout:SetSize()
+end
+
+function ContentWindow:UpdateTreeList()
+	
+end
+
+function ContentWindow:LoadFolder(folder, recorded)
+	self.grid:ClearChildren()
+	self.selector = Selector()
+	self.selector.showFocusOut = true
+	self.selector:SetFocusOutColor(0, 0, 0, 0)
+	for _, o in pairs(folder.folders) do
+		self:AddItem(o)
+	end
+	
+	if (self.curFolder ~= folder) then
+		self:SetPathButtons(folder)
+		if (not recorded) then
+			self.fIdx = self.fIdx + 1
+			if (self.fIdx > self.fMax) then
+				self.fIdx = self.fMax
+				table.remove(self.fRecord, 1)
+			end
+			table.insert(self.fRecord, self.fIdx, folder)
+			self.fSaved = self.fIdx
+		end
+		self.tree:Select(self.tid[folder], false)
+		self.frwd:Enable(self.fIdx < self.fSaved)
+		self.bkwd:Enable(self.fIdx > 1)
+		self.curFolder = folder
+	end
 end
 
 function ContentWindow:OnPresetDrop(e, id, geom)
@@ -332,20 +554,33 @@ function ContentWindow:OnDropFile(e, files)
 	end
 end
 
-function ContentWindow:OnContentUpdated(e, panel, folder)
+function ContentWindow:OnContentUpdated(e, panel, folder, meta, op)
 	if (panel ~= self and folder == self.curFolder) then
-		self.grid:ClearChildren()
-		self.selector = Selector()
-		self.selector.showFocusOut = true
-		self.selector:SetFocusOutColor(0, 0, 0, 0)
-		for _, item in pairs(folder.folders) do
-			self:AddItem(item)
+		self:LoadFolder(folder)
+	end
+	if (not meta) then
+	return end
+	if (meta.type == content.FOLDER) then
+		if (op == content.OP_ADD) then
+			self.tid[meta.data] = self.tree:AddNode(self.tid[folder], g_iconFolder, meta.name, meta)
+		elseif (op == content.OP_RENAME) then
+			for _, v in self.pathLayout:ChildrenPairs() do
+				if (meta == v.meta) then
+					v.text:SetText(meta.name)
+					v:SetSize(v.text.rect.w + 10)
+					break
+				end
+			end
+			self.tree:UpdateNode(self.tid[meta.data], nil, meta.name)
+		elseif (op == content.OP_REMOVE) then
+			self:RemoveRecord(meta.data)
+			self.tree:RemoveNode(self.tid[meta.data])
 		end
 	end
 end
 
 function ContentWindow:OnTextFocusOut(e)
-	local item = e.obj.item
+	local item = EVT.obj.item
 	item.input:Show(false)
 	item.name:Show(true)
 	if (item.nameNew) then
@@ -356,7 +591,11 @@ function ContentWindow:OnTextFocusOut(e)
 	end
 	self.nameHint:Show(false)
 	
-	content:Update(self)
+	if (item.op == content.OP_ADD) then
+		self.curFolder:Add(self, item.meta)
+	else
+		content:Update(self, self.curFolder, item.meta, item.op)
+	end
 end
 
 function ContentWindow:OnTextKeyDown(e, k)
@@ -367,7 +606,7 @@ end
 
 function ContentWindow:OnText(e)
 	self.nameHint:Show(false)
-	local item = e.obj.item
+	local item = EVT.obj.item
 	item.nameNew = true
 	local s = item.input.text
 	local hint = CheckName(s)
@@ -386,6 +625,7 @@ end
 
 function ContentWindow:AddItem(o)
 	local item = self.selector:Add(100, 80, {})
+	item:bind_event(EVT.LEFT_DCLICK, self, self.Open)
 	item:bind_event(EVT.RIGHT_UP, self, self.OnItemMenu)
 	self.grid:AddChild(item, 0, 0, 5, 10)
 	
@@ -408,27 +648,29 @@ function ContentWindow:AddItem(o)
 	layout:AddChild(item.input) 
 	
 	item.name = UiTextLabel(80, o.name, uiFont2)
+	item.name:EnableWriteId(false)
 	layout:AddChild(item.name)
 	return item
 end
 
 function ContentWindow:OnItemMenu(e)
-	local item = e.obj
+	local item = EVT.obj
 	local id = item.menu:Popup(self)
 	if (not id) then
 	return end
 	
-	if (item.meta.type == CONT_FOLDER) then
+	if (item.meta.type == content.FOLDER) then
 		if (id == 1) then
 			item.name:Show(false)
 			item.input:Show(true)
 			item.input:SelectAll()
+			item.op = content.OP_RENAME
 			item.input:SetFocus(true)
 		elseif (id == 2) then
+			--DelistObject(item)
 			self.grid:RemoveChild(item)
 			self.selector:Remove(item)
-			self.curFolder:Remove(item.meta)
-			content:Update(self)
+			self.curFolder:Remove(self, item.meta)
 		end
 	end
 	self.item = item
@@ -441,11 +683,11 @@ function ContentWindow:OnMouse(e)
 		
 		local o = {}
 		if (id == 1) then
-			o.type = CONT_FOLDER
+			o.type = content.FOLDER
 			o.name = _('新建文件夹')
-			self.curFolder:Add(o)
 		end
 		local item = self:AddItem(o)
+		item.op = content.OP_ADD
 		item.input:SelectAll()
 		item.input:Show(true)
 		item.name:Show(false)
@@ -512,7 +754,7 @@ function LoadProjWindow:ctor()
 	if (b) then
 		savedList = c or savedList
 	
-		local t = UiTextInput(0, uiFont.maxHeight)
+		local t = SearchInput()
 		vLayout:AddChild(t, nil, 20, 10, true, 20, 20)
 	
 		local grid = GridLayout()
@@ -742,7 +984,7 @@ end
 
 function SceneWindow:OnCoord(e, x, y, w, m)
 	local c = self.objCoord
-	local o = e.obj
+	local o = EVT.obj
 	if (e == EVT.MOVE_IN) then
 		if (o == c.arrowX) then
 			c:SetColorX(255, 255, 0, 200)
@@ -916,7 +1158,7 @@ function PresetsWindow:AddPresetItem(item, text)
 end
 
 function PresetsWindow:OnItemLeftDown(e)
-	self:Drag(PresetsWindow, e.obj.item)
+	self:Drag(PresetsWindow, EVT.obj.item)
 end
 
 function LoadEntrance()
@@ -937,6 +1179,8 @@ scenePanelSet.panels.logMessage = PaneWindow()
 scenePanelSet.panels.logMessage.title = _('日志消息')
 scenePanelSet.panels.content = ContentWindow()
 scenePanelSet.panels.content.title = _('内容')
+scenePanelSet.panels.content2 = ContentWindow()
+scenePanelSet.panels.content2.title = _('内容2')
 
 local function SaveLoadLayout(set)
 	return function (id)
