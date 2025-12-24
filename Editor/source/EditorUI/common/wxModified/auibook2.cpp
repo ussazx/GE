@@ -887,8 +887,8 @@ void wxAuiNotebook2::DoSizing()
 
 void wxAuiNotebook2::OnTabFocused(wxFocusEvent& e)
 {
-	if (e.GetWindow())
-		e.GetWindow()->SetFocus();
+//	if (e.GetWindow())
+		//e.GetWindow()->SetFocus();
 }
 
 // GetActiveTabCtrl() returns the active tab control.  It is

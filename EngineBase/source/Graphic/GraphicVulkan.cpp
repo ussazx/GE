@@ -26,6 +26,7 @@ VKSwapchain::~VKSwapchain()
 	{
 		vkDestroyImageView(g->device, m_vImageView[i], {});
 		vkDestroySemaphore(g->device, m_vSemaphore[i], {});
+		vkDestroySemaphore(g->device, m_vPrstSema[i], {});
 	}
 	vkDestroySwapchainKHR(g->device, m_swapchain, {});
 	vkDestroySurfaceKHR(g->inst, m_scci.surface, {});
@@ -124,6 +125,10 @@ bool VKSwapchain::Resize(uint32_t w, uint32_t h)
 		m_vSemaphore.resize(m_scci.minImageCount);
 		for (uint32_t i = n; i < m_vSemaphore.size(); i++)
 			vkCreateSemaphore(g->device, &sci, {}, &m_vSemaphore[i]);
+		
+		m_vPrstSema.resize(m_scci.minImageCount);
+		for (uint32_t i = n; i < m_vPrstSema.size(); i++)
+			vkCreateSemaphore(g->device, &sci, {}, &m_vPrstSema[i]);
 	}
 
 	return true;
@@ -133,6 +138,7 @@ bool VKSwapchain::Acquire()
 {
 	VkResult res = vkAcquireNextImageKHR(g->device, m_swapchain, UINT64_MAX,
 		m_vSemaphore[++m_semaIndex %= m_scci.minImageCount], VK_NULL_HANDLE, &m_imageIndex);
+
 
 	//char s[128]{};
 	//sprintf_s(s, "---Acquire %u %d\n", m_imageIndex, res);
@@ -160,8 +166,8 @@ void VKSwapchain::Present()
 {
 	VkPresentInfoKHR pi{};
 	pi.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	pi.pWaitSemaphores = m_cmdSemas.data();
-	pi.waitSemaphoreCount = m_cmdCount;
+	pi.pWaitSemaphores = &m_vPrstSema[m_imageIndex];
+	pi.waitSemaphoreCount = 1;
 	pi.pSwapchains = &m_swapchain;
 	pi.swapchainCount = 1;
 	pi.pImageIndices = &m_imageIndex;
@@ -172,16 +178,14 @@ void VKSwapchain::Present()
 		DebugLog(L"VK_ERROR_SURFACE_LOST_KHR");
 	else if (res == VK_SUBOPTIMAL_KHR)
 		DebugLog(L"VK_SUBOPTIMAL_KHR");
-	m_cmdCount = 0;
-
 }
 
-void VKSwapchain::AddCmdSemaphore(VkSemaphore sema)
-{
-	if (m_cmdCount >= m_cmdCap)
-		m_cmdSemas.resize(++m_cmdCap);
-	m_cmdSemas[m_cmdCount++] = sema;
-}
+//void VKSwapchain::AddCmdSemaphore(VkSemaphore sema)
+//{
+//	if (m_cmdCount >= m_cmdCap)
+//		m_cmdSemas.resize(++m_cmdCap);
+//	m_cmdSemas[m_cmdCount++] = sema;
+//}
 
 VKTexture::~VKTexture()
 {
@@ -620,7 +624,7 @@ VkImageBlit VKCommand::m_blit;
 VKCommand::~VKCommand()
 {
 	vkDestroyFence(g->device, m_fence, {});
-	vkDestroySemaphore(g->device, m_completeSema, {});
+	//vkDestroySemaphore(g->device, m_completeSema, {});
 }
 
 bool VKCommand::Init(bool secondary)
@@ -641,9 +645,9 @@ bool VKCommand::Init(bool secondary)
 		fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		vkCreateFence(g->device, &fci, {}, &m_fence);
 
-		VkSemaphoreCreateInfo sci{};
-		sci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		vkCreateSemaphore(g->device, &sci, {}, &m_completeSema);
+		//VkSemaphoreCreateInfo sci{};
+		//sci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		//vkCreateSemaphore(g->device, &sci, {}, &m_completeSema);
 
 		VkCommandBufferBeginInfo cbbi{};
 		cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -654,8 +658,8 @@ bool VKCommand::Init(bool secondary)
 	m_si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	m_si.pCommandBuffers = &m_cmd;
 	m_si.commandBufferCount = 1;
-	m_si.pSignalSemaphores = &m_completeSema;
-	m_si.signalSemaphoreCount = 1;
+	//m_si.pSignalSemaphores = &m_completeSema;
+	//m_si.signalSemaphoreCount = 1;
 
 	return true;
 }
@@ -691,7 +695,11 @@ void VKCommand::RenderBegin(LuacObj<FrameBuffer> fb, bool secondary)
 
 			m_si.pWaitSemaphores = m_scSemas.data();
 			m_si.pWaitDstStageMask = m_plStageFlags.data();
+
+			m_completeSemas.resize(m_si.waitSemaphoreCount);
+			m_si.pSignalSemaphores = m_completeSemas.data();
 		}
+		m_si.signalSemaphoreCount = m_si.waitSemaphoreCount;
 	}
 
 	VkRenderPassBeginInfo rpbi{};
@@ -965,13 +973,15 @@ void VKCommand::Execute()
 		size_t i = 0;
 		for (auto j : m_swapchains)
 		{
-			m_scSemas[i++] = j->m_vSemaphore[j->m_semaIndex];
-			j->AddCmdSemaphore(m_completeSema);
+			m_scSemas[i] = j->m_vSemaphore[j->m_semaIndex];
+			m_completeSemas[i++] = j->m_vPrstSema[j->m_imageIndex];
+			//j->AddCmdSemaphore(m_completeSema);
 		}
 		vkQueueSubmit(g->queueG, 1, &m_si, m_fence);
 	}
 	m_swapchains.clear();
 	m_si.waitSemaphoreCount = 0;
+	m_si.signalSemaphoreCount = 0;
 }
 
 #ifdef WIN32
@@ -1056,7 +1066,7 @@ bool VKGraphic::CreateInstance()
 	ai.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	ai.pApplicationName = "vkapp";
 	ai.pEngineName = "vkapp";
-	ai.apiVersion = VK_API_VERSION_1_0;
+	ai.apiVersion = VK_API_VERSION_1_4;
 
 	VkInstanceCreateInfo ci{};
 	ci.pApplicationInfo = &ai;

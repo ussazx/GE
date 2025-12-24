@@ -2,6 +2,7 @@
 #include <string>
 #include <codecvt>
 #include <locale>
+#include <algorithm>
 
 class LString : public LuaCustomParam<LString>
 {
@@ -164,6 +165,26 @@ public:
 		return *m_text == *s.m_text;
 	}
 
+	bool ncsame(LString s)
+	{
+		const std::wstring& str1 = *m_text;
+		const std::wstring& str2 = *s.m_text;
+		if (str1.size() != str2.size()) 
+			return false;
+		return std::equal(str1.begin(), str1.end(), str2.begin(),
+			[&](wchar_t c1, wchar_t c2) { return std::tolower(c1, std::locale()) == std::tolower(c2, std::locale()); });
+	}
+
+	const char* lower_utf8()
+	{
+		std::wstring s = *m_text;
+		std::transform(s.begin(), s.end(), s.begin(), [&](wchar_t c) {return std::tolower(c, std::locale()); });
+		if (m_cvt == nullptr)
+			m_cvt = std::make_shared<Cvt>();
+		m_cvt->utf8 = m_cvt->cvt.to_bytes(s);
+		return m_cvt->utf8.c_str();
+	}
+
 	size_t insert(size_t pos, LString s)
 	{
 		if (m_text.use_count() > 1)
@@ -210,7 +231,8 @@ public:
 		return m_text->rfind(*s.m_text);
 	}
 
-	Lua_wrap_cpp_class(LString, Lua_ctor(LuaIdx), Lua_mf(set), Lua_mf(utf8), Lua_mf(length), Lua_mf(ch), Lua_mf(same),
+	Lua_wrap_cpp_class(LString, Lua_ctor(LuaIdx), Lua_mf(set), Lua_mf(utf8), Lua_mf(length), Lua_mf(ch),
+		Lua_mf(same), Lua_mf(ncsame), Lua_mf(lower_utf8),
 		Lua_mf(insert), Lua_mf(erase), Lua_mf(substr), Lua_mt_mf("__concat", concat), Lua_mt_mf("__eq", equal), Lua_mf(find), Lua_mf(rfind))
 protected:
 	struct Cvt

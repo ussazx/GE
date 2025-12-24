@@ -190,7 +190,7 @@ function Widget2D:SetSize(w, h)
 	w = w or self.rect.w
 	h = h or self.rect.h
 	if (self.rect.w == w and self.rect.h == h) then
-		return
+		return false
 	end
 	
 	local w0, h0 = self.rect.w, self.rect.h
@@ -209,6 +209,7 @@ function Widget2D:SetSize(w, h)
 	if (self.OnSized) then
 		self:OnSized()
 	end
+	return true
 end
 
 --Layout--
@@ -236,6 +237,7 @@ function Layout:SetSize(w, h)
 		self.sized = false
 		self.upNotified = false
 		self:process_event(EVT.SIZE, w0, h0)
+		return true
 	end
 end
 
@@ -1193,19 +1195,16 @@ function UiTextLabel:SetText(s, font)
 			self.ellWidth = ellWidth
 			self:SetFont(font, true)
 		end
-		local w = math.min(self.tw, self.max_w)
-		if (w == self.rect.w and font.size == self.rect.h) then
+		if (not self:SetSize(math.min(self.tw, self.max_w), font.maxHeight)) then
 			self:OnSized()
-		else
-			self:SetSize(math.min(self.tw, self.max_w), font.maxHeight)
 		end
 		self:Show(self.fullText:length() > 0)
 	end
 end
 	
 function UiTextLabel:OnSized()
+	self.text:set(self.fullText)
 	local s = self.text
-	s:set(self.fullText)
 	local m = self.tLen
 	local w1 = self.rect.w
 	if (w1 < 1 or m < 2) then
@@ -2257,7 +2256,7 @@ function UiTreeList:UpdateNode(nodeId, icon, text, data)
 		if (text) then
 			node.text:SetText(text)
 		end
-		node.highlight.data = data or node.data
+		node.highlight.data = data or node.highlight.data
 		node.layout:SetSize()
 		node.highlight:SetSize(nil, node.layout.rect.h)
 	end

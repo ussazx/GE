@@ -98,7 +98,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>..\include;..\..\ThirdParty\lua-5.4.1\src;..\..\ThirdParty\vulkan\1.3.296.0\Include;..\..\ThirdParty\vulkan\source;..\..\ThirdParty\freetype-2.12.1\include;..\..\;$(IncludePath)</IncludePath>
+    <IncludePath>..\include;..\..\ThirdParty\lua-5.4.1\src;..\..\ThirdParty\vulkan\1.4.335.0\Include;..\..\ThirdParty\vulkan\source;..\..\ThirdParty\freetype-2.12.1\include;..\..\;$(IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)Binaries\output-windows\$(Platform)\$(Configuration)\</OutDir>
     <LibraryPath>$(SolutionDir)Binaries\output-windows\$(Platform)\$(Configuration)\;..\..\ThirdParty\freetype-2.12.1\lib\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
@@ -108,7 +108,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>$(SolutionDir)Binaries\output-windows\$(Platform)\$(Configuration)\</OutDir>
-    <IncludePath>..\include;..\..\ThirdParty\lua-5.4.1\src;..\..\ThirdParty\vulkan\1.3.296.0\Include;..\..\ThirdParty\vulkan\source;..\..\ThirdParty\freetype-2.12.1\include;..\..\;$(IncludePath)</IncludePath>
+    <IncludePath>..\include;..\..\ThirdParty\lua-5.4.1\src;..\..\ThirdParty\vulkan\1.4.335.0\Include;..\..\ThirdParty\vulkan\source;..\..\ThirdParty\freetype-2.12.1\include;..\..\;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)Binaries\output-windows\$(Platform)\$(Configuration)\;..\..\ThirdParty\freetype-2.12.1\lib\x64\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

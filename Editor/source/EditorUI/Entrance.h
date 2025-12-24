@@ -22,6 +22,7 @@ public:
 		m_nb->SetTabCtrlHeight(50);
 		m_nb->SetWindowStyleFlag(m_nb->GetWindowStyleFlag() &
 			~(wxAUI_NB_CLOSE_BUTTON |
+				wxAUI_NB_MIDDLE_CLICK_CLOSE |
 				wxAUI_NB_CLOSE_ON_ACTIVE_TAB |
 				wxAUI_NB_CLOSE_ON_ALL_TABS |
 				wxAUI_NB_TAB_MOVE |

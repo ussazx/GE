@@ -455,56 +455,6 @@ public:
 };
 Lua_global_add_cpp_class(CMenu)
 
-class CMenuBar : public wxMenuBar
-{
-public:
-	void Clear()
-	{
-		for (size_t i = 0; i < GetMenuCount(); i++)
-			Remove(i);
-	}
-	void Add(LuaReturn& ret, LString text, LuaIdx func)
-	{
-		CMenu* sub = new CMenu;
-		sub->BindOnItem(func);
-		ret.Push(Lua_set_cobj(sub));
-		Append(sub, text.c_str());
-	}
-	Lua_wrap_cpp_class(CMenuBar, Lua_ctor_void, Lua_mf(Clear), Lua_mf(Add));
-};
-Lua_global_add_cpp_class(CMenuBar)
-
-class CNotebook
-{
-public:
-	CNotebook(FloatableNotebook* nb) : m_nb(nb) {}
-	void AddPage(const char* name, LString title, LuaIdx wnd)
-	{
-		m_nb->AddPage(new vmWindow(m_nb, name, wnd), title.c_str());
-	}
-	void SaveLayout(LuaReturn& ret)
-	{
-		ret.Push(m_nb->SavePerspective().c_str());
-	}
-	void LoadLayout(const char* layout)
-	{
-		m_nb->LoadPerspective(layout);
-	}
-	void ShowPage(LuacObj<vmWindow> wnd)
-	{
-		m_nb->ShowPage(wnd);
-	}
-	bool IsPageShown(LuacObj<vmWindow> wnd)
-	{
-		return m_nb->IsPageShown(wnd);
-	}
-	Lua_wrap_cpp_class(CNotebook, Lua_abstract, Lua_mf(AddPage), Lua_mf(SaveLayout), Lua_mf(LoadLayout),
-		Lua_mf(ShowPage), Lua_mf(IsPageShown));
-
-	FloatableNotebook* m_nb{};
-};
-Lua_global_add_cpp_class(CNotebook)
-
 class vmFrame
 {
 public:
@@ -517,24 +467,6 @@ public:
 		AddPageWnd(new vmWindow(m_self, name, wnd), title.c_str());
 	}
 
-	LuacObjNew<CNotebook> AddPageNotebook(const char* name, LString title)
-	{
-		FloatableNotebook* nb = new FloatableNotebook(m_self, new UiManager);
-		nb->SetName(name);
-		AddPageWnd(nb, title.c_str());
-		return new CNotebook(nb);
-	}
-
-	void SetMenuBar(LuacObj<CMenuBar> mb)
-	{
-		SetFrameMenuBar(mb);
-	}
-
-	void ResetMenuBar()
-	{
-		SetFrameMenuBar({});
-	}
-
 	virtual void SetTitle(LString title) {};
 	virtual void AddPageWnd(wxWindow*, const wchar_t* title) = 0;
 	virtual void SetFrameMenuBar(wxMenuBar*) {}
@@ -542,9 +474,8 @@ public:
 	virtual void Accept() = 0;
 	virtual void Reject() = 0;
 
-	Lua_wrap_cpp_class(vmFrame, Lua_abstract, Lua_mf(AddPageWindow), Lua_mf(AddPageNotebook),
-		Lua_mf(SetTitle), Lua_mf(SetMenuBar), Lua_mf(ResetMenuBar),
-		Lua_mf(Accept), Lua_mf(Reject));
+	Lua_wrap_cpp_class(vmFrame, Lua_abstract, Lua_mf(AddPageWindow),
+		Lua_mf(SetTitle), Lua_mf(Accept), Lua_mf(Reject));
 protected:
 	wxWindow* m_self{};
 };

@@ -23,12 +23,15 @@ Lua_global_add_cfunc(GetTickCount)
 
 void Terminal::OnRequired(LuaState& lua, const char* requiredName)
 {
-	std::string ss = std::string("Resources/lua-program/") + requiredName;
-	_strlwr((char*)ss.c_str());
-	if (ss.rfind(".lua") == std::string::npos)
-		ss += ".lua";
+	std::string name = requiredName;
+	if (name.rfind(".lua") == std::string::npos)
+		name += ".lua";
 
+	std::string ss = std::string("Resources/lua-program/editor/") + name;
 	FileData fd(ss.c_str(), true);
+	if (!fd.IsLoaded())
+		ss = std::string("Resources/lua-program/") + name;
+	fd.Load(ss.c_str(), true);
 	assert(fd.IsLoaded());
 	lua.LoadRequired(requiredName, (char*)fd.GetData(), fd.GetSize());
 }
@@ -103,6 +106,10 @@ Lua_global_add_cpp_class(QQ)
 
 bool MyApp::OnInit()
 {
+	LString z(L"新建文件夹");
+	auto zs = z.lower_utf8();
+	LString zz(zs);
+
 	if (!wxApp::OnInit())
 		return false;
 
@@ -187,7 +194,7 @@ bool MyApp::OnInit()
 	GetCurrentDirectory(256, s);
 	//FileData fd("../../Resources/lua-program/..Test.lua", true);
 	//FileData fd("Resources/lua-program/utility.lua", true);
-	FileData fd("Resources/lua-program/editor.lua", true);
+	FileData fd("Resources/lua-program/editor/editor.lua", true);
 	assert(fd.IsLoaded());
 	Terminal::Lua().Run((char*)fd.GetData(), fd.GetSize());
 	fd.Release();

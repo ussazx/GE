@@ -37,7 +37,6 @@ public:
 		const wxString& caption,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize,
-		bool bShow = false,
 		const wxBitmap& bitmap = wxNullBitmap);
 
 	bool ShowPage(wxWindow* page);
@@ -48,13 +47,17 @@ public:
 	wxString SavePerspective();
 	bool LoadPerspective(const wxString& s);
 
-	wxWindow* m_topLevelWnd;
+	wxWindow* GetWindowFromIdx(size_t idx);
+
+	wxWindow* m_topLevelWnd{};
+	bool m_allowTabDragOut{};
+	bool m_desPageOnClose{};
+	int m_tabCloseBtnStyle = wxAUI_NB_CLOSE_ON_ALL_TABS;
 protected:
 	struct PageInfo
 	{
 		wxAuiNotebookPage info;
 		FloatableNotebook* nb;
-		FloatableNotebook* nbTop;
 	};
 	struct Root
 	{
@@ -77,7 +80,12 @@ protected:
 	void Init();
 
 	void AddPage(PageInfo& pi);
-	wxWindow* AddFloatPage(PageInfo& pi,
+	FloatPageFrame* AddFloatPage(PageInfo& pi,
+		const wxString& caption,
+		const wxPoint& pos = wxDefaultPosition,
+		const wxSize& size = wxDefaultSize);
+
+	FloatPageFrame* AddFloatPage(const wxString& caption,
 		const wxPoint& pos = wxDefaultPosition,
 		const wxSize& size = wxDefaultSize);
 
@@ -96,6 +104,7 @@ protected:
 	void OnMinimized(wxIconizeEvent& e);
 	void OnSize(wxSizeEvent& e);
 	void OnShow(wxShowEvent& e);
+	void OnPageDestroyed(wxWindowDestroyEvent& e);
 
 	wxString Save();
 	bool Load(const wxString& s);
@@ -132,12 +141,12 @@ public:
 
 	void OnNBTopReparent(FnbEvent& e);
 	void OnShow(wxShowEvent& e);
-	void OnParentDestory(wxWindowDestroyEvent& e);
-
-	wxAuiManager m_mgr;
+	void OnNBTopDestory(wxWindowDestroyEvent& e);
+	wxBoxSizer* m_sizer;
 	bool m_isClosed;
+	FloatableNotebook* m_nb;
 	FloatableNotebook* m_nbTop;
-
+	bool m_desOnClose{};
 protected:
 	void OnClose(wxCloseEvent& e);
 	wxWindow* m_focus;

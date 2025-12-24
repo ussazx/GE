@@ -70,12 +70,13 @@ public:
 	bool Acquire() override;
 	void Present() override;
 
-	void AddCmdSemaphore(VkSemaphore sema);
+	//void AddCmdSemaphore(VkSemaphore sema);
 
 	VkWin32SurfaceCreateInfoKHR m_sci{};
 	std::vector<VkImage> m_vImage;
 	std::vector<VkImageView> m_vImageView;
 	std::vector<VkSemaphore> m_vSemaphore;
+	std::vector<VkSemaphore> m_vPrstSema;
 	uint32_t m_imageIndex{};
 	uint32_t m_semaIndex{};
 	VkSwapchainKHR m_swapchain{};
@@ -83,8 +84,8 @@ public:
 	VkSwapchainCreateInfoKHR m_scci{};
 	VkImageViewCreateInfo m_vci{};
 
-	std::vector<VkSemaphore> m_cmdSemas;
-	uint32_t m_cmdCount = 0;
+	//std::vector<VkSemaphore> m_cmdSemas;
+	//uint32_t m_cmdCount = 0;
 	uint32_t m_cmdCap = 0;
 };
 
@@ -353,13 +354,13 @@ public:
 	bool m_executing{};
 	VkFence m_fence{};
 	VkCommandBuffer m_cmd{};
-	VkSemaphore m_completeSema;
 	std::vector<VkDescriptorSet> m_resources;
 	VKFrameBuffer* m_fb;
 	VkSubmitInfo m_si{};
 
 	std::unordered_set<VKSwapchain*> m_swapchains;
 	std::vector<VkSemaphore> m_scSemas;
+	std::vector<VkSemaphore> m_completeSemas;
 	std::vector<VkPipelineStageFlags> m_plStageFlags;
 
 	static VkImageMemoryBarrier m_imb[2];

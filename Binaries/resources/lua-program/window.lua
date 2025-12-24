@@ -10,6 +10,7 @@ Window.recycle = true
 
 function Window:ctor()
 	self.window = self
+	self.color:set(70, 70, 70, 255)
 	self:EnableActive(true)
 	self.time = 0
 	self.timers = ObjectArray()

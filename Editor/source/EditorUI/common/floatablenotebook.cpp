@@ -41,6 +41,7 @@ void FloatableNotebook::Init()
 	m_deletingTab = nullptr;
 	m_lastHintNB = nullptr;
 	m_bShowFullHint = false;
+	m_allowTabDragOut = true;
 
 	m_root->NBs.insert(this);
 	SetArtProvider(new wxAuiGenericTabArt);
@@ -49,7 +50,7 @@ void FloatableNotebook::Init()
 	m_topLevelWnd = nullptr;
 	BindTopLevelWnd(GetParent());
 
-	SetWindowStyleFlag(GetWindowStyleFlag() & ~wxAUI_NB_CLOSE_ON_ACTIVE_TAB);
+	SetWindowStyleFlag(GetWindowStyleFlag() & ~(wxAUI_NB_CLOSE_ON_ACTIVE_TAB | wxAUI_NB_MIDDLE_CLICK_CLOSE));
 }
 
 bool FloatableNotebook::Reparent(wxWindowBase* parent)
@@ -84,15 +85,19 @@ void FloatableNotebook::OnPageAdded(wxWindow* page)
 {
 	if (GetPageCount() > 1)
 		SetWindowStyleFlag(GetWindowStyleFlag() |
-			wxAUI_NB_CLOSE_ON_ALL_TABS);
+			m_tabCloseBtnStyle);
 	else
 		SetWindowStyleFlag(GetWindowStyleFlag() &
-			~wxAUI_NB_CLOSE_ON_ALL_TABS);
+			~m_tabCloseBtnStyle);
 }
 
 FloatableNotebook::~FloatableNotebook()
 {
+	wxWindowDestroyEvent e(this);
+	ProcessEvent(e);
 	m_root->NBs.erase(this);
+	for (size_t i = 0; i < GetPageCount(); i++)
+		m_root->pageInfos.erase(GetPage(i));
 }
 
 void FloatableNotebook::AddPage(wxWindow* page,
@@ -102,9 +107,8 @@ void FloatableNotebook::AddPage(wxWindow* page,
 {
 	wxAuiNotebook2::AddPage(page, caption, select, bitmap);
 	PageInfo& pi = m_root->pageInfos[page];
+	//page->Bind(wxEVT_DESTROY, &FloatableNotebook::OnPageDestroyed, m_root->rootNB);
 	pi.nb = this;
-	if (!pi.nbTop)
-		pi.nbTop = pi.nb;
 
 	wxAuiTabCtrl* tab;
 	int idx;
@@ -118,53 +122,47 @@ void FloatableNotebook::AddPage(PageInfo& pi)
 {
 	wxAuiNotebook2::AddPage(pi.info.window, pi.info.caption, pi.info.active, pi.info.bitmap);
 	pi.nb = this;
-	if (!pi.nbTop)
-		pi.nbTop = pi.nb;
 	OnPageAdded(pi.info.window);
+}
+
+void FloatableNotebook::OnPageDestroyed(wxWindowDestroyEvent& e)
+{
+	m_root->pageInfos.erase(e.GetWindow());
 }
 
 wxWindow* FloatableNotebook::AddFloatPage(wxWindow* page,
 	const wxString& caption,
 	const wxPoint& pos,
 	const wxSize& size,
-	bool bShow,
 	const wxBitmap& bitmap)
 {
 	PageInfo& pi = m_root->pageInfos[page];
-	if (pi.nbTop == nullptr)
-		pi.nbTop = this;
-	FloatPageFrame* pFrame = new FloatPageFrame(pi.nbTop->m_topLevelWnd, wxID_ANY, m_root->rootNB, caption, pos, size);
-	pi.nbTop->Bind(wxEVT_SHOW, &FloatPageFrame::OnShow, pFrame);
-	pi.nbTop->Bind(EVT_FLOATABLE_NOTEBOOK, &FloatPageFrame::OnNBTopReparent, pFrame);
-	pFrame->m_nbTop = pi.nbTop;
+	return AddFloatPage(pi, caption, pos, size);
+}
+
+FloatPageFrame* FloatableNotebook::AddFloatPage(const wxString& caption,
+	const wxPoint& pos, const wxSize& size)
+{
+	FloatPageFrame* pFrame = new FloatPageFrame(m_root->rootNB->m_topLevelWnd, wxID_ANY, m_root->rootNB, caption, pos, size);
+	pFrame->m_nbTop = m_root->rootNB;
+	m_root->rootNB->Bind(wxEVT_SHOW, &FloatPageFrame::OnShow, pFrame);
+	m_root->rootNB->Bind(EVT_FLOATABLE_NOTEBOOK, &FloatPageFrame::OnNBTopReparent, pFrame);
+	m_root->rootNB->Bind(wxEVT_DESTROY, &FloatPageFrame::OnNBTopDestory, pFrame);
+	pFrame->m_desOnClose = m_desPageOnClose;
 
 	FloatableNotebook* nb = new FloatableNotebook(pFrame, m_root, m_mgrCB->Clone());
-	nb->AddPage(page, caption, false, bitmap);
 	nb->m_frame = pFrame;
+	pFrame->m_nb = nb;
 
-	pFrame->m_mgr.AddPane(nb, wxAuiPaneInfo().CenterPane());
-	pFrame->m_mgr.Update();
-	if (bShow)
-		pFrame->Show();
+	pFrame->m_sizer->Add(nb, 1, wxEXPAND);
+	pFrame->Show();
 	return pFrame;
 }
 
-wxWindow* FloatableNotebook::AddFloatPage(PageInfo& pi, const wxPoint& pos, const wxSize& size)
+FloatPageFrame* FloatableNotebook::AddFloatPage(PageInfo& pi, const wxString& caption, const wxPoint& pos, const wxSize& size)
 {
-	if (pi.nbTop == nullptr)
-		pi.nbTop = this;
-	FloatPageFrame* pFrame = new FloatPageFrame(pi.nbTop->m_topLevelWnd, wxID_ANY, m_root->rootNB, pi.info.caption, pos, size);
-	pi.nbTop->Bind(wxEVT_SHOW, &FloatPageFrame::OnShow, pFrame);
-	pi.nbTop->Bind(EVT_FLOATABLE_NOTEBOOK, &FloatPageFrame::OnNBTopReparent, pFrame);
-	pFrame->m_nbTop = pi.nbTop;
-
-	FloatableNotebook* nb = new FloatableNotebook(pFrame, m_root, m_mgrCB->Clone());
-	nb->AddPage(pi);
-	nb->m_frame = pFrame;
-
-	pFrame->m_mgr.AddPane(nb, wxAuiPaneInfo().CenterPane());
-	pFrame->m_mgr.Update();
-	pFrame->Show();
+	FloatPageFrame* pFrame = AddFloatPage(caption, pos, size);
+	pFrame->m_nb->AddPage(pi);
 	return pFrame;
 }
 
@@ -183,7 +181,7 @@ bool FloatableNotebook::ShowPage(wxWindow* page)
 		tab->Refresh();
 	}
 	else
-		AddFloatPage(it->second, wxPoint(wxSCREEN_CENTER_WH(500, 300)), wxSize(500, 300));
+		AddFloatPage(it->second, m_root->rootNB->m_topLevelWnd->GetName(), wxPoint(wxSCREEN_CENTER_WH(500, 300)), wxSize(500, 300));
 
 	if (it->second.nb->m_frame)
 	{
@@ -232,12 +230,16 @@ bool FloatableNotebook::ClosePage(wxWindow* page, bool remove)
 			if (it->second.nb->GetPageCount() == 0 && it->second.nb->m_frame)
 				m_frame->Destroy();
 		}
+		if (it->second.nb->GetPageCount() < 2)
+			it->second.nb->SetWindowStyleFlag(GetWindowStyleFlag() & ~m_tabCloseBtnStyle);
 	}
 
-	if (remove)
+	if (remove || m_desPageOnClose)
 	{
 		page->Reparent(nullptr);
 		m_root->pageInfos.erase(it);
+		if (m_desPageOnClose)
+			page->Destroy();
 	}
 
 	return true;
@@ -258,17 +260,22 @@ void FloatableNotebook::OnPageClose(wxAuiNotebookEvent& evt)
 		if (FindTab(close_wnd, &tab, &idx))
 			pi.info = tab->GetPage(idx);
 
-		wxShowEvent e(close_wnd->GetId(), false);
-		ProcessEvent(e);
+		close_wnd->Hide();
 		
 		RemovePage(selection);
 		pi.nb = nullptr;
-		close_wnd->Reparent(m_root->rootNB);
+		if (m_desPageOnClose)
+		{
+			m_root->pageInfos.erase(close_wnd);
+			close_wnd->Destroy();
+		}
+		else
+			close_wnd->Reparent(m_root->rootNB);
 		UpdateHintWindowSize();
 
 		if (GetPageCount() < 2)
 			SetWindowStyleFlag(GetWindowStyleFlag() & 
-				~wxAUI_NB_CLOSE_ON_ALL_TABS);
+				~m_tabCloseBtnStyle);
 	}
 
 	evt.Veto();
@@ -406,8 +413,8 @@ void FloatableNotebook::OnLeftUp(wxMouseEvent& evt)
 	{
 		m_frame->Destroy();
 
-		if (nb && nb->m_frame)
-			nb->m_frame->SetFocus();
+		//if (nb && nb->m_frame)
+			//nb->m_frame->SetFocus();
 	}
 }
 
@@ -560,11 +567,11 @@ void FloatableNotebook::OnTabDragMotion(wxAuiNotebookEvent& evt)
 
 		wxSetCursor(wxCursor(wxCURSOR_SIZING));
 	}
-	else if (GetPageCount() > 1)
+	else if (GetPageCount() > 1 && m_allowTabDragOut)
 	{
 		PageInfo& pi = m_root->pageInfos[page];
 		pi.info = src_tabs->GetPage(evt.GetSelection());
-		AddFloatPage(pi, wxPoint(screen_pt.x - 20, screen_pt.y - 10), page->GetSize());
+		AddFloatPage(pi, m_root->rootNB->m_topLevelWnd->GetName(), wxPoint(screen_pt.x - 20, screen_pt.y - 10), page->GetSize());
 		
 		bool isShown = page->IsShown();
 		
@@ -575,7 +582,7 @@ void FloatableNotebook::OnTabDragMotion(wxAuiNotebookEvent& evt)
 
 		if (GetPageCount() < 2)
 			SetWindowStyleFlag(GetWindowStyleFlag() & 
-				~wxAUI_NB_CLOSE_ON_ALL_TABS);
+				~m_tabCloseBtnStyle);
 
 		//Show();
 		
@@ -593,10 +600,15 @@ void FloatableNotebook::OnTabDragMotion(wxAuiNotebookEvent& evt)
 	}
 }
 
+wxWindow* FloatableNotebook::GetWindowFromIdx(size_t idx)
+{
+	return m_tabs.GetWindowFromIdx(idx);
+}
+
 void FloatableNotebook::OnPageChanged(wxAuiNotebookEvent& evt)
 {
 	if (m_frame)
-		m_frame->SetLabel(GetPageText(GetActiveTabCtrl()->GetActivePage()));
+		m_frame->SetTitle(GetPageText(GetActiveTabCtrl()->GetActivePage()));
 }
 
 void FloatableNotebook::RemoveAllPages()
@@ -732,12 +744,8 @@ bool FloatableNotebook::LoadPerspective(const wxString& s)
 			part.BeforeFirst(wxT('|')).ToLong(&h);
 			part = part.AfterFirst(wxT('|'));
 
-			FloatPageFrame* pFrame = new FloatPageFrame(m_topLevelWnd, 
-				wxID_ANY, m_root->rootNB, caption, wxPoint(x, y), wxSize(w, h));
-			nb = new FloatableNotebook(pFrame, m_root, m_mgrCB->Clone());
-			nb->m_frame = pFrame;
-			pFrame->m_mgr.AddPane(nb, wxAuiPaneInfo().CenterPane());
-			pFrame->m_mgr.Update();
+			FloatPageFrame* pFrame = AddFloatPage(m_root->rootNB->m_topLevelWnd->GetName(), wxPoint(x, y), wxSize(w, h));
+			nb = pFrame->m_nb;
 			pFrame->Show(false);
 		}
 
@@ -746,7 +754,7 @@ bool FloatableNotebook::LoadPerspective(const wxString& s)
 		if (!nb->Load(part) && nb->m_frame)
 			nb->m_frame->Destroy();
 		else if (nb->m_frame)
-			nb->m_frame->Show(show);
+			nb->m_frame->Show(nb->m_frame->m_nbTop->IsShown());
 		
 		nb->Thaw();
 	}
@@ -909,7 +917,7 @@ EVT_LEFT_UP(FloatableNotebook::OnLeftUp)
 
 EVT_SET_FOCUS(FloatableNotebook::OnFocus)
 
-EVT_IDLE(FloatableNotebook::OnIdle)
+//EVT_IDLE(FloatableNotebook::OnIdle)
 
 EVT_AUINOTEBOOK_TAB_RIGHT_UP(wxID_ANY, FloatableNotebook::OnTabRightUp)
 
@@ -923,9 +931,9 @@ FloatPageFrame::FloatPageFrame(wxWindow *parent, wxWindowID id, wxWindow* focusW
 		wxFRAME_FLOAT_ON_PARENT | wxCLIP_CHILDREN)
 {
 	m_isClosed = true;
-	m_mgr.SetManagedWindow(this);
 	m_focus = focusWhenHide;
-	m_nbTop = {};
+	m_sizer = new wxBoxSizer(wxVERTICAL);
+	SetSizer(m_sizer);
 }
 
 bool FloatPageFrame::Show(bool show)
@@ -940,6 +948,8 @@ void FloatPageFrame::OnClose(wxCloseEvent& e)
 	Hide();
 	m_focus->SetFocus();
 	m_isClosed = true;
+	if (m_desOnClose)
+		Destroy();
 }
 
 void FloatPageFrame::OnNBTopReparent(FnbEvent& e)
@@ -947,6 +957,11 @@ void FloatPageFrame::OnNBTopReparent(FnbEvent& e)
 	wxWindow* top = e.nb->m_topLevelWnd;
 	if (top != GetParent())
 		Reparent(top);
+}
+
+void FloatPageFrame::OnNBTopDestory(wxWindowDestroyEvent& e)
+{
+	Destroy();
 }
 
 void FloatPageFrame::OnShow(wxShowEvent& e)
