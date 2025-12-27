@@ -523,10 +523,11 @@ end, mergeType = DC_SORTED_2, order = 1}
 
 ---Cube---
 local vb = CMBuffer(1)
+local nb = CMBuffer(1)
 local ub = CMBuffer(1)
 local cb = CMBuffer(1)
 local ib = CMBuffer(1)
-CAddCube(vb, 0, ub, 0, ib, 0)
+CAddCube(vb, 0, nb, 0, ub, 0, ib, 0)
 CMulAddUByte4(4, cb, APPEND, 255, 0, 0, 255)
 CMulAddUByte4(4, cb, APPEND, 0, 255, 0, 255)
 CMulAddUByte4(4, cb, APPEND, 0, 0, 255, 255)
@@ -545,6 +546,20 @@ geoInfo.ib = ib
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 36, g_mtl3dInst}
 g_cube = Geometry(geoInfo)
+
+---sphere---
+local vb = CMBuffer(1)
+local nb = CMBuffer(1)
+local ub = CMBuffer(1)
+local cb = CMBuffer(1)
+local ib = CMBuffer(1)
+local nv, ni = CAddSphere(vb, 0, nb, 0, ub, 0, ib, 0, 1, 30, 30)
+CMulAddUByte4(nv, cb, APPEND, 255, 150, 0, 255)
+geoInfo.vb = {vb, ub, cb}
+geoInfo.ib = ib
+geoInfo.meshes = {}
+geoInfo.meshes[1] = {0, ni, g_mtl3dInst}
+g_sphere = Geometry(geoInfo)
 
 ---plane3d---
 local vb = CMBuffer(1)

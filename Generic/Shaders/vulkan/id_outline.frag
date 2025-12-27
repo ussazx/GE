@@ -21,7 +21,7 @@ void main()
 		texture(idView, vec2(uv.x + d.x, uv.y + d.y)).x != id ||
 		texture(idView, vec2(uv.x + d.x, uv.y - d.y)).x != id ||
 		texture(idView, vec2(uv.x - d.x, uv.y + d.y)).x != id)
-		color = vec4(255, 255, 255, 150);
+		color = vec4(1, 1, 1, 1);
 	else
 		discard;
 }

@@ -2543,14 +2543,33 @@ function Scene3D:ctor(camera)
 	end
 	self.camera = camera
 	self.mProj = CMatrix()
+	self.fov = 45
+	self.near = 10000
+	self.far = 0.001
 	
 	self.res = ResourceHub(g_rlUB)
 	self.rb = self.res:BindResBuffer(0, CMatrix._size, CMatrix._size, CMatrix._size)
 end
 
+function Scene3D:SetPerspective(fov, far, near)
+	self.fov = fov or self.fov
+	self.far = far or self.far
+	self.near = near or self.near
+	self.changed = true
+end
+
+function Scene3D:ScreenToViewPos(x, y)
+	return CScreenToViewPos(x, y, self.fov, self.rect.w, self.rect.h)
+end
+
+function Scene3D:ScreenToViewVec(x, y)
+	return CScreenToViewVec(x, y, self.fov, self.rect.w, self.rect.h)
+end
+
 function Scene3D:Render()
-	if (self.sized) then
+	if (self.sized or self.changed) then
 		self.mProj:Perspective(45, self.rect.w, self.rect.h, 10000, 0.001)
+		self.changed = false
 	end
 	--CMatrixToViewMultiply(self.rb(), self.rb[1], self.camera.mRoot, self.mProj)
 	

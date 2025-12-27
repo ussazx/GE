@@ -7,6 +7,7 @@
 #define NOT_EQUAL(a, b) (fabs((a) - (b)) >= FLT_EPSILON)
 #define SAFE_DIVIDE(a, b, c) (IS_NOT_ZERO(b) ? ((a) / (b)) : c)
 #define M_PI 3.141592654f
+#define M_2PI 6.283185307f
 
 struct CMatrix;
 
@@ -709,6 +710,18 @@ inline std::tuple<float, float, float> CScreenToViewPos(float x, float y, float 
 	return { xw, yw, 1 };
 }
 Lua_global_add_cfunc(CScreenToViewPos)
+
+inline std::tuple<float, float, float> CScreenToViewVec(float x, float y, float fov, float width, float height)
+{
+	if (fov == 0 || width == 0 || height == 0)
+		return { 0, 0, 0 };
+	float t = tanf(fov * M_PI / 180.0f * 0.5f);
+	float aspect = width / height;
+	float xw = x * 2 / width * t * aspect;
+	float yw = -y * 2 / height * t;
+	return { xw, yw, 0 };
+}
+Lua_global_add_cfunc(CScreenToViewVec)
 
 inline std::tuple<float, float, float> CVec3Normalize(float x, float y, float z)
 {
