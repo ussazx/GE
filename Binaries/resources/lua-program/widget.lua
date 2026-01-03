@@ -779,7 +779,6 @@ function UiWidget:ctor(w, h)
 	self.crColor = Color()
 	self.color = Color(255, 255, 255, 255)
 	self.disColor = Color(150, 150, 150, 200)
-	self.renderDisables = {}
 	self.instArgs = {}
 	local pos = g_perObjInstance:AddObject(self)
 	self.instArgs[g_perObjInstance] = {pos.pos, 1}
@@ -2410,6 +2409,75 @@ function UiCombo:OnListSized(e, w, h)
 	end
 end
 
+UiImage = class(Widget2D)
+UiImage.mtl = {}
+UiImage.cached = true
+
+function UiImage:ctor(image, sampler, w, h, u0, v0, u1, v1)
+	if (image[Snapshot]) then
+		self.ss = image
+		image = image.image
+	end
+	sampler = sampler or g_sampler
+	local o = UiImage.mtl[sampler]
+	if (not o) then
+		o = setmetatable({}, {__mode = 'k'})
+		UiImage.mtl[sampler] = o
+	end
+	mtl = o[image]
+	if (not mtl) then
+		mtl = Material(g_mtlImage)
+		mtl.resImage = ResourceHub(g_rlCIS)
+		mtl.resImage:BindImageWithSampler(image, sampler, 0)
+		o[image] = mtl
+	end
+	self.instArgs = {}
+	local pos = g_perObjInstance:AddObject(self)
+	self.instArgs[g_perObjInstance] = {pos.pos, 1}
+	
+	self.renderer = Renderer(self, 1|2, self.FillVB)
+	self.renderer:SetMaterial(mtl)
+	self:SetSize(w or image:GetWidth(), h or image:GetHeight())
+	self.u0 = u0 or 0
+	self.v0 = v0 or 0
+	self.u1 = u1 or 1
+	self.v1 = v1 or 1
+end
+
+function UiImage:SetUV(u0, v0, u1, v1)
+	self.u0 = u0 or self.u0
+	self.v0 = v0 or self.v0
+	self.u1 = u1 or self.u1
+	self.v1 = v1 or self.v1
+	self.renderer.update = true
+end
+
+function UiImage:DoUpdate()
+	self.renderer.update = self.renderer.update or self.moved or self.sized
+	self.renderer:Render(self)
+end
+
+function UiImage:GetDrawcall(spId, mergeType, order)
+	local dcList = g_dcLists[spId]
+	if (self.window and self.ss) then
+		dcList:AddWaitCommand(Snapshot.cmd)
+		if (self.window ~= self.ssw) then
+			self.ssw = self.window
+			self.ss:bind_event(Snapshot.EVT, self.ssw, self.ssw.WaitCommand)
+		end
+	end
+	return dcList
+end
+
+function UiImage:FillVB(vbPos, wpPos, vbUV, wpUV, ib, iwp, ibStart)
+	CAddRectFloat3(vbPos, wpPos, self.location.x, self.location.y, self.rect.w, self.rect.h, Z_2D)
+	CMulAddFloat2(1, vbUV, wpUV, self.u0, self.v0)
+	CMulAddFloat2(1, vbUV, APPEND, self.u1, self.v0)
+	CMulAddFloat2(1, vbUV, APPEND, self.u1, self.v1)
+	CMulAddFloat2(1, vbUV, APPEND, self.u0, self.v1)
+	return 4, CAddConvexPolyIndex(4, ib, iwp, ibStart, 1)
+end
+
 -----UiLine-----
 UiLine = class(UiWidget)
 
@@ -2481,13 +2549,11 @@ function SceneWidget:DoUpdate(crCpu, crGpu)
 	
 	for spId, merged in pairs(self.dcLists) do
 		local dcList = g_dcLists[spId]
-		if (dcList) then
-			for _, orderred in merged:pairs() do
-				for order, list in orderred:pairs() do
-					list:CommitDrawcall()
-					dcList:AddSubList(list)
-					orderred[order] = nil
-				end
+		for _, orderred in merged:pairs() do
+			for order, list in orderred:pairs() do
+				list:CommitDrawcall()
+				dcList:AddSubList(list)
+				orderred[order] = nil
 			end
 		end
 	end
@@ -2537,11 +2603,10 @@ end
 -----Scene3D-----
 Scene3D = class(SceneWidget)
 
-function Scene3D:ctor(camera)
-	if (not camera) then
-		camera = Camera()
-	end
-	self.camera = camera
+function Scene3D:ctor(scene, camera)
+	self.scene = scene or ObjectScene()
+	self.camera = camera or Camera()
+	self.camera:Attach(self.scene)
 	self.mProj = CMatrix()
 	self.fov = 45
 	self.near = 10000

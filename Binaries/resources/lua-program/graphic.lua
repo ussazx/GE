@@ -113,10 +113,11 @@ function Renderer:Render(scene)
 	local iwp = g_input.idxCount * SIZE_INDEX
 	local n_idx = 0
 	local order = self.orders[mtl]
-	for spId, func in pairs(mtl.func) do
-		local o = order[spId]
-		local dcList = scene:GetDrawcall(spId, o[1], o[2])
-		if (not self.disables[spId] and dcList) then
+	for spId in pairs(g_dcLists) do
+		local func = mtl.func[spId]
+		if (not self.disables[spId] and func) then
+			local o = order[spId]
+			local dcList = scene:GetDrawcall(spId, o[1], o[2])
 			if (dcList.mtl ~= mtl) then
 				func.func(mtl, dcList)
 				dcList.mtl = mtl
@@ -141,10 +142,10 @@ function Renderer:RenderCached(scene)
 	local mtl = self.mtl
 	local draw = false
 	local order = self.orders[mtl]
-	for spId, func in pairs(mtl.func) do
-		local o = order[spId]
-		local dcList = scene:GetDrawcall(spId, o[1], o[2])
-		if (not self.disables[spId] and dcList) then
+	for spId in pairs(g_dcLists) do
+		local func = mtl.func[spId]
+		if (not self.disables[spId] and func) then
+			local dcList = scene:GetDrawcall(spId, o[1], o[2])
 			if (dcList.mtl ~= mtl) then
 				func.func(mtl, dcList)
 				dcList.mtl = mtl
@@ -331,6 +332,7 @@ function Command.NewRenderCmd()
 	cmd[1].main = cmd
 	
 	cmd.cmd = cmd[0]
+	cmd.cmd0 = cmd.cmd
 
 	for _, layout in pairs(g_vbLayouts) do
 		local wp = {idxAddOn = 0}
@@ -380,12 +382,17 @@ function RenderCommand:Reset()
 	return input
 end
 
+function RenderCommand:Wait()
+	self.cmd0:Wait()
+end
+
 function RenderCommand:Execute()
 	local cmd0 = self[self.cIdx]
 	self.cIdx = ~self.cIdx & 1
 	local cmd1 = self[self.cIdx]
 	cmd0:Execute()
 	cmd1:Wait()
+	self.cmd0 = cmd0
 	self.cmd = cmd1
 	self.rendered = true
 end
@@ -807,6 +814,12 @@ function DrawcallList:SetInstVB(vb, slot)
 	end
 end
 
+function DrawcallList:AddWaitCommand(cmd)
+	self:CommitDrawcall()
+	op = self:NewOP()
+	SetupOp(op, Command.AddWaitCommand, cmd.cmd0)
+end
+
 function DrawcallList:AddSubList(dcList)
 	self:CommitDrawcall()
 	self.rs = dcList.rs
@@ -877,13 +890,13 @@ end
 
 ---FramePipeline---
 FramePipeline = class()
+FramePipeline.subLists = {}
+FramePipeline.subListUsed = 0
 
 function FramePipeline:ctor()
 	self.cmdList = {}
 	self.dcLists = {}
 	self.surfaces = {}
-	self.subLists = {}
-	self.subListUsed = 0
 end
 
 function FramePipeline:NewSubList()

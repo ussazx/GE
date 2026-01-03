@@ -106,6 +106,16 @@ Lua_global_add_cpp_class(QQ)
 
 bool MyApp::OnInit()
 {
+	std::vector<int> aa;
+	auto ii = aa.capacity();
+	aa.push_back(1);
+	ii = aa.capacity();
+	aa.push_back(2);
+	ii = aa.capacity();
+	aa.reserve(1);
+	aa.clear();
+	ii = aa.capacity();
+
 	LString z(L"新建文件夹");
 	auto zs = z.lower_utf8();
 	LString zz(zs);

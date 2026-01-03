@@ -287,6 +287,7 @@ bool VKTexture::Resize(uint32_t w, uint32_t h)
 	}
 	if (vkCreateImageView(g->device, &m_vci, {}, &m_srv) != VK_SUCCESS)
 		return false;
+	uint32_t layerCount = m_vci.subresourceRange.layerCount;
 
 	if (m_ci.tiling == VK_IMAGE_TILING_OPTIMAL)
 	{
@@ -312,12 +313,28 @@ bool VKTexture::Resize(uint32_t w, uint32_t h)
 	for (auto i : m_holders)
 		i->OnImageResized(this);
 
+	m_vci.subresourceRange.baseArrayLayer = 0;
+	m_vci.subresourceRange.layerCount = layerCount;
+	g->cmd.ChangeImageLayout(*this, m_vci.subresourceRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	g->cmd.Execute();
+	g->cmd.Wait();
+
 	return true;
 }
 
 bool VKTexture::SetData(LuacObj<Engine::StreamInput> data)
 {
 	return true;
+}
+
+size_t VKTexture::GetWidth()
+{
+	return m_ci.extent.width;
+}
+
+size_t VKTexture::GetHeight()
+{
+	return m_ci.extent.height;
 }
 
 VKRenderPass::~VKRenderPass()
@@ -624,6 +641,7 @@ VkImageBlit VKCommand::m_blit;
 VKCommand::~VKCommand()
 {
 	vkDestroyFence(g->device, m_fence, {});
+	vkDestroyEvent(g->device, m_event, {});
 	//vkDestroySemaphore(g->device, m_completeSema, {});
 }
 
@@ -645,9 +663,10 @@ bool VKCommand::Init(bool secondary)
 		fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 		vkCreateFence(g->device, &fci, {}, &m_fence);
 
-		//VkSemaphoreCreateInfo sci{};
-		//sci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		//vkCreateSemaphore(g->device, &sci, {}, &m_completeSema);
+		VkEventCreateInfo eventCreateInfo = {};
+		eventCreateInfo.sType = VK_STRUCTURE_TYPE_EVENT_CREATE_INFO;
+		vkCreateEvent(g->device, &eventCreateInfo, nullptr, &m_event);
+		vkSetEvent(g->device, m_event);
 
 		VkCommandBufferBeginInfo cbbi{};
 		cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -687,19 +706,8 @@ void VKCommand::RenderBegin(LuacObj<FrameBuffer> fb, bool secondary)
 	VKSwapchain* sc = vfb->m_swapchain;
 	if (sc && m_swapchains.find(sc) == m_swapchains.end())
 	{
+		m_needPresent = true;
 		m_swapchains.insert(sc);
-		if (m_si.waitSemaphoreCount++ >= m_scSemas.size())
-		{
-			m_scSemas.resize(m_si.waitSemaphoreCount);
-			m_plStageFlags.resize(m_si.waitSemaphoreCount, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-			m_si.pWaitSemaphores = m_scSemas.data();
-			m_si.pWaitDstStageMask = m_plStageFlags.data();
-
-			m_completeSemas.resize(m_si.waitSemaphoreCount);
-			m_si.pSignalSemaphores = m_completeSemas.data();
-		}
-		m_si.signalSemaphoreCount = m_si.waitSemaphoreCount;
 	}
 
 	VkRenderPassBeginInfo rpbi{};
@@ -961,27 +969,68 @@ void VKCommand::BlitImage(LuacObj<Texture> src, int src_base_layer, int src_x, i
 	vkCmdPipelineBarrier(m_cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT|VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 2, m_imb);
 }
 
+void VKCommand::AddWaitCommand(LuacObj<Command> command)
+{
+	vkCmdWaitEvents(m_cmd, 1, &((VKCommand*)command)->m_event,
+		VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, {},
+		0, {},
+		0, {});
+	//m_waitSemas.push_back(((VKCommand*)command)->m_sema);
+	//m_plStageFlags.push_back(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+}
+
+void VKCommand::ChangeImageLayout(VKTexture& texture, const VkImageSubresourceRange& isr, VkImageLayout oldLayout, VkImageLayout newLayout)
+{
+	VkImageMemoryBarrier imb{};
+	imb.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imb.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imb.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imb.oldLayout = oldLayout;
+	imb.newLayout = newLayout;
+	imb.image = texture.m_vci.image;
+	imb.subresourceRange = isr;
+	vkCmdPipelineBarrier(m_cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+		0, 0, NULL, 0, NULL, 1, &imb);
+}
+
 void VKCommand::Execute()
 {
+	vkCmdSetEvent(m_cmd, m_event, VK_PIPELINE_STAGE_TRANSFER_BIT|VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
 	vkEndCommandBuffer(m_cmd);
+	vkResetEvent(g->device, m_event);
+
 	m_executing = true;
 
-	if (m_si.waitSemaphoreCount == 0)
-		vkQueueSubmit(g->queueG, 1, &m_si, m_fence);
-	else
+	if (m_needPresent)
 	{
-		size_t i = 0;
+		size_t n1 = m_waitSemas.size();
+		size_t n2 = m_completeSemas.size();
+		m_waitSemas.resize(n1 + m_swapchains.size());
+		m_plStageFlags.resize(n1 + m_swapchains.size(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		m_completeSemas.resize(n2 + m_swapchains.size());
 		for (auto j : m_swapchains)
 		{
-			m_scSemas[i] = j->m_vSemaphore[j->m_semaIndex];
-			m_completeSemas[i++] = j->m_vPrstSema[j->m_imageIndex];
+			m_waitSemas[n1++] = j->m_vSemaphore[j->m_semaIndex];
+			m_completeSemas[n2++] = j->m_vPrstSema[j->m_imageIndex];
 			//j->AddCmdSemaphore(m_completeSema);
 		}
-		vkQueueSubmit(g->queueG, 1, &m_si, m_fence);
 	}
+
+	m_si.pWaitSemaphores = m_waitSemas.data();
+	m_si.waitSemaphoreCount = m_waitSemas.size();
+	m_si.pWaitDstStageMask = m_plStageFlags.data();
+	m_si.pSignalSemaphores = m_completeSemas.data();
+	m_si.signalSemaphoreCount = m_completeSemas.size();
+	vkQueueSubmit(g->queueG, 1, &m_si, m_fence);
+
 	m_swapchains.clear();
-	m_si.waitSemaphoreCount = 0;
-	m_si.signalSemaphoreCount = 0;
+	m_waitSemas.clear();
+	m_plStageFlags.clear();
+	m_completeSemas.clear();
+
+	//m_completeSemas.push_back(m_sema);
 }
 
 #ifdef WIN32
@@ -1050,7 +1099,7 @@ bool VKGraphic::Init(HINSTANCE hinst)
 		return false;
 	
 	hInst = hinst;
-	return CreateInstance() && GetGPU() && CreateDevice() && GetSupportedSufaceFormats();
+	return CreateInstance() && GetGPU() && CreateDevice() && GetSupportedSufaceFormats() && cmd.Init(false);
 }
 #endif
 

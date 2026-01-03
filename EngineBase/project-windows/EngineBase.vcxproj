@@ -26,6 +26,7 @@
     <ClCompile Include="..\source\Graphic\GraphicVulkan.cpp" />
     <ClCompile Include="..\source\Graphic\ParamVulkan.cpp" />
     <ClCompile Include="..\source\Resource\Font.cpp" />
+    <ClCompile Include="..\source\Resource\Image.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\EngineBase.h" />
@@ -98,7 +99,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>..\include;..\..\ThirdParty\lua-5.4.1\src;..\..\ThirdParty\vulkan\1.4.335.0\Include;..\..\ThirdParty\vulkan\source;..\..\ThirdParty\freetype-2.12.1\include;..\..\;$(IncludePath)</IncludePath>
+    <IncludePath>..\include;..\..\ThirdParty\lua-5.4.1\src;..\..\ThirdParty\vulkan\1.4.335.0\Include;..\..\ThirdParty\vulkan\source;..\..\ThirdParty\freetype-2.12.1\include;..\..\ThirdParty;..\..\;$(IncludePath)</IncludePath>
     <OutDir>$(SolutionDir)Binaries\output-windows\$(Platform)\$(Configuration)\</OutDir>
     <LibraryPath>$(SolutionDir)Binaries\output-windows\$(Platform)\$(Configuration)\;..\..\ThirdParty\freetype-2.12.1\lib\$(Platform)\$(Configuration)\;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
@@ -138,7 +139,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>lua.lib;freetype.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>lua.lib;freetype.lib;png.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

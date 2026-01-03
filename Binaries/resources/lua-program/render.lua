@@ -343,3 +343,44 @@ function Model:Reschedule()
 		mtl1 = mtl2
 	end
 end
+
+---Snapshot---
+Snapshot = class(Object)
+Snapshot.EVT = EVT.new()
+
+function Snapshot:ctor(w, h)
+	Snapshot.cmd = Snapshot.cmd or Command.NewRenderCmd()
+	self.image = cGI:NewTargetView(cGI.IMAGE_TYPE_2D, cGI.FORMAT_R8G8B8A8_UNORM, cGI.SAMPLE_COUNT_1_BIT, w, h)
+	self.dsv = cGI:NewDepthStencilView(cGI.SAMPLE_COUNT_1_BIT, w, h)
+	
+	cParamFrameBuffer:Reset()
+	cParamFrameBuffer:AddView(self.image, 0)
+	cParamFrameBuffer:AddView(self.dsv, 0)
+	self.fb = cGI:NewFrameBuffer(g_rpPv, cParamFrameBuffer, w, h)
+	self.fb:ClearViewFloat4(0, 1, 1, 1, 1)
+	self.fb:ClearDepthStencil(1, 0, 0)
+	self.fb.rp = g_rpPv
+	
+	self.sg = SizeGroup(w, h)
+	self.sg:add_rtv(self.image)
+	self.sg:add_rtv(self.dsv)
+	self.sg:add_fb(self.fb)
+	
+	self.fp = FramePipeline()
+	self.fp:AddFrameOutput(self.fb)
+	self.fp:Bake()
+end
+
+function Snapshot:Resize(w, h)
+	Snapshot.cmd:Wait()
+	self.sg:resize(w, h)
+end
+
+function Snapshot:Render(scene)
+	local cmd = Snapshot.cmd
+	self.fp:SetSurface(scene, g_rpPv[1])
+	self.fp:UpdateSurface(cmd:Reset())
+	self.fp:FillCommand(cmd)
+	self:process_event(Snapshot.EVT)
+	cmd:Execute()
+end

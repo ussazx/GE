@@ -11,6 +11,10 @@ public:
 
 	virtual bool SetData(LuacObj<Engine::StreamInput> stream) = 0;
 
+	virtual size_t GetWidth() = 0;
+
+	virtual size_t GetHeight() = 0;
+
 	virtual bool Resize(uint32_t w, uint32_t h) = 0;
 
 	virtual void* GetData() = 0;
@@ -19,7 +23,7 @@ public:
 
 	virtual uint32_t GetRows() = 0;
 
-	Lua_wrap_cpp_class(Texture, Lua_abstract, Lua_mf(Resize), Lua_mf(SetData));
+	Lua_wrap_cpp_class(Texture, Lua_abstract, Lua_mf(Resize), Lua_mf(SetData), Lua_mf(GetWidth), Lua_mf(GetHeight));
 };
 Lua_global_add_cpp_class(Texture)
 
@@ -159,6 +163,8 @@ public:
 
 	virtual void Wait() = 0;
 
+	virtual void AddWaitCommand(LuacObj<Command> command) = 0;
+
 	virtual void RenderBegin(LuacObj<FrameBuffer> fb, bool secondary) = 0;
 
 	virtual void NextSubpass(bool secondary) = 0;
@@ -203,6 +209,7 @@ public:
 
 	Lua_wrap_cpp_class(Command, Lua_abstract, 
 		Lua_mf(Wait), 
+		Lua_mf(AddWaitCommand),
 		Lua_mf(RenderBegin),
 		Lua_mf(RenderEnd),
 		Lua_mf(NextSubpass), 

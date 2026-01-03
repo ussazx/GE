@@ -16,6 +16,9 @@
       <Filter>Resource</Filter>
     </ClCompile>
     <ClCompile Include="..\source\Geometry.cpp" />
+    <ClCompile Include="..\source\Resource\Image.cpp">
+      <Filter>Resource</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\source\Functional.h" />

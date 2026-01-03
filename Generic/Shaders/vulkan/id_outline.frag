@@ -13,14 +13,14 @@ void main()
 	vec2 d = 2.0f / textureSize(idView, 0);
 	
 	if (uv.x - d.x <= 0 || uv.x + d.x >= 1 ||  uv.y - d.y <= 0 || uv.y + d.y >= 1 ||
-		texture(idView, vec2(uv.x - d.x, uv.y)).x != id ||
-		texture(idView, vec2(uv.x + d.x, uv.y)).x != id ||
-		texture(idView, vec2(uv.x, uv.y - d.y)).x != id ||
-		texture(idView, vec2(uv.x, uv.y + d.y)).x != id ||
-		texture(idView, vec2(uv.x - d.x, uv.y - d.y)).x != id ||
-		texture(idView, vec2(uv.x + d.x, uv.y + d.y)).x != id ||
-		texture(idView, vec2(uv.x + d.x, uv.y - d.y)).x != id ||
-		texture(idView, vec2(uv.x - d.x, uv.y + d.y)).x != id)
+		texture(idView, vec2(uv.x - d.x, uv.y)).x == 0 ||
+		texture(idView, vec2(uv.x + d.x, uv.y)).x == 0 ||
+		texture(idView, vec2(uv.x, uv.y - d.y)).x == 0 ||
+		texture(idView, vec2(uv.x, uv.y + d.y)).x == 0 ||
+		texture(idView, vec2(uv.x - d.x, uv.y - d.y)).x == 0 ||
+		texture(idView, vec2(uv.x + d.x, uv.y + d.y)).x == 0 ||
+		texture(idView, vec2(uv.x + d.x, uv.y - d.y)).x == 0 ||
+		texture(idView, vec2(uv.x - d.x, uv.y + d.y)).x == 0)
 		color = vec4(1, 1, 1, 1);
 	else
 		discard;

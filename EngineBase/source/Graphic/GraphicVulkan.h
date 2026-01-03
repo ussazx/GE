@@ -28,6 +28,10 @@ public:
 
 	bool SetData(LuacObj<Engine::StreamInput> stream) override;
 
+	size_t GetWidth() override;
+
+	size_t GetHeight() override;
+
 	bool Resize(uint32_t w, uint32_t h) override;
 
 	void* GetData() override { return m_data; }
@@ -308,6 +312,8 @@ public:
 
 	void Wait() override;
 
+	void AddWaitCommand(LuacObj<Command> command) override;
+
 	void RenderBegin(LuacObj<FrameBuffer> fb, bool secondary) override;
 
 	void NextSubpass(bool secondary) override;
@@ -349,17 +355,23 @@ public:
 	void BlitImage(LuacObj<Texture> src, int src_base_layer, int src_x, int src_y, int src_w, int src_h,
 		LuacObj<Texture> dst, int dst_base_layer, int dst_x, int dst_y, int dst_w, int dst_h, int num_layers, uint32_t filter) override;
 
+	void ChangeImageLayout(VKTexture& texture, const VkImageSubresourceRange& isr, VkImageLayout oldLayout, VkImageLayout newLayout);
+
 	void Execute() override;
 
 	bool m_executing{};
+	bool m_needPresent{};
 	VkFence m_fence{};
 	VkCommandBuffer m_cmd{};
 	std::vector<VkDescriptorSet> m_resources;
 	VKFrameBuffer* m_fb;
 	VkSubmitInfo m_si{};
 
+	//VkSemaphore m_sema;
+	VkEvent m_event{};
+
 	std::unordered_set<VKSwapchain*> m_swapchains;
-	std::vector<VkSemaphore> m_scSemas;
+	std::vector<VkSemaphore> m_waitSemas;
 	std::vector<VkSemaphore> m_completeSemas;
 	std::vector<VkPipelineStageFlags> m_plStageFlags;
 
@@ -498,6 +510,8 @@ public:
 	HINSTANCE hInst{};
 #endif
 	std::unordered_map<std::string, uint32_t> defines;
+
+	VKCommand cmd;
 
 private:
 	bool CreateInstance();

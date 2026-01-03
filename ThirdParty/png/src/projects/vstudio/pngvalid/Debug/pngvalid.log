@@ -1,0 +1,4 @@
+﻿  pngvalid.c
+c:\users\asus\desktop\vs\vulkandemo\imagelib\lpng1637\contrib\libtests\pngvalid.c(53): error C2220: 警告被视为错误 - 没有生成“object”文件
+c:\users\asus\desktop\vs\vulkandemo\imagelib\lpng1637\contrib\libtests\pngvalid.c(53): warning C4464: 相对包含路径包括 ".."
+c:\users\asus\desktop\vs\vulkandemo\imagelib\lpng1637\contrib\libtests\pngvalid.c(59): fatal error C1083: 无法打开包括文件: “zlib.h”: No such file or directory

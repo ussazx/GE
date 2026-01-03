@@ -3,6 +3,9 @@ cd /d %~dp0
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\ui.psc ui.frag
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\ui_id.vsc ui_id.vert
 
+..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\image.vsc image.vert
+..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\image.psc image.frag
+
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\object3d.vsc object3d.vert
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\object3d.psc object3d.frag
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\object3d_id.vsc object3d_id.vert

@@ -32,7 +32,7 @@ function Window:ctor()
 end
 
 function Window:dtor()
-	if (Window.recycle) then
+	if (self.recycle) then
 		RenderCommand.Recycle(self.cmd)
 	end
 end
@@ -130,7 +130,7 @@ end
 	-- if (not self.screenShotView) then
 		-- local w, h = self.rect.w, self.rect.h
 		-- self.screenShotView = cGI:NewTexture(cGI.IMAGE_TYPE_2D, cGI.FORMAT_PRESENT, w, h)
--- end		
+-- end
 
 function Window:init(hwnd, w, h)
 	self.rect:set(0, 0, w, h)
@@ -273,6 +273,10 @@ function Window:render()
 	self.cmd:Execute()
 	
 	self.swapchain:Present()
+end
+
+function Window:WaitCommand()
+	self.cmd:Wait()
 end
 
 function Window:CaptureMouse(w)

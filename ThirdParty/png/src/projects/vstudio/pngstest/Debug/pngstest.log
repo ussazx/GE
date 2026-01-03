@@ -1,0 +1,4 @@
+﻿  pngstest.c
+c:\users\asus\desktop\vs\vulkandemo\imagelib\lpng1637\contrib\libtests\pngstest.c(34): error C2220: 警告被视为错误 - 没有生成“object”文件
+c:\users\asus\desktop\vs\vulkandemo\imagelib\lpng1637\contrib\libtests\pngstest.c(34): warning C4464: 相对包含路径包括 ".."
+c:\users\asus\desktop\vs\vulkandemo\imagelib\lpng1637\contrib\libtests\pngstest.c(47): warning C4464: 相对包含路径包括 ".."

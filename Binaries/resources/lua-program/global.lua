@@ -171,6 +171,11 @@ ui_ps = cGI:NewShaderModule(f)
 f:Open('Resources/shaders/'..cGI:Type()..'/ui_id.vsc', true)
 ui_id_vs = cGI:NewShaderModule(f)
 
+f:Open('Resources/shaders/'..cGI:Type()..'/image.vsc', true)
+image_vs = cGI:NewShaderModule(f)
+f:Open('Resources/shaders/'..cGI:Type()..'/image.psc', true)
+image_ps = cGI:NewShaderModule(f)
+
 f:Open('Resources/shaders/'..cGI:Type()..'/object3d.vsc', true)
 object3d_vs = cGI:NewShaderModule(f)
 f:Open('Resources/shaders/'..cGI:Type()..'/object3dInst.vsc', true)
@@ -199,6 +204,9 @@ id_ps = cGI:NewShaderModule(f)
 f:Open('Resources/shaders/'..cGI:Type()..'/id_outline.psc', true)
 id_outline_ps = cGI:NewShaderModule(f)
 
+f:Open('Resources/1.png', true)
+g_image1 = CLoadImagePng(f)
+
 --pass
 cParamRenderPass:Reset(true, false)
 cParamRenderPass:AddViewDesc(cGI.FORMAT_PICK_ID, cGI.SAMPLE_COUNT_1_BIT, false, true, false, false)
@@ -224,6 +232,15 @@ cParamRenderPass:Reset(true, true)
 cParamRenderPass:AddSwapchainOutput(0, false, 0)
 g_rp1 = cGI:NewRenderPass(cParamRenderPass)
 g_rp1[1] = SubpassId(g_rp1, 1)
+
+---preview pass---
+cParamRenderPass:Reset(false, false)
+cParamRenderPass:AddViewDesc(cGI.FORMAT_R8G8B8A8_UNORM, cGI.SAMPLE_COUNT_1_BIT, false, true, false, false)
+cParamRenderPass:AddViewDesc(cGI.FORMAT_D24_UNORM_S8_UINT, cGI.SAMPLE_COUNT_1_BIT, false, false, false, false)
+cParamRenderPass:AddViewOutput(0, 0, false, 0)
+cParamRenderPass:SetDepthStencilOutput(1, 0)
+g_rpPv = cGI:NewRenderPass(cParamRenderPass)
+g_rpPv[1] = SubpassId(g_rpPv, 1)
 
 --resource layout
 cParamResourceLayout:Reset()
@@ -259,6 +276,14 @@ cParamSampler:SetAddressMode(cGI.SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
 	false)
 g_idSampler = cGI:NewSampler(cParamSampler)
 
+cParamSampler:Reset()
+cParamSampler:SetFilterMode(cGI.FILTER_LINEAR, cGI.FILTER_LINEAR)
+cParamSampler:SetAddressMode(cGI.SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER, 
+	cGI.SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER, 
+	cGI.SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER,
+	false)
+g_sampler = cGI:NewSampler(cParamSampler)
+
 --ui pipeline
 cParamPipeline:Reset()
 cParamPipeline:AddResourceLayout(g_rlUB)
@@ -273,8 +298,8 @@ cParamPipeline:AddVertexElement(2, 2, cGI.FORMAT_R8G8B8A8_UNORM, SIZE_UINT1)
 g_plUi = cGI:NewPipeline(g_rp0, 0, 1, ui_vs, 'main', ui_ps, 'main', cParamPipeline)
 
 --ui3d pipeline
-cParamPipeline:AddResourceLayout(g_rlUB)
-cParamPipeline:AddResourceLayout(g_rlUB)
+--cParamPipeline:AddResourceLayout(g_rlUB)
+--cParamPipeline:AddResourceLayout(g_rlUB)
 --g_plui3d = cGI:NewPipeline(g_rp0, 0, 1, ui3d_vs, 'main', ui_ps, 'main', cParamPipeline)
 
 cParamPipeline:Reset()
@@ -286,7 +311,28 @@ cParamPipeline:AddVertexElement(3, 1, cGI.FORMAT_WRITE_ID, SIZE_WRITE_ID)
 cParamPipeline:SetVertexInputRate(3, true)
 g_plId2D = cGI:NewPipeline(g_rp0, 1, 1, ui_id_vs, 'main', id_ps, 'main', cParamPipeline)
 
---ui materal
+--ui image pipeline
+cParamPipeline:Reset()
+cParamPipeline:AddResourceLayout(g_rlUB)
+cParamPipeline:AddResourceLayout(g_rlCIS)
+cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_NONE, true, false, false, false)
+cParamPipeline:SetDethStencilStates(false, false, true, cGI.COMPARE_OP_GREATER_OR_EQUAL, false)
+cParamPipeline:SetBlendState(0, true)
+cParamPipeline:SetBsColorBlendOp(0, cGI.BLEND_FACTOR_SRC_ALPHA, cGI.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, cGI.BLEND_OP_ADD)
+cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
+cParamPipeline:AddVertexElement(1, 1, cGI.FORMAT_R32G32_SFLOAT, SIZE_FLOAT2)
+g_plImage = cGI:NewPipeline(g_rp0, 0, 1, image_vs, 'main', image_ps, 'main', cParamPipeline)
+
+cParamPipeline:Reset()
+cParamPipeline:AddResourceLayout(g_rlUB)
+cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_NONE, true, false, false, false)
+cParamPipeline:SetDethStencilStates(false, false, true, cGI.COMPARE_OP_GREATER_OR_EQUAL, false)
+cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
+cParamPipeline:AddVertexElement(2, 1, cGI.FORMAT_WRITE_ID, SIZE_WRITE_ID)
+cParamPipeline:SetVertexInputRate(2, true)
+g_plIdImage = cGI:NewPipeline(g_rp0, 1, 1, ui_id_vs, 'main', id_ps, 'main', cParamPipeline)
+
+--ui material
 g_mtlUi = {inst = g_perObjInstance}
 g_mtlUi.resFont = uiFont.res
 
@@ -304,6 +350,23 @@ g_mtlUi.func[g_rp0[2]] = {func = function(mtl, dcList)
 	dcList:AddResourceSet(g_resWnd)
 	dcList:SetPipeline(g_plId2D, g_mtlUi.vbLayout, 0)
 	dcList:SetInstVB(g_perObjInstance.vbId, 3)
+end, mergeType = DC_DEFAULT}
+
+--image material
+g_mtlImage = {inst = g_perObjInstance}
+g_mtlImage.vbLayout = NewVBLayout(1|2, false, SIZE_FLOAT3, SIZE_FLOAT2)
+g_mtlImage.func = {}
+
+g_mtlImage.func[g_rp0[1]] = {func = function(mtl, dcList)
+	dcList:AddResourceSet(g_resWnd)
+	dcList:AddResourceSet(mtl.resImage)
+	dcList:SetPipeline(g_plImage, g_mtlImage.vbLayout, 0)
+end, mergeType = DC_DEFAULT}
+
+g_mtlImage.func[g_rp0[2]] = {func = function(mtl, dcList)
+	dcList:AddResourceSet(g_resWnd)
+	dcList:SetPipeline(g_plIdImage, g_mtlImage.vbLayout, 0)
+	dcList:SetInstVB(g_perObjInstance.vbId, 2)
 end, mergeType = DC_DEFAULT}
 
 --ui3d material
@@ -342,6 +405,7 @@ cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POL
 cParamPipeline:SetDethStencilStates(true, false, true, cGI.COMPARE_OP_GREATER_OR_EQUAL, false)
 cParamPipeline:SetBlendState(0, true)
 cParamPipeline:SetBsColorBlendOp(0, cGI.BLEND_FACTOR_SRC_ALPHA, cGI.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, cGI.BLEND_OP_ADD)
+cParamPipeline:SetBsAlphaBlendOp(0, cGI.BLEND_FACTOR_SRC_ALPHA, cGI.BLEND_FACTOR_DST_ALPHA, cGI.BLEND_OP_MAX)
 cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
 cParamPipeline:AddVertexElement(1, 1, cGI.FORMAT_R32G32_SFLOAT, SIZE_FLOAT2)
 cParamPipeline:AddVertexElement(2, 2, cGI.FORMAT_R8G8B8A8_UNORM, SIZE_UINT1)
@@ -353,6 +417,7 @@ cParamPipeline:AddVertexElement(3, 5, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT
 cParamPipeline:AddVertexElement(3, 6, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
 cParamPipeline:SetVertexInputRate(3, true)
 g_pl3dInst = cGI:NewPipeline(g_rp0, 0, 1, object3dInst_vs, 'main', object3d_ps, 'main', cParamPipeline)
+g_pl3dPvInst = cGI:NewPipeline(g_rpPv, 0, 1, object3dInst_vs, 'main', object3d_ps, 'main', cParamPipeline)
 
 cParamPipeline:Reset()
 cParamPipeline:AddResourceLayout(g_rlUB)
@@ -470,6 +535,12 @@ g_mtl3dInst.func[g_rp1[1]] = {func = function(mtl, dcList)
 	dcList:SetInstVB(g_perObjInstance.vbMtx, 4)
 end, mergeType = DC_MTL_MERGED, order = g_mtl3dInst}
 
+g_mtl3dInst.func[g_rpPv[1]] = {func = function(mtl, dcList)
+	dcList:AddResourceSet(g_resCamera)
+	dcList:SetPipeline(g_pl3dPvInst, g_mtl3dInst.vbLayout, 0)
+	dcList:SetInstVB(g_perObjInstance.vbMtx, 3)
+end, mergeType = DC_MTL_MERGED, order = g_mtl3dInst}
+
 --coord3d material
 g_mtlCoord3d = {inst = g_perObjInst1}
 g_mtlCoord3d.vbLayout = NewVBLayout(1, false, SIZE_FLOAT3)
@@ -554,7 +625,7 @@ local ub = CMBuffer(1)
 local cb = CMBuffer(1)
 local ib = CMBuffer(1)
 local nv, ni = CAddSphere(vb, 0, nb, 0, ub, 0, ib, 0, 1, 30, 30)
-CMulAddUByte4(nv, cb, APPEND, 255, 150, 0, 255)
+CMulAddUByte4(nv, cb, 0, 255, 150, 0, 255)
 geoInfo.vb = {vb, ub, cb}
 geoInfo.ib = ib
 geoInfo.meshes = {}
