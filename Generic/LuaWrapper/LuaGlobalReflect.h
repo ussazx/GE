@@ -1,3 +1,8 @@
+//***************************************************************************************
+// Effects.h by ussa (C) 2026 All Rights Reserved.
+// Licensed under the MIT License.
+//***************************************************************************************
+
 #pragma once
 #include "LuaWrapper.h"
 #include <unordered_map>
@@ -20,7 +25,7 @@ struct LuaCppClassReg
 	void(*setClassTable)(const LuaState&, const lua_Idx&);
 };
 
-inline int LuaRegGlobalReflected(LuaState* lua, const luaL_Reg& funcReg = {}, const char* className = {}, const LuaCppClassReg& classReg = {})
+inline int LuaRegGlobalReflected(lua_State* lua, const luaL_Reg& funcReg = {}, const char* className = {}, const LuaCppClassReg& classReg = {})
 {
 	static std::unordered_map<const char*, lua_CFunction> luaCFunc;
 	static std::unordered_map<const char*, LuaCppClassReg> luaCppClass;
@@ -32,11 +37,12 @@ inline int LuaRegGlobalReflected(LuaState* lua, const luaL_Reg& funcReg = {}, co
 
 	if (lua)
 	{
+		LuaState Lua(lua);
 		for (auto it = luaCFunc.begin(); it != luaCFunc.end(); it++)
-			lua->SetValue(it->first, it->second);
+			Lua.SetValue(it->first, it->second);
 		
 		for (auto it = luaCppClass.begin(); it != luaCppClass.end(); it++)
-			LuaRegisterCppClass(*lua, it->first, it->second.baseClass, it->second.size, 
+			LuaRegisterCppClass(Lua, it->first, it->second.baseClass, it->second.size,
 				it->second.objectCtor, it->second.objectDtor, it->second.id, it->second.setClassTable);
 	}
 	return 0;

@@ -418,6 +418,14 @@ void FloatableNotebook::OnLeftUp(wxMouseEvent& evt)
 	}
 }
 
+void FloatableNotebook::SetPageTitle(wxWindow* page, const wxString& caption)
+{
+	auto it = m_root->pageInfos.find(page);
+	if (it == m_root->pageInfos.end())
+		return;
+	it->second.nb->SetPageText(it->second.nb->GetPageIndex(page), caption);
+}
+
 void FloatableNotebook::OnMotion(wxMouseEvent& evt)
 {
 	if (GetCapture() != this)

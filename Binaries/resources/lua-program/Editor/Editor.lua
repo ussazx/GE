@@ -1,20 +1,18 @@
 ---Editor---
 require 'PanelSet'
 require 'ScenePanelSet'
+require 'GeomPanelSet'
 
 local savedList = {}
 local savedListPath
-local scenePanelSet = {panels = {}}
 
 local fileList = {}
+local projModified = {}
 
-function WindowRecord(w, redo, o)
-	if (redo) then
-		w:AddChild(o)
-	else
-		w:RemoveChild(o)
-	end
-end
+local scenePanelSet
+local panelSets = {}
+local collect
+
 
 function LoadContent(path)
 	-- local o = LoadLuaFile(path, isBin)
@@ -96,9 +94,9 @@ function LoadProjWindow:ctor()
 	--self:AddChild(z, 100, 100)
 	--self:AddChild(UiPolyIcon(g_iconLNavi), 100, 100)
 	--self:AddChild(UiPolyIcon(g_iconRNavi), 100 + 30, 100)
-	local ssm = MtlSnapshot(100, 100)
-	self:AddChild(UiImage(ssm.view))
-	if (1) then return end
+	--local ssm = MtlSnapshot(100, 100)
+	--self:AddChild(UiImage(ssm.view))
+	--if (1) then return end
 	
 	local vLayout = VBoxLayout()
 	self:AddChild(vLayout)
@@ -161,7 +159,8 @@ function LoadProjWindow:ctor()
 	
 	vLayout:AddChild(hLayout, nil, 10, 20, false, nil, 20)
 	
-	WriteTableToFile(savedList, true, savedListPath)
+	srlz_array[savedList] = true
+	WriteTableToFile(savedList, savedListPath)
 end
 
 function LoadProjWindow:OnSelection()
@@ -194,7 +193,8 @@ function LoadProjWindow:OnBrowse()
 		end
 		if (new) then
 			table.insert(savedList, {path = g_projPath})
-			WriteTableToFile(savedList, true, savedListPath)
+			srlz_array[savedList] = true
+			WriteTableToFile(savedList, savedListPath)
 		end
 		
 		g_proj = o
@@ -212,39 +212,50 @@ local function SaveProject(dir)
 		if (dir:length() == 0) then
 			return false
 		end
-		
 		local name = dir:substr(dir:rfind('\\') + 1, -1)
 		g_proj.name = name
-		g_proj.layout = cMainFrame:SaveLayout()
-		g_proj.maximized = cMainFrame:IsMaximized()
-		g_proj.w, g_proj.h = cMainFrame:GetSize()
-		
 		g_projPath = dir .. '\\'
 		cTerminal.NewDirectory(g_projPath)
-		WriteTableToFile(g_proj, false, g_projPath .. 'project')
-		cTerminal.NewDirectory(g_projPath .. 'Content')
-		cTerminal.NewDirectory(g_projPath .. 'Config')
 		
 		table.insert(savedList, {path = g_projPath})
-		WriteTableToFile(savedList, true, savedListPath)
+		srlz_array[savedList] = true
+		WriteTableToFile(savedList, savedListPath)
 	end
+	g_proj.layout = cMainFrame:SaveLayout()
+	g_proj.maximized = cMainFrame:IsMaximized()
+	g_proj.w, g_proj.h = cMainFrame:GetSize()
+	g_proj.sceneLayout = scenePanelSet.nb:SaveLayout()
+	
+	WriteTableToFile(g_proj, g_projPath .. 'project')
+	
+	local contentPath = g_projPath .. 'Content\\'
+	local configPath = g_projPath .. 'Config\\'
+	cTerminal.NewDirectory(contentPath)
+	cTerminal.NewDirectory(configPath)
+	
+	if (scenePanelSet.modified) then
+		local o = {}
+		scenePanelSet:SaveProfile(o)
+		srlz_array[o] = true
+		WriteTableToFile(o, contentPath .. 'scene')
+	end
+	
 	return true
 end
 
 function LoadEntrance()
 	g_proj = {}
+	g_recorder = Recorder()
 	cEntrance:AddPageWindow('load_proj', _('加载项目'), LoadProjWindow())
 	cEntrance:AddPageWindow('new_proj', _('新建项目'), CreateProjWindow())
 end
 
-local scenePanelSet
-local nb
-local panelSets = {}
-local collect
-
 function LoadMainFrame()
-	local name = g_proj.name
-	cMainFrame:SetTitle(name or _('未命名') .. '*')
+	if (not g_proj.name) then
+		g_proj.name = _('未命名')
+	else
+		cMainFrame:SetTitle(g_proj.name)
+	end
 	cMainFrame.OnClose = OnMainFrameClose
 	cMainFrame.OnPageChanged = OnPageChanged
 	cMainFrame.OnPageDestroy = OnPageDestroy
@@ -256,7 +267,23 @@ function LoadMainFrame()
 	end
 	
 	local nbScene = cMainFrame:AddPageNotebook('scene', _('场景'))
-	scenePanelSet = PanelSet(nbScene, ScenePanelSet, g_proj.sceneLayout or sceneLayout)
+	scenePanelSet = ScenePanelSet(nbScene)
+	scenePanelSet.nb:LoadLayout(g_proj.sceneLayout or ScenePanelSet.layout)
+	if (g_projPath) then
+		local contentPath = g_projPath .. 'Content\\'
+		local configPath = g_projPath .. 'Config\\'
+		local b, o = LoadFile(nil, contentPath .. 'scene', {}, true)
+		if (b) then
+			scenePanelSet:LoadProfile(o)
+		else
+			Print(o)
+		end
+	end
+	cMainFrame:SetMenuBar(scenePanelSet.mb)
+	g_recorder = scenePanelSet.recorder
+	
+	--local nbGeom = cMainFrame:AddPageNotebook('geom', _('geom'))
+	--geomPanelSet = GeomPanelSet(nbGeom)
 	
 	--nb = cMainFrame:AddPageNotebook('test', 'test')
 	--nb:AddPage('1', '1', Window())
@@ -273,24 +300,47 @@ function LoadMainFrame()
 end
 
 function OnPageChanged(w)
-	if (scenePanelSet and w == scenePanelSet.nb[CNotebook[CNotebook]]) then
-		cMainFrame:SetNotebookStyleFlag(CNotebook.NB_CLOSE_ON_ACTIVE_TAB, false)
-		cMainFrame:SetMenuBar(scenePanelSet.mb)
-	else
-		--cMainFrame:SetMenuBar(scenePanelSet.mb)
-		cMainFrame:SetNotebookStyleFlag(CNotebook.NB_CLOSE_ON_ACTIVE_TAB, true)
+	local ps = PanelSet[w]
+	if (ps) then
+		if (ps == scenePanelSet) then
+			cMainFrame:SetNotebookStyleFlag(CNotebook.NB_CLOSE_ON_ACTIVE_TAB, false)
+		else
+			cMainFrame:SetNotebookStyleFlag(CNotebook.NB_CLOSE_ON_ACTIVE_TAB, true)
+		end
+		if (ps.mb) then
+			cMainFrame:SetMenuBar(ps.mb)
+		end
+		g_recorder = ps.recorder
 	end
 end
 
 function OnPageDestroy(w)
 	collect = true
+	PanelSet[w] = nil
+end
+
+function ProjModified(panelSet, flag)
+	if (flag) then
+		projModified[panelSet] = panelSet
+		cMainFrame:SetPageNotebookTitle(panelSet.nb, '*'..panelSet.title)
+	else
+		projModified[panelSet] = nil
+		cMainFrame:SetPageNotebookTitle(panelSet.nb, panelSet.title)
+	end
+	local _, v = next(projModified)
+	if (v) then
+		cMainFrame:SetTitle('*' .. g_proj.name)
+	else
+		cMainFrame:SetTitle(g_proj.name)
+	end
 end
 
 function OnMainFrameClose()
-	if (not g_projPath or modified) then
+	local k, v = next(projModified)
+	if (v) then
 		local b = cTerminal:MessageDialog('', _('是否保存项目？'), _('保存'), _('不保存'), _('取消'))
 		if (b) then
-			return SaveProject()
+			return SaveProject(g_projPath)
 		elseif (b == false) then
 			return true
 		end
@@ -298,20 +348,17 @@ function OnMainFrameClose()
 	elseif (g_projPath) then
 		local layout = cMainFrame:SaveLayout()
 		local sceneLayout = scenePanelSet.nb:SaveLayout()
-		--local nbLayout = nb:SaveLayout()
 		local maximized = cMainFrame:IsMaximized()
 		local w, h = cMainFrame:GetSize()
 		if (g_proj.layout ~= layout or
 			g_proj.sceneLayout ~= sceneLayout or
-			--g_proj.nbLayout ~= nbLayout or
 			g_proj.maximized ~= maximized or
 			g_proj.w ~= w or g_proj.h ~= h) then
 			g_proj.layout = layout
 			g_proj.sceneLayout = sceneLayout
-			--g_proj.nbLayout = nbLayout
 			g_proj.maximized = maximized
 			g_proj.w, g_proj.h = w, h
-			WriteTableToFile(g_proj, false, g_projPath .. 'project')
+			WriteTableToFile(g_proj, g_projPath .. 'project')
 		end
 		return true
 	end

@@ -20,32 +20,38 @@ public:
 };
 Lua_global_add_cpp_class(CMenuBar)
 
-class CNotebook : public FloatableNotebook
+class CNotebook
 {
 public:
-	CNotebook(wxWindow* parent, Cloneable<wxAuiManager>* mgr) : FloatableNotebook(parent, mgr) {}
+	CNotebook(FloatableNotebook* nb) : m_nb(nb) {}
 	void AddPage(const char* name, LString title, LuaIdx wnd)
 	{
-		FloatableNotebook::AddPage(new vmWindow(this, name, wnd), title.c_str());
+		m_nb->AddPage(new vmWindow(m_nb, name, wnd), title.c_str());
 	}
 	void SaveLayout(LuaReturn& ret)
 	{
-		ret.Push(SavePerspective().c_str());
+		ret.Push(m_nb->SavePerspective().c_str());
 	}
 	void LoadLayout(const char* layout)
 	{
-		LoadPerspective(layout);
+		m_nb->LoadPerspective(layout);
 	}
 	void ShowPage(LuacObj<vmWindow> wnd)
 	{
-		FloatableNotebook::ShowPage(wnd);
+		m_nb->ShowPage(wnd);
 	}
 	bool IsPageShown(LuacObj<vmWindow> wnd)
 	{
-		return FloatableNotebook::IsPageShown(wnd);
+		return m_nb->IsPageShown(wnd);
+	}
+	void* GetNB()
+	{
+		return m_nb;
 	}
 	Lua_wrap_cpp_class(CNotebook, Lua_abstract, Lua_mf(AddPage), Lua_mf(SaveLayout), Lua_mf(LoadLayout),
-		Lua_mf(ShowPage), Lua_mf(IsPageShown));
+		Lua_mf(ShowPage), Lua_mf(IsPageShown), Lua_mf(GetNB));
+
+	FloatableNotebook* m_nb;
 };
 Lua_global_add_cpp_class(CNotebook)
 
@@ -78,7 +84,7 @@ public:
 		Terminal::Lua().SetValue("CNotebook", "NB_CLOSE_ON_ACTIVE_TAB", wxAUI_NB_CLOSE_ON_ACTIVE_TAB);
 	}
 	Lua_wrap_cpp_class_derived(vmFrame, MainFrame, Lua_abstract, Lua_mf(OnClose), Lua_mf(OnPageDestroy), Lua_mf(OnPageChanged),
-		Lua_mf(SetMenuBar), Lua_mf(ResetMenuBar), Lua_mf(AddPageNotebook), Lua_mf(SetNotebookStyleFlag),
+		Lua_mf(SetMenuBar), Lua_mf(ResetMenuBar), Lua_mf(AddPageNotebook), Lua_mf(SetPageNotebookTitle), Lua_mf(SetNotebookStyleFlag),
 		Lua_mf(SetSize), Lua_mf(GetSize), Lua_mf(Maximize), Lua_mf(IsMaximized), Lua_mf(LoadLayout), Lua_mf(SaveLayout))
 	~MainFrame()
 	{
@@ -90,6 +96,10 @@ public:
 			m_nb->SetWindowStyleFlag(m_nb->GetWindowStyleFlag() | style);
 		else
 			m_nb->SetWindowStyleFlag(m_nb->GetWindowStyleFlag() & ~style);
+	}
+	void SetPageNotebookTitle(LuacObj<CNotebook> nb, LString s)
+	{
+		m_nb->SetPageTitle(nb->m_nb, s.c_str());
 	}
 	void OnEvtPageChanged(wxAuiNotebookEvent& e)
 	{
@@ -155,10 +165,10 @@ public:
 	}
 	LuacObjNew<CNotebook> AddPageNotebook(const char* name, LString title)
 	{
-		CNotebook* nb = new CNotebook(m_self, new UiManager);
+		FloatableNotebook* nb = new FloatableNotebook(m_self, new UiManager);
 		nb->SetName(name);
 		AddPageWnd(nb, title.c_str());
-		return nb;
+		return new CNotebook(nb);
 	}
 
 	void SetFrameMenuBar(wxMenuBar* mb) override

@@ -304,6 +304,8 @@ for k, _ in pairs(CMatrix) do
 		SceneObject[k] = load(s)()
 	end
 end
+SceneObject.srlzClass = {}
+SceneObject.srlzClass['SceneObject'] = SceneObject
 
 --SceneObject.ATTACH_RELATIVE
 SceneObject.ATTACH_SNAP = 1
@@ -329,7 +331,7 @@ function SceneObject:ctor(parent)
 	if (parent) then
 		self.parent = parent
 		self.scene = parent.scene
-		self.c_idx = parent.children:insert(self)
+		parent.children:insert(self)
 		if (parent[SceneObject]) then
 			self.attached = parent
 			self.mWorld = self.mCache
@@ -338,6 +340,31 @@ function SceneObject:ctor(parent)
 		self.scene = self
 	end
 end
+
+function SceneObject:Serialize()
+	local o = {}
+	o.class = 'SceneObject'
+	o.mRow1 = {self.mRoot:GetRow1()}
+	o.mRow2 = {self.mRoot:GetRow2()}
+	o.mRow3 = {self.mRoot:GetRow3()}
+	o.mRow4 = {self.mRoot:GetRow4()}
+	o.sx, o.sy, o.sz = self.sx, self.sy, self.sz	
+	return o
+end
+
+function SceneObject.NewSerialized(o)
+	local c = SceneObject()
+	c:LoadSerialized(o)
+	return c
+end
+
+function SceneObject:LoadSerialized(o)
+	self.mRoot:SetRow1(o.mRow1[1], o.mRow1[2], o.mRow1[3], o.mRow1[4])
+	self.mRoot:SetRow2(o.mRow2[1], o.mRow2[2], o.mRow2[3], o.mRow2[4])
+	self.mRoot:SetRow3(o.mRow3[1], o.mRow3[2], o.mRow3[3], o.mRow3[4])
+	self.mRoot:SetRow4(o.mRow4[1], o.mRow4[2], o.mRow4[3], o.mRow4[4])
+	self:SetScale(o.sx, o.sy, o.sz)
+end	
 
 function SceneObject:SetScale(x, y, z)
 	self.sx, self.sy, self.sz = x, y, z
@@ -353,12 +380,12 @@ function SceneObject:Attach(parent, initial, rotRule, followScale)
 		o = o.parent
 	end
 	if (self.parent) then
-		self.parent.children:remove_idx(self.c_idx)
+		self.parent.children:remove_obj(self)
 	end
 	self.parent = parent
 	self.scene = parent.scene
 	self.scene.update = true
-	self.c_idx = parent.children:insert(self)
+	parent.children:insert(self)
 	if (not parent[SceneObject]) then
 		self.attached = nil
 		return
@@ -396,11 +423,11 @@ function SceneObject:Detach(detachFromScene)
 	local scene = self.scene
 	self.followScale = false
 	if (parent and (detachFromScene or parent ~= scene)) then
-		parent.children:remove_idx(self.c_idx)
+		parent.children:remove_obj(self)
 		self.attached = nil
 		if (not detachFromScene) then
 			self.parent = self.scene
-			self.c_idx = self.parent.children:insert(self)
+			self.parent.children:insert(self)
 			self.mRoot:CopyFrom(self.mWorld)
 			self.scene.update = true
 		else

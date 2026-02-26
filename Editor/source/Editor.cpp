@@ -106,20 +106,6 @@ Lua_global_add_cpp_class(QQ)
 
 bool MyApp::OnInit()
 {
-	std::vector<int> aa;
-	auto ii = aa.capacity();
-	aa.push_back(1);
-	ii = aa.capacity();
-	aa.push_back(2);
-	ii = aa.capacity();
-	aa.reserve(1);
-	aa.clear();
-	ii = aa.capacity();
-
-	LString z(L"新建文件夹");
-	auto zs = z.lower_utf8();
-	LString zz(zs);
-
 	if (!wxApp::OnInit())
 		return false;
 
@@ -162,7 +148,7 @@ bool MyApp::OnInit()
 
 	Engine::LuaRegister(Terminal::Lua().Lua());
 
-	LuaRegGlobalReflected(&Terminal::Lua());
+	LuaRegGlobalReflected(Terminal::Lua().Lua());
 
 	Terminal::Lua().SetValue("aa", 1, LuaFEnv(), LuaGet("aa"));
 	Terminal::Lua().SetValue("aa", 1, LuaMeta(), 1, 2);
@@ -206,7 +192,7 @@ bool MyApp::OnInit()
 	//FileData fd("Resources/lua-program/utility.lua", true);
 	FileData fd("Resources/lua-program/editor/editor.lua", true);
 	assert(fd.IsLoaded());
-	Terminal::Lua().Run((char*)fd.GetData(), fd.GetSize());
+	Terminal::Lua().Run(fd.GetData(), fd.GetSize());
 	fd.Release();
 
 	Terminal::Lua().Run("local q = QQ() Print(q:f())");

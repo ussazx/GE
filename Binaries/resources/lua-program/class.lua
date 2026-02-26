@@ -8,7 +8,11 @@ end
 
 local function ctor(o, c, ...)
 	if (c._base) then
-		c._bctor(o, c._base, c._bargs)
+		if (c._pcb) then
+			c._bctor(o, c._base, ...)
+		else
+			c._bctor(o, c._base, c._bargs)
+		end
 	end
 	if (c.ctor and (c._base == nil or c.ctor ~= c._base.ctor)) then
 		c.ctor(o, ...)
@@ -31,9 +35,16 @@ local function instantiate(c, ...)
 	return o
 end
 
-function class(base_class, ...)
+local function new_class(base_class)
 	local c = setmetatable({_ctor = ctor, _base = base_class}, {__index = base_class, __call = instantiate})
 	c._class = {__index = c, __gc = dtor}
+	c._bctor = ctor
+	c[c] = c
+	return c
+end
+
+function class(base_class, ...)
+	local c = new_class(base_class)
 	local args = {...}
 	local n = #args
 	if (n > 0) then
@@ -48,10 +59,13 @@ function class(base_class, ...)
 		end
 		s = s .. ') end'
 		c._bctor = load(s, '', 't')()
-	else
-		c._bctor = ctor
 	end
-	c[c] = c
+	return c
+end
+
+function class2(base_class)
+	local c = new_class(base_class)
+	c._pcb = true
 	return c
 end
 

@@ -1,3 +1,8 @@
+//***************************************************************************************
+// Effects.h by ussa (C) 2026 All Rights Reserved.
+// Licensed under the MIT License.
+//***************************************************************************************
+
 #include "LuaGlobalReflect.h"
 #include <string>
 #include <codecvt>

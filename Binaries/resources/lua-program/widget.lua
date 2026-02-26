@@ -1320,7 +1320,7 @@ function UiTextInput:Record()
 
 	local o = {redo = {}, undo = self.record}
 	TextInputAssign(o.redo, self)
-	g_recorder:Record(self, self.HandleRecord, o)
+	Record(self, self.HandleRecord, o)
 	
 	self.record = {}
 	TextInputAssign(self.record, self)
@@ -1443,12 +1443,12 @@ function UiTextInput:OnMouseMotion(e, x)
 	end
 end
 
-function UiTextInput:HandleRecord(redo, data)
-	if (redo) then
-		TextInputAssign(self, data.redo)
-	else
+function UiTextInput:HandleRecord(undo, data)
+	if (undo) then
 		TextInputAssign(self, data.undo)
 		TextInputAssign(self.record, data.undo)
+	else
+		TextInputAssign(self, data.redo)
 	end
 	self:RestrictCaretPos(self.caret.rect.x)
 end
@@ -2460,7 +2460,7 @@ end
 function UiImage:GetDrawcall(spId, mergeType, order)
 	local dcList = g_dcLists[spId]
 	if (self.window and self.ss) then
-		dcList:AddWaitCommand(Snapshot.cmd)
+		--dcList:AddWaitCommand(Snapshot.cmd)
 		if (self.window ~= self.ssw) then
 			self.ssw = self.window
 			self.ss:bind_event(Snapshot.EVT, self.ssw, self.ssw.WaitCommand)

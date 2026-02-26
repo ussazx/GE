@@ -16,7 +16,7 @@ function tcount(t)
 	return #t
 end
 
-ser_array = setmetatable({}, {__mode = 'k'})
+srlz_array = setmetatable({}, {__mode = 'k'})
 
 local function Text(o)
 	t = type(o)
@@ -26,7 +26,6 @@ local function Text(o)
 	if (t == 'boolean' or t == 'string') then
 		return string.format('%q', o)
 	end
-	return nil
 end
 
 function SerializeToTableText(o)
@@ -43,7 +42,7 @@ function SerializeToTableText(o)
 		if (ks) then
 			local vs = SerializeToTableText(v)
 			if (vs) then
-				if (ser_array[o]) then
+				if (type(k) == 'number' and srlz_array[o]) then
 					s = s..comma..vs
 				else
 					s = s..comma..'['..ks..']'..'='..vs
@@ -109,10 +108,9 @@ function LoadInput(input, env)
 	return c
 end
 
-function WriteTableToFile(t, a, path, f)
+function WriteTableToFile(t, path, f)
 	f = f or CNewFileOutput()
 	f:Open(path, false)
-	ser_array[t] = a
 	f:WriteUtf8('return' .. SerializeToTableText(t))
 	f:Close()
 end
@@ -308,8 +306,8 @@ end
 Recorder = class()
 Recorder.saved = 0
 Recorder.cursor = 0
-Recorder.max = 5
-function Recorder:Record(obj, func, param)
+Recorder.max = 50
+function Recorder:Record(obj, func, param, saveFunc)
 	self.cursor = self.cursor + 1
 	if (self.cursor > self.max) then
 		self.cursor = self.max
@@ -320,6 +318,7 @@ function Recorder:Record(obj, func, param)
 	o.obj = obj
 	o.func = func
 	o.param = param
+	o.saveFunc = saveFunc
 	table.insert(self, self.cursor, o)
 	
 	for i = self.cursor + 1, self.saved do
@@ -331,7 +330,7 @@ end
 function Recorder:Undo()
 	if (self.cursor > 0) then
 		local o = self[self.cursor]
-		o.func(o.obj, false, o.param)
+		o.func(o.obj, true, o.param)
 		self.cursor = self.cursor - 1
 	end
 end
@@ -340,15 +339,47 @@ function Recorder:Redo()
 	if (self.cursor < self.saved) then
 		self.cursor = self.cursor + 1
 		local o = self[self.cursor]
-		o.func(o.obj, true, o.param)
+		o.func(o.obj, false, o.param)
 	end
+end
+
+function Recorder:Save(all)
+	if (self.saveObj) then
+		self.saveFunc(self.saveObj, all)
+	elseif (self.saveFunc) then
+		self.saveFunc(all)
+	end
+end
+
+function Recorder:SetSaveHandler(obj, func)
+	self.saveObj = obj
+	self.saveFunc = func
 end
 
 function WeakTable()
 	return setmetatable({}, {__mode = 'kv'})
 end
 
---SortedMap---
+---Asset---
+local function AssetToObject(t, k)
+	local o = rawget(t, k)
+	if (o and not o[t.class]) then 
+		o = t.class(o)
+		o[t] = k
+	end
+	return o
+end
+
+local function AddAssetObject(t, k, v)
+	v[t] = k
+	rawset(t, k, v)
+end
+
+function Assets(class)
+	return setmetatable({class = class}, {__index = AssetToObject, __newindex = AddAssetObject})
+end
+
+---SortedMap---
 local function SetSorted(m, k, v)
 	if (v) then
 		table.insert(m._keys, k)

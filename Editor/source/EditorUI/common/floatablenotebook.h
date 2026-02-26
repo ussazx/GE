@@ -44,6 +44,8 @@ public:
 
 	bool ClosePage(wxWindow* page, bool remove = false);
 
+	void SetPageTitle(wxWindow* page, const wxString& caption);
+
 	wxString SavePerspective();
 	bool LoadPerspective(const wxString& s);
 

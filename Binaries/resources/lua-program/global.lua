@@ -3,12 +3,16 @@ require 'render'
 require 'utility'
 require 'geometry'
 
-g_recorder = Recorder()
+--g_recorder = Recorder()
+function Record(obj, func, data)
+	local recorder = obj.recorder or g_recorder
+	if (recorder) then
+		recorder:Record(obj, func, data)
+	end
+end
 
 g_content = {}
 g_previews = {}
-
-g_scene = SceneObject()
 
 g_perObjInstance = PerObjectInstance()
 
@@ -206,6 +210,9 @@ id_outline_ps = cGI:NewShaderModule(f)
 
 f:Open('Resources/1.png', true)
 g_image1 = CLoadImagePng(f)
+
+g_assets = {}
+g_assets.Geometry = Assets(Geometry)
 
 --pass
 cParamRenderPass:Reset(true, false)
@@ -616,7 +623,7 @@ geoInfo.vb = {vb, ub, cb}
 geoInfo.ib = ib
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 36, g_mtl3dInst}
-g_cube = Geometry(geoInfo)
+g_assets.Geometry['cube'] = Geometry(geoInfo)
 
 ---sphere---
 local vb = CMBuffer(1)
@@ -630,7 +637,7 @@ geoInfo.vb = {vb, ub, cb}
 geoInfo.ib = ib
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, ni, g_mtl3dInst}
-g_sphere = Geometry(geoInfo)
+g_assets.Geometry['sphere'] = Geometry(geoInfo)
 
 ---plane3d---
 local vb = CMBuffer(1)
@@ -657,7 +664,7 @@ geoInfo.vb = {vb, ub, cb}
 geoInfo.ib = ib
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 6, g_mtl3dInst}
-g_plane3d = Geometry(geoInfo)
+g_assets.Geometry['plane'] = Geometry(geoInfo)
 
 ---Grid3d---
 geoInfo = {}
@@ -669,7 +676,7 @@ geoInfo.vbInfo[3] = {Geometry.TRANS_NONE, SIZE_FLOAT1}
 geoInfo.vbInfo[4] = {Geometry.TRANS_NONE, SIZE_UINT1}
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 0, g_mtlGrid3d}
-g_grid3d = Geometry(geoInfo)
+g_assets.Geometry['grid3d'] = Geometry(geoInfo)
 
 ---base cube---
 local vb = CMBuffer(1)
@@ -706,7 +713,7 @@ geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 3 * 12, g_mtlOrigin3d}
 geoInfo.vb = {vb}
 geoInfo.ib = ib
-g_baseCube = Geometry(geoInfo)
+g_assets.Geometry['baseCube'] = Geometry(geoInfo)
 
 ---arrow---
 local vbY = CMBuffer(1)
@@ -760,13 +767,13 @@ geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 3 * 16, g_mtlCoord3d}
 geoInfo.vb = {vbY}
 geoInfo.ib = ib
-g_arrowY = Geometry(geoInfo)
+g_assets.Geometry['arrowY'] = Geometry(geoInfo)
 
 geoInfo.vb = {vbX}
-g_arrowX = Geometry(geoInfo)
+g_assets.Geometry['arrowX'] = Geometry(geoInfo)
 
 geoInfo.vb = {vbZ}
-g_arrowZ = Geometry(geoInfo)
+g_assets.Geometry['arrowZ'] = Geometry(geoInfo)
 
 -- cParamResourceLayout:Reset()
 -- cParamResourceLayout:Add(RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, SHADER_STAGE_VERTEX_BIT)

@@ -511,7 +511,7 @@ public:
 #endif
 	std::unordered_map<std::string, uint32_t> defines;
 
-	VKCommand cmd;
+	VKCommand* cmd;
 
 private:
 	bool CreateInstance();

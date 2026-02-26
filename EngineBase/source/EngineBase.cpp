@@ -22,7 +22,7 @@ void Engine::CleanUp()
 void Engine::LuaRegister(lua_State* L)
 {
 	LuaState lua(L);
-	LuaRegGlobalReflected(&lua);
+	LuaRegGlobalReflected(lua.Lua());
 
 	Graphic::RegisterVulkanDefines(lua);
 	g_graphic = Graphic::Vulkan();

@@ -74,18 +74,18 @@ function Camera:RenderBegin()
 	self.mView:SetByMatrixToView(self.mWorld)
 end
 
-ObjectCoord = class(Model, g_baseCube)
+ObjectCoord = class(Model, g_assets.Geometry['baseCube'])
 
 function ObjectCoord:ctor(camera)
 	self.camera = camera
 	
-	self.arrowY = Model(g_arrowY)
+	self.arrowY = Model(g_assets.Geometry['arrowY'])
 	self.arrowY:Attach(self, nil, nil, true)
 	
-	self.arrowX = Model(g_arrowX)
+	self.arrowX = Model(g_assets.Geometry['arrowX'])
 	self.arrowX:Attach(self, nil, nil, true)
 	
-	self.arrowZ = Model(g_arrowZ)
+	self.arrowZ = Model(g_assets.Geometry['arrowZ'])
 	self.arrowZ:Attach(self, nil, nil, true)
 	
 	g_perObjInst1:SetObjectValue(1, self.arrowY, 255, 0, 0, 180)

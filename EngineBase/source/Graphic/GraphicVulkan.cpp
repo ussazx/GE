@@ -315,9 +315,9 @@ bool VKTexture::Resize(uint32_t w, uint32_t h)
 
 	m_vci.subresourceRange.baseArrayLayer = 0;
 	m_vci.subresourceRange.layerCount = layerCount;
-	g->cmd.ChangeImageLayout(*this, m_vci.subresourceRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	g->cmd.Execute();
-	g->cmd.Wait();
+	g->cmd->ChangeImageLayout(*this, m_vci.subresourceRange, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	g->cmd->Execute();
+	g->cmd->Wait();
 
 	return true;
 }
@@ -1074,11 +1074,13 @@ VKGraphic::VKGraphic()
 	dsci.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
 	dsci.pDynamicStates = ds;
 	dsci.dynamicStateCount = 9;
+
+	cmd = new VKCommand;
 }
 
 VKGraphic::~VKGraphic()
 {
-	g = {};
+	delete cmd;
 	vkDestroyCommandPool(device, cmdPool, {});
 	vkDestroyDevice(device, {});
 	vkDestroySurfaceKHR(inst, baseSurface, {});
@@ -1099,7 +1101,7 @@ bool VKGraphic::Init(HINSTANCE hinst)
 		return false;
 	
 	hInst = hinst;
-	return CreateInstance() && GetGPU() && CreateDevice() && GetSupportedSufaceFormats() && cmd.Init(false);
+	return CreateInstance() && GetGPU() && CreateDevice() && GetSupportedSufaceFormats() && cmd->Init(false);
 }
 #endif
 

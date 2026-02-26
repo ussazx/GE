@@ -352,6 +352,12 @@ function Window:on_mouse(e, x, y, w, m)
 	if (self.captured) then
 		id = self.captured.id
 		obj = self.captured
+		if (obj[SceneWidget]) then
+			local o = get_object(PickByTexture(self.idTexture, x, y))
+			if (o and o[Model]) then
+				g_sceneModel = o
+			end
+		end
 	else
 		id = PickByTexture(self.idTexture, x, y)
 		obj = get_object(id) or self
@@ -391,6 +397,7 @@ function Window:on_mouse(e, x, y, w, m)
 		obj:process_event(e, x, y, w, m)
 	end
 	g_actWindow = nil
+	g_sceneModel = nil
 	return self:TimerPeriod(), self.cursor
 end
 
@@ -409,12 +416,24 @@ end
 function Window:on_acc_key(k)
 	g_actWindow = self
 	
+	local recorder = g_recorder
+	local w = get_object(EVT.focus_id)
+	if (w and w.recorder) then
+		recorder = w.recorder
+	end
 	if (k == SYS.VK_CTRL_Z) then
-		g_recorder:Undo()
+		if (recorder) then
+			recorder:Undo()
+		end
 	elseif (k == SYS.VK_CTRL_Y) then
-		g_recorder:Redo()
+		if (recorder) then
+			recorder:Redo()
+		end
+	elseif (k == SYS.VK_CTRL_S) then
+		if (recorder) then
+			recorder:Save(self.keyDowns[VK_SHIFT])
+		end
 	else
-		local w = get_object(EVT.focus_id)
 		if (w) then
 			w:process_event(EVT.ACC_KEY, k)
 		end

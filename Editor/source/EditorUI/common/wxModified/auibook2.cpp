@@ -2173,8 +2173,8 @@ int wxAuiNotebook2::DoModifySelection(size_t n, bool events)
         int ctrl_idx;
         if (FindTab(wnd, &ctrl, &ctrl_idx))
         {
-            if (FindFocus() != ctrl)
-                ctrl->SetFocus();
+            //if (FindFocus() != ctrl)
+            //    ctrl->SetFocus();
         }
         return m_curPage;
     }

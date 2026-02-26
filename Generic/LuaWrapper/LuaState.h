@@ -1,3 +1,8 @@
+//***************************************************************************************
+// Effects.h by ussa (C) 2026 All Rights Reserved.
+// Licensed under the MIT License.
+//***************************************************************************************
+
 #pragma once
 #include "LuaFunctional.h"
 #include <vector>
@@ -28,7 +33,8 @@ LuaMultiArg(LuaSetTo)
 
 struct LuaLoad
 {
-	LuaLoad(void* c, size_t n = 0) : code((char*)c), len(n == 0 ? strlen((char*)c) : n) {}
+	LuaLoad(void* c, size_t n) : code((char*)c), len(n) {}
+	LuaLoad(const char* c, size_t n = 0) : code(c), len(n == 0 ? strlen(c) : n) {}
 	const char* code;
 	size_t len;
 };
@@ -52,7 +58,7 @@ class LuaState
 {
 public:
 	LuaState(lua_State* L = nullptr)
-	{ 
+	{
 		m_lua = L;
 		if (m_lua == nullptr)
 		{
@@ -68,7 +74,7 @@ public:
 	{
 		return m_lua;
 	}
-	
+
 	LuaState(const LuaState&) = delete;
 	const LuaState& operator = (const LuaState&) = delete;
 
@@ -130,7 +136,7 @@ public:
 
 	void SetValue(const lua_Idx& idx, const LuaCustomSet& cs) const
 	{
-			cs(*this, lua_Idx(Lua_T(idx.idx, GetTop())));
+		cs(*this, lua_Idx(Lua_T(idx.idx, GetTop())));
 	}
 
 	template<typename T>
@@ -277,7 +283,7 @@ public:
 	{
 		int srci = src.idx;
 		if (lua_type(m_lua, srci) == LUA_TTABLE)
-		{	
+		{
 			LuaGetTable(m_lua, dst.idx);
 			lua_pushvalue(m_lua, srci);
 			lua_setmetatable(m_lua, Lua_I(dst.idx, 1));
@@ -429,7 +435,7 @@ public:
 	}
 
 	template<typename ...T>
-	void SetValue(const lua_Idx& idx, luaL_Reg* k0, const T&... kv) const 
+	void SetValue(const lua_Idx& idx, luaL_Reg* k0, const T&... kv) const
 	{
 		SetValue(idx, k0);
 		SetValue(idx, kv...);
@@ -452,7 +458,7 @@ public:
 	}
 
 	template<typename ...T>
-	void SetValue(const lua_Idx& idx, const luaL_Reg* k0, const T&... kv) const 
+	void SetValue(const lua_Idx& idx, const luaL_Reg* k0, const T&... kv) const
 	{
 		SetValue(idx, k0);
 		SetValue(idx, kv...);
@@ -511,8 +517,8 @@ public:
 	template<typename ...T0, typename ...T1>
 	void SetValue(const lua_Idx& idx, const std::tuple<T0...>& t0, const T1&...t1) const
 	{
-		SetValue(idx,t0);
-		SetValue(idx,t1...);
+		SetValue(idx, t0);
+		SetValue(idx, t1...);
 	}
 
 	template<typename ...T0, typename T1>
@@ -724,9 +730,9 @@ public:
 
 		ErrFunc errFunc = GetErrorFunc(nullptr, false);
 		if (errFunc) lua_pushcfunction(m_lua, ErrorFunc), i = Lua_I(i, 1);
-		
+
 		lua_pushvalue(m_lua, i);
-		
+
 		LuaPushTupleValue(m_lua, t.t);
 		static int n = (int)std::tuple_size<std::tuple<T...>>::value;
 		lua_pcall(m_lua, n, 0, errFunc ? -2 - n : 0);
@@ -746,7 +752,7 @@ public:
 		if (errFunc) lua_pushcfunction(m_lua, ErrorFunc), i = Lua_I(i, 1);
 
 		lua_pushvalue(m_lua, i);
-		
+
 		LuaPushTupleValue(m_lua, t.t);
 		static int n0 = (int)std::tuple_size<std::tuple<T0...>>::value;
 		static int n1 = (int)std::tuple_size<std::tuple<T1...>>::value;
@@ -774,7 +780,7 @@ public:
 		lua_pushvalue(m_lua, Lua_I(i, 1));
 		LuaPushTupleValue(m_lua, t.t);
 		static int n = (int)std::tuple_size<std::tuple<T1...>>::value + 1;
-		lua_pcall(m_lua, n, 0, errFunc ? -2 - n: 0);
+		lua_pcall(m_lua, n, 0, errFunc ? -2 - n : 0);
 
 		if (errFunc) lua_pop(m_lua, 1);
 
@@ -813,16 +819,21 @@ public:
 		return GetValue(idx, t1...);
 	}
 
+	int Run(void* code, size_t len) const
+	{
+		return LoadRequired(nullptr, (const char*)code, len);
+	}
+
 	int Run(const char* code, size_t len = 0) const
 	{
 		return LoadRequired(nullptr, code, len);
 	}
-	
+
 	int LoadRequired(const char* name, const char* code, size_t len = 0) const
 	{
 		if (name && strlen(name) > 0)
 			SetValue(lua_Idx(LUA_REGISTRYINDEX), LUA_LOADED_TABLE, name, true);
-	
+
 		RequireFunc reqFunc = GetRequireFunc(nullptr, false);
 		if (reqFunc)
 			SetValue("require", Require);

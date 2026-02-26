@@ -1,3 +1,8 @@
+//***************************************************************************************
+// Effects.h by ussa (C) 2026 All Rights Reserved.
+// Licensed under the MIT License.
+//***************************************************************************************
+
 #pragma once
 #include "lua.hpp"
 #include <tuple>
@@ -47,6 +52,16 @@ inline void LuaPushValue(lua_State* lua, const lua_Idx& idx)
 	lua_pushvalue(lua, idx.idx);
 }
 
+inline void LuaPushValue(lua_State* lua, short v)
+{
+	lua_pushinteger(lua, v);
+}
+
+inline void LuaPushValue(lua_State* lua, unsigned short v)
+{
+	lua_pushinteger(lua, v);
+}
+
 inline void LuaPushValue(lua_State* lua, lua_Integer v)
 {
 	lua_pushinteger(lua, v);
@@ -57,7 +72,7 @@ inline void LuaPushValue(lua_State* lua, Lua_int_type2 v)
 	lua_pushinteger(lua, v);
 }
 
-inline void LuaPushValue(lua_State* lua, uint32_t v)
+inline void LuaPushValue(lua_State* lua, unsigned int v)
 {
 	lua_pushinteger(lua, v);
 }
@@ -73,7 +88,7 @@ inline void LuaPushValue(lua_State* lua, unsigned long v)
 }
 
 #ifdef _M_X64
-inline void LuaPushValue(lua_State* lua, uint64_t v)
+inline void LuaPushValue(lua_State* lua, unsigned long long v)
 {
 	lua_pushinteger(lua, v);
 }
@@ -235,6 +250,15 @@ inline void LuaSetField(lua_State* lua, int tableIdx, const T0& k, const T1& v)
 }
 
 template<typename T>
+inline void LuaSetField(lua_State* lua, int tableIdx, const T& k, const lua_Idx& v)
+{
+	LuaGetTable(lua, tableIdx);
+	LuaPushValue(lua, k);
+	lua_pushvalue(lua, Lua_I(v.idx, 1));
+	lua_settable(lua, Lua_I(tableIdx, 2));
+}
+
+template<typename T>
 inline void LuaSetField(lua_State* lua, int tableIdx, const T& k, luaL_Reg* v)
 {
 	LuaGetTable(lua, tableIdx);
@@ -270,6 +294,13 @@ inline void LuaSetField(lua_State* lua, int tableIdx, const char* k, const luaL_
 
 template<typename T>
 inline void LuaSetField(lua_State* lua, int tableIdx, const char* k, const T& v)
+{
+	LuaGetTable(lua, tableIdx);
+	LuaPushValue(lua, v);
+	lua_setfield(lua, Lua_I(tableIdx, 1), k);
+}
+
+inline void LuaSetField(lua_State* lua, int tableIdx, const char* k, const lua_Idx& v)
 {
 	LuaGetTable(lua, tableIdx);
 	LuaPushValue(lua, v);

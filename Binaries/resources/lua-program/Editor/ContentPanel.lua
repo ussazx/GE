@@ -39,6 +39,7 @@ function SearchInput:ctor(w, font)
 	ww:AddChild(mag, 5, math.ceil((th - mag.rect.h) / 2))
 
 	self.input = UiTextInput(w, th, '', font)
+	self.input.recorder = Recorder()
 	ww.color:copy(self.input.crColor)
 	
 	h:AddChild(ww, nil, 0)
@@ -47,10 +48,12 @@ function SearchInput:ctor(w, font)
 	self:SetSize(h.rect.w, h.rect.h)
 end
 
-local content = Object()
+content = Object()
 content.FOLDER = 1
+content.ASSET = 2
 local icons = {}
 icons[content.FOLDER] = g_iconFolder
+content.assets = {}
 
 Folder = class()
 Folder.tempName = LString('')

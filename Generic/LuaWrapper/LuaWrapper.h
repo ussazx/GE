@@ -1,3 +1,8 @@
+//***************************************************************************************
+// Effects.h by ussa (C) 2026 All Rights Reserved.
+// Licensed under the MIT License.
+//***************************************************************************************
+
 #pragma once
 #include "LuaState.h"
 #include <vector>
@@ -453,8 +458,9 @@ inline void LuaRegisterCppClass(LuaState& lua, const char* name, const char* bas
 }
 
 template<class T>
-inline void LuaRegisterCppClass(LuaState& lua)
+inline void LuaRegisterCppClass(lua_State *L)
 {
+	LuaState lua(L);
 	LuaRegisterCppClass(lua, T::LuaGetName(), T::LuaGetBaseName(), sizeof(T),
 		T::LuaGetObjectCtor(), LuaObjectDtor<T>, typeid(T).hash_code(), T::LuaSetClassTable);
 }

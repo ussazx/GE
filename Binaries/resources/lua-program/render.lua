@@ -190,9 +190,12 @@ end
 ---Model---
 Model = class(SceneObject)
 Model.writeId = true
+SceneObject.srlzClass['Model'] = Model
+
 function Model:ctor(geom)
 	self.dropId = WeakTable()
 	self.meshes = {}
+	self.geom = geom
 	self.trans = geom.trans
 	for _, m in pairs(geom.meshes) do
 		local mesh = Mesh(self.id, geom, m.vbStart, m.vbEnd, m[1], m[2])
@@ -215,6 +218,22 @@ function Model:ctor(geom)
 	self:Reschedule()
 	if (EDITOR) then
 		self:ShowPicked(false)
+	end
+end
+
+function Model:Serialize()
+	local o = self._base.Serialize(self)
+	o.class = 'Model'
+	o.geom = self.geom[g_assets.Geometry]
+	return o
+end
+
+function Model.NewSerialized(o)
+	local geom = g_assets.Geometry[o.geom]
+	if (geom) then
+		local c = Model(geom)
+		c:LoadSerialized(o)
+		return c
 	end
 end
 

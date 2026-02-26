@@ -59,8 +59,8 @@ private:
 	{
 		LuaState::SetErrorFunc(OnLuaError);
 		LuaState::SetRequireFunc(OnRequired);
-		LuaRegisterCppClass<CFileFinder>(Lua());
-		LuaRegisterCppClass<CTimer>(Lua());
+		LuaRegisterCppClass<CFileFinder>(Lua().Lua());
+		LuaRegisterCppClass<CTimer>(Lua().Lua());
 		static Terminal t;
 
 		Lua().SetValue("cTerminal", Lua_set_cobj(&t));
