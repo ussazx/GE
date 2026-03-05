@@ -426,6 +426,9 @@ cParamPipeline:SetVertexInputRate(3, true)
 g_pl3dInst = cGI:NewPipeline(g_rp0, 0, 1, object3dInst_vs, 'main', object3d_ps, 'main', cParamPipeline)
 g_pl3dPvInst = cGI:NewPipeline(g_rpPv, 0, 1, object3dInst_vs, 'main', object3d_ps, 'main', cParamPipeline)
 
+cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_LINE, cGI.CULL_MODE_NONE, true, false, false, false)
+g_pl3dInstL = cGI:NewPipeline(g_rp0, 0, 1, object3dInst_vs, 'main', object3d_ps, 'main', cParamPipeline)
+
 cParamPipeline:Reset()
 cParamPipeline:AddResourceLayout(g_rlUB)
 cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_BACK_BIT, true, false, false, false)
@@ -509,14 +512,19 @@ g_mtl3d.func[g_rp1[1]] = {func = function(mtl, dcList)
 	dcList:SetPipeline(g_plIdOutline, g_mtl3d.vbLayout, 0)
 end, mergeType = DC_MTL_MERGED, order = g_mtl3d}
 
-g_mtl3dInst = {inst = g_perObjInstance}
+g_mtl3dInst = {inst = g_perObjInstance, fill = true}
 g_mtl3dInst.vbLayout = NewVBLayout(1|2|4, false, SIZE_FLOAT3, SIZE_FLOAT2, SIZE_UINT1)
 
 g_mtl3dInst.func = {}
 
 g_mtl3dInst.func[g_rp0[1]] = {func = function(mtl, dcList)
+	if (g_mtl3dInst.fill) then
+		dcList:SetPipeline(g_pl3dInst, g_mtl3dInst.vbLayout, 0)
+	else
+		dcList:SetLineWidth(1)
+		dcList:SetPipeline(g_pl3dInstL, g_mtl3dInst.vbLayout, 0)
+	end
 	dcList:AddResourceSet(g_resCamera)
-	dcList:SetPipeline(g_pl3dInst, g_mtl3dInst.vbLayout, 0)
 	dcList:SetInstVB(g_perObjInstance.vbMtx, 3)
 end, mergeType = DC_MTL_MERGED, order = g_mtl3dInst}
 
@@ -547,6 +555,15 @@ g_mtl3dInst.func[g_rpPv[1]] = {func = function(mtl, dcList)
 	dcList:SetPipeline(g_pl3dPvInst, g_mtl3dInst.vbLayout, 0)
 	dcList:SetInstVB(g_perObjInstance.vbMtx, 3)
 end, mergeType = DC_MTL_MERGED, order = g_mtl3dInst}
+
+-----
+-- g_mtl3dInstL = Material(g_mtl3dInst)
+-- g_mtl3dInstL.func[g_rp0[1]] = {func = function(mtl, dcList)
+	-- dcList:SetLineWidth(1)
+	-- dcList:SetPipeline(g_pl3dInstL, g_mtl3dInst.vbLayout, 0)
+	-- dcList:AddResourceSet(g_resCamera)
+	-- dcList:SetInstVB(g_perObjInstance.vbMtx, 3)
+-- end, mergeType = DC_MTL_MERGED, order = g_mtl3dInstL}
 
 --coord3d material
 g_mtlCoord3d = {inst = g_perObjInst1}

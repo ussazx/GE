@@ -120,6 +120,8 @@ struct CMatrix
 	void TransformByInverted(LuacObj<CMatrix> M);
 	std::tuple<float, float, float> PointTransform(float x, float y, float z);
 	std::tuple<float, float, float> VectorTransform(float x, float y, float z);
+	std::tuple<float, float, float> PointTransformInv(float x, float y, float z);
+	std::tuple<float, float, float> VectorTransformInv(float x, float y, float z);
 	std::tuple<float, float, float> GetPosition();
 	const CMatrix& operator *= (const CMatrix& n);
 
@@ -156,7 +158,7 @@ struct CMatrix
 		Lua_mf(GetRow1), Lua_mf(GetRow2), Lua_mf(GetRow3), Lua_mf(GetRow4),
 		Lua_mf(SetRotation), Lua_mf(SetPosition), Lua_mf(Move), Lua_mf(MoveLocal),
 		Lua_mf(Rotate), Lua_mf(RotateLocalX), Lua_mf(RotateLocalY), Lua_mf(RotateLocalZ), Lua_mf(Scale),
-		Lua_mf(PointTransform), Lua_mf(VectorTransform),
+		Lua_mf(PointTransform), Lua_mf(VectorTransform), Lua_mf(PointTransformInv), Lua_mf(VectorTransformInv),
 		Lua_mf(Transform), Lua_mf(SetByScaled), Lua_mf(SetByTransposed), Lua_mf(SetByMultiplied), Lua_mf(TransformByInverted),
 		Lua_mf(SetByInverted), Lua_mf(SetByMatrixToView), Lua_mf(Perspective), Lua_mf(CopyFrom), Lua_mf(GetPosition), Lua_mf(SetDiagonalTL))
 };
@@ -663,6 +665,22 @@ inline std::tuple<float, float, float> CMatrix::PointTransform(float x, float y,
 inline std::tuple<float, float, float> CMatrix::VectorTransform(float x, float y, float z)
 {
 	CMatrix& m = *this;
+	return { x * m[0][0] + y * m[1][0] + z * m[2][0],
+		 x * m[0][1] + y * m[1][1] + z * m[2][1],
+		 x * m[0][2] + y * m[1][2] + z * m[2][2] };
+}
+inline std::tuple<float, float, float> CMatrix::PointTransformInv(float x, float y, float z)
+{
+	CMatrix m;
+	m.SetByInverted(this);
+	float3 v = { x, y, z };
+	v *= m;
+	return { v.x, v.y, v.z };
+}
+inline std::tuple<float, float, float> CMatrix::VectorTransformInv(float x, float y, float z)
+{
+	CMatrix m;
+	m.SetByInverted(this);
 	return { x * m[0][0] + y * m[1][0] + z * m[2][0],
 		 x * m[0][1] + y * m[1][1] + z * m[2][1],
 		 x * m[0][2] + y * m[1][2] + z * m[2][2] };

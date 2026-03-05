@@ -145,6 +145,7 @@ function Renderer:RenderCached(scene)
 	for spId in pairs(g_dcLists) do
 		local func = mtl.func[spId]
 		if (not self.disables[spId] and func) then
+			local o = order[spId]
 			local dcList = scene:GetDrawcall(spId, o[1], o[2])
 			if (dcList.mtl ~= mtl) then
 				func.func(mtl, dcList)

@@ -406,13 +406,14 @@ function SceneObject:Attach(parent, initial, rotRule, followScale)
 			self.mRoot:SetPosition(x - xd, y - yd, z - zd)
 		elseif (rotRule == SceneObject.ATTACH_ROT_AFFECT_POS) then
 			local x, y, z = self.mWorld:GetPosition()
-			x, y, z =  parent.mWorld:PointTransform(x, y, z)
+			x, y, z = parent.mWorld:PointTransformInv(x, y, z)
 			self.mRoot:SetPosition(x, y, z)
 		else --ATTACH_ROT_AFFECT_POS_ROT
 			if (self.mRoot ~= self.mWorld) then
 				self.mRoot:CopyFrom(self.mWorld)
 			end
 			self.mRoot:TransformByInverted(parent.mWorld)
+
 		end
 	end
 	self.mWorld = self.mCache

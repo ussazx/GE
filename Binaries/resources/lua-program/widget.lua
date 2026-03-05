@@ -237,6 +237,8 @@ function Layout:SetSize(w, h)
 		self.sized = false
 		self.upNotified = false
 		self:process_event(EVT.SIZE, w0, h0)
+		if (self.z) then Print(111111, self.rect.w, self.rect.h)
+		end
 		return true
 	end
 end
@@ -1252,12 +1254,12 @@ local function TextInputAssign(a, b)
 end
 
 function UiTextInput:ctor(w, h, text, font)
-	self.rect:set(0, 0, w, h)
-	
 	self.crColor:set(80, 80, 80, 255)
 	self.selectedColor = Color(0, 130, 255, 100)
 	
 	font = font or uiFont
+	
+	self.rect:set(0, 0, w or 0, h or font.maxHeight)
 	
 	self.caret = UiWidget(1, font.maxHeight)
 	self.caret:EnableWriteId(false)

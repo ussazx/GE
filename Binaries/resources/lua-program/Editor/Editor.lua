@@ -76,6 +76,7 @@ function CreateProjWindow:ctor()
 end
 
 function CreateProjWindow:OnCreate()
+	g_projPath = nil
 	cEntrance:Accept()
 end
 
@@ -96,7 +97,44 @@ function LoadProjWindow:ctor()
 	--self:AddChild(UiPolyIcon(g_iconRNavi), 100 + 30, 100)
 	--local ssm = MtlSnapshot(100, 100)
 	--self:AddChild(UiImage(ssm.view))
-	--if (1) then return end
+	
+	--g_iconLine = AddPoly2D(true, DrawLine(5, false, false, {0, 0}, {100, 0}, {50, 100}, {366, 210}, {500, 710}))
+	--self:AddChild(UiPolyIcon(g_iconLine), 100, 100)
+	
+	local r = 100
+	circle = AddPoly2D(true, DrawLine(3, false, true, MakeCircle(0, 0, r, 32)))
+	--self:AddChild(UiPolyIcon(circle), 100, 100)
+	
+	--local star = AddPoly2D(true, DrawLine(3, false, true, 100, ))
+	--self:AddChild(UiPolyIcon(circle), 100, 100)
+	
+	local v = VBoxLayout()
+	self:AddChild(v)
+	
+	local curve = {}
+	local a, d = 50, 50
+	for i = 0, 800, 2 do
+		table.insert(curve, {i, a * math.sin(i / d * math.pi)})
+	end
+	v:AddChild(UiPolyIcon(AddPoly2D(true, DrawLine(3, false, false, curve))), nil, 100, 0, nil, 100)
+	
+	local curve2 = {}
+	local a, d = 50, 50
+	for i = 0, 600, 2 do
+		table.insert(curve2, {i, a * math.sin(i / d * math.pi)})
+	end
+	
+	for i = 600, 0, -2 do
+		table.insert(curve2, {i, a * -math.sin(i / d * math.pi) + 150})
+	end
+	
+	local icon = AddPoly2D(true, curve2)
+	v:AddChild(UiPolyIcon(AddPoly2D(true, curve2)), nil, 100, 0, nil, 70)
+	
+	local icon = AddPoly2D(true, {{0, 125}, {100, 100}, {125, 0}, {150, 100}, {250, 125}, {150, 150}, {125, 250}, {100, 150}})
+	self:AddChild(UiPolyIcon(icon), 700, 300)
+	
+	if (1) then return end
 	
 	local vLayout = VBoxLayout()
 	self:AddChild(vLayout)
@@ -335,9 +373,15 @@ function ProjModified(panelSet, flag)
 	end
 end
 
+function SaveAll()
+	local k, v = next(projModified)
+	while (v) do
+	end
+end
+
 function OnMainFrameClose()
 	local k, v = next(projModified)
-	if (v) then
+	if (v or not g_projPath) then
 		local b = cTerminal:MessageDialog('', _('是否保存项目？'), _('保存'), _('不保存'), _('取消'))
 		if (b) then
 			return SaveProject(g_projPath)

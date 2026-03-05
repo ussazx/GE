@@ -97,7 +97,26 @@ function SceneView:ctor(scene)
 	self.camera:Attach(self.focus)
 	self.camera:Move(0, 0, -10)
 	
+	local h = HBoxLayout()
+	self:AddChild(h)
+	h:AddChild(UiText(_('显示：')), nil, 10, 0, nil, 10)
+	
+	self.btnFill = UiButton(50, 28, _('填充'))
+	self.btnFill:bind_event(EVT.LEFT_UP, self, self.OnShowFill)
+	h:AddChild(self.btnFill, nil, 0, 0, nil, 7)
+	self.showFill = false
+	
 	EVT.BindMouseAll(self, self, SceneView.OnSceneMouse)
+end
+
+function SceneView:OnShowFill()
+	g_mtl3dInst.fill = self.showFill
+	if (self.showFill) then
+		self.btnFill.text:SetText(_('网格'))
+	else
+		self.btnFill.text:SetText(_('填充'))
+	end
+	self.showFill = not self.showFill
 end
 
 function SceneView:RotateView(yaw, pitch)
@@ -184,10 +203,11 @@ function SceneWindow:ctor()
 	self.grid:Attach(self.scene)
 	
 	self.o = Model(g_assets.Geometry['cube'])
-	--self.o:Attach(self.scene)
 	self.o1 = Model(g_assets.Geometry['cube'])
 	self.o1:Move(-2.5, 0, 0)
-	--self.o1:Attach(self.scene)
+	--1
+	self.o:Attach(self.scene)
+	self.o1:Attach(self.scene)
 	
 	self:bind_event(EVT.INNER_DRAG_ENTER, self, self.OnInnerDragEnter)
 	self:bind_event(EVT.INNER_DRAGGING, self, self.OnInnerDragging)
@@ -269,6 +289,7 @@ function SceneWindow:OnCoord(e, x, y, w, m)
 				x1, y1 = mView:VectorTransform(0, 0, 1)
 				c.attached:Move(0, 0, Dot2D(x0, y0, Normalize2D(x1, y1)))
 			end
+			self.panelSet.inspector:Display(c.attached)
 		end
 		self.mx = x
 		self.my = y
@@ -306,16 +327,15 @@ function SceneWindow:OnPicked(e, m)
 	if (b) then
 		o:ShowPicked(false)
 	end
+	self.panelSet.inspector:Display(self.picked)
 end
 
 function SceneWindow:OnKeyDown(e, k)
 	if (k == SYS.VK_DELETE) then
 		if (self.picked) then
-			self.picked:ShowPicked(false)
-			self.objCoord:Detach(true)
-			self.picked:Detach(true)
 			self.panelSet:Record(self, self.ObjDroppedRecord, {obj = self.picked, add = false})
-			self.picked = nil
+			self.picked:Detach(true)
+			self:OnPicked()
 		end			
 	elseif (k == SYS.VK_UP) then
 		self.o:Move(0, 0, 0.1)
@@ -325,9 +345,23 @@ function SceneWindow:OnKeyDown(e, k)
 		self.o:Move(-0.1, 0, 0)
 	elseif (k == SYS.VK_RIGHT) then
 		self.o:Move(0.1, 0, 0)
-	elseif (k == SYS.VK_A) then
+	elseif (k == SYS.VK_Z) then
 		if (self.a) then
 			self.o1:Attach(self.o, self.o1.ATTACH_WORLD, self.o1.ATTACH_ROT_AFFECT_POS_ROT)
+		else
+			self.o1:Detach()
+		end
+		self.a = not self.a
+	elseif (k == SYS.VK_X) then
+		if (self.a) then
+			self.o1:Attach(self.o, self.o1.ATTACH_WORLD, self.o1.ATTACH_ROT_AFFECT_POS)
+		else
+			self.o1:Detach()
+		end
+		self.a = not self.a
+	elseif (k == SYS.VK_C) then
+		if (self.a) then
+			self.o1:Attach(self.o, self.o1.ATTACH_WORLD, self.o1.ATTACH_ROT_IGNORE)
 		else
 			self.o1:Detach()
 		end
@@ -418,6 +452,84 @@ end
 ScenePanelSet = class2(PanelSet)
 ScenePanelSet.layout = 'notebook_layout0/1<presets>0|2<viewport>0|3<content*logMessage>0|4<hirachey>0|5<inspector>0|*|layout2|name=dummy;caption=;state=2098174;dir=3;layer=0;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=225;minh=225;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=1;caption=;state=2098172;dir=5;layer=0;row=0;pos=0;prop=100000;bestw=250;besth=250;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=2;caption=;state=2098172;dir=2;layer=0;row=1;pos=0;prop=100000;bestw=540;besth=346;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=3;caption=;state=2098172;dir=3;layer=1;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=4;caption=;state=2098172;dir=2;layer=2;row=0;pos=0;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|name=5;caption=;state=2098172;dir=2;layer=2;row=0;pos=1;prop=100000;bestw=225;besth=225;minw=-1;minh=-1;maxw=-1;maxh=-1;floatx=-1;floaty=-1;floatw=-1;floath=-1|dock_size(5,0,0)=18|dock_size(2,0,1)=634|dock_size(3,1,0)=227|dock_size(2,2,0)=227|/'
 
+Inspector = class(Window)
+
+function Inspector:ctor()
+	self.layout = VBoxLayout()
+	self.layout:Show(false)
+	self:AddChild(self.layout)
+	local layout2 = VBoxLayout()
+	self.layout:AddChild(layout2, 1, 10, 10, true, 20, 20)
+	
+	layout2:AddChild(UiText(_('位置：')), nil, 0, 0, nil, 0)
+	
+	local h = HBoxLayout()
+	layout2:AddChild(h, nil, 10, 0, true, 0, 0)
+	local X = UiText('X')
+	X.color:set(80, 255, 80, 255)
+	h:AddChild(X)
+	self.xInput = UiTextInput(0, uiFont.maxHeight, '0')
+	--self.xInput:bind_event(EVT.FOCUS_OUT, self, self.OnPositionFocusOut)
+	h:AddChild(self.xInput, 1, 10, 0)
+	
+	h = HBoxLayout()
+	layout2:AddChild(h, nil, 10, 0, true, 0, 0)
+	local Y = UiText('Y')
+	Y.color:set(255, 80, 80, 255)
+	h:AddChild(Y)
+	self.yInput = UiTextInput(0, uiFont.maxHeight, '0')
+	h:AddChild(self.yInput, 1, 10, 0)
+	
+	h = HBoxLayout()
+	layout2:AddChild(h, nil, 10, 0, true, 0, 0)
+	local Z = UiText('Z')
+	Z.color:set(80, 80, 255, 255)
+	h:AddChild(Z)
+	self.zInput = UiTextInput(0, uiFont.maxHeight, '0')
+	h:AddChild(self.zInput, 1, 10, 0)
+end
+
+function Inspector:Display(obj)
+	if (obj) then
+		self.layout:Show(true)
+		local x, y, z = obj.mWorld:GetPosition()
+		self.xInput:SetText(string.format('%f', x))
+		self.yInput:SetText(string.format('%f', y))
+		self.zInput:SetText(string.format('%f', z))
+	else
+		self.layout:Show(false)
+	end
+end
+
+function Inspector:OnPositionChanged(e)
+	if (self.keepPos) then
+		self.keepPos = false
+		return
+	end
+	local x, y, z = self.panelSet.sceneView.picked.mWorld:GetPosition()
+	x, y, z = string.format('%f', x), string.format('%f', y), string.format('%f', z)
+	if (e.obj == self.xInput) then
+		local x1 = string.format('%f', x)
+		local n = tonumber(x1)
+		if (not n or x == x1) then
+			self.keepPos = true
+			self.xInput:SetText(string.format('%f', x))
+		else
+		end	
+	end
+		
+	
+end
+
+function Inspector:OnPositionFocusIn()
+
+end
+
+function Inspector:OnPositionFocusOut()
+	local x0, y0, z0 = self.panelSet.viewport.sceneView.picked.mWorld:GetPosition()
+	local x1, y1, z1 = self.xInput.text:utf8()
+end
+
 function ScenePanelSet:ctor(nb)
 	self.presets = PresetsWindow()
 	self.presets.panelSet = self
@@ -425,7 +537,7 @@ function ScenePanelSet:ctor(nb)
 	self.viewport.panelSet = self
 	self.hirachey = Window()
 	self.hirachey.panelSet = self
-	self.inspector = Window()
+	self.inspector = Inspector()
 	self.inspector.panelSet = self
 	self.logMessage = Window()
 	self.content = ContentPanel()
