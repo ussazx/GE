@@ -361,6 +361,7 @@ function Window:on_mouse(e, x, y, w, m)
 	else
 		id = PickByTexture(self.idTexture, x, y)
 		obj = get_object(id) or self
+		if (obj[UiImage]) then Print(id) end
 		local scene = CheckScene(obj, self, x, y)
 		if (obj ~= scene and (not obj.pickable[scene] or
 			(e == EVT.MOUSEWHEEL and not obj.event_table_obj[e]))) then
@@ -475,7 +476,13 @@ function Window:on_dragging(x, y, type, text)
 	local id = PickByTexture(self.idTexture, x, y)
 	obj = get_object(id) or self
 	obj = CheckScene(obj, self, x, y)
+	Print(id, get_object(id))
 	while (obj) do
+		if (obj[Window]) then Print(1111111111)
+		elseif (obj[UiImage]) then Print(2222222222)
+		elseif (obj[UiWidget]) then Print(33333333333)
+		else Print(4444444444444, id)
+		end
 		if (type == 1) then
 			if (obj.acceptFile) then
 				return true
@@ -496,6 +503,7 @@ function Window:on_dragging(x, y, type, text)
 		end
 		obj = obj.parent
 	end
+	Print('\n')
 	return false
 end
 

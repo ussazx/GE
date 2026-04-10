@@ -27,6 +27,7 @@
     <ClCompile Include="..\source\Graphic\ParamVulkan.cpp" />
     <ClCompile Include="..\source\Resource\Font.cpp" />
     <ClCompile Include="..\source\Resource\Image.cpp" />
+    <ClCompile Include="..\source\Resource\PMX.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\EngineBase.h" />

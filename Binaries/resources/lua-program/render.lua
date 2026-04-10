@@ -5,6 +5,7 @@ require 'geometry'
 ---Material---
 function Material(mtl)
 	return setmetatable({}, {__index = mtl})
+	--return setmetatable({_f = mtl.func, func = setmetatable({}, {__index = mtl.func})}, {__index = mtl})
 end
 
 ---InstancePos---
@@ -340,7 +341,7 @@ function Model:Reschedule()
 			break
 		end
 		local mtl2 = n.renderer.mtl
-		if (mt12.inst ~= inst1 and mtl2.inst.type == PerObjectInstance) then
+		if (mtl2.inst ~= inst1 and mtl2.inst.type == PerObjectInstance) then
 			table.insert(self.pmInst, mtl2.inst)
 			inst = mtl2.inst
 		end

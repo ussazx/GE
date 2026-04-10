@@ -197,7 +197,8 @@ function Renderer:SetMaterial(mtl)
 	
 	local hasId = mtl.vbLayout.hasId
 	
-	for spId, func in pairs(mtl.func) do
+	for spId, _ in pairs(mtl._f or mtl.func) do
+		local func = mtl.func[spId]
 		self:SetOrder(mtl, spId, func.mergeType, func.order)
 	end
 	

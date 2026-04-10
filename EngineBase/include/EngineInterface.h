@@ -37,10 +37,10 @@ namespace Engine
 		virtual int64_t Read(void* buff, int64_t size) = 0;
 
 		template<class T>
-		__int64 Load(T& out, bool missingFail = true)
+		__int64 Load(T& out, __int64 len = sizeof(T), bool missingFail = true)
 		{
-			__int64 n = Read(&out, sizeof(T));
-			return missingFail && n < sizeof(T) ? 0 : n;
+			__int64 n = Read(&out, len);
+			return missingFail && n < len ? 0 : n;
 		}
 	};
 	DECLSPEC class StreamOutput

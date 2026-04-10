@@ -16,6 +16,7 @@ function PresetsWindow:ctor()
 	self:AddPresetItem(g_assets.Geometry['cube'], _('立方体'))
 	self:AddPresetItem(g_assets.Geometry['sphere'], _('球体'))
 	self:AddPresetItem(g_assets.Geometry['plane'], _('平面'))
+	--self:AddPresetItem(g_assets.Geometry['pmx'], _('pmx'))
 end
 
 function PresetsWindow:AddPresetItem(item, text)
@@ -35,7 +36,7 @@ function PresetsWindow:AddPresetItem(item, text)
 end
 
 function PresetsWindow:OnItemLeftDown(e)
-	self:Drag(PresetsWindow, EVT.obj.item)
+	self:Drag(Geometry, EVT.obj.item)
 end
 
 local gridLineLen = 1000
@@ -194,7 +195,7 @@ function SceneWindow:ctor()
 	local v = VBoxLayout()
 	v:AddChild(self.sceneView, 1, 0, 0, true)
 	self:AddChild(v)
-	self:EnableDrop(PresetsWindow, true)
+	self:EnableDrop(Geometry, true)
 	
 	self.grid = Model(g_assets.Geometry['grid3d'])
 	self.grid:EnableWriteId(false)
@@ -559,7 +560,9 @@ function ScenePanelSet:OnLoadProfile(o)
 		local class = SceneObject.srlzClass[c.class]
 		if (class) then
 			c = class.NewSerialized(c)
-			c:Attach(sv.scene)
+			if (c) then
+				c:Attach(sv.scene)
+			end
 		end
 	end
 end

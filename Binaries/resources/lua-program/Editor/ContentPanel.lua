@@ -50,9 +50,12 @@ end
 
 content = Object()
 content.FOLDER = 1
-content.ASSET = 2
+--content.ASSET = 2
+content.GEOM = 2
+content.IMAGE = 3
 local icons = {}
 icons[content.FOLDER] = g_iconFolder
+icons[content.GEOM] = g_iconGeom2
 content.assets = {}
 
 Folder = class()
@@ -376,6 +379,9 @@ function ContentPanel:LoadFolder(folder, recorded)
 	for _, o in folder.folders:pairs() do
 		self:AddItem(o)
 	end
+	for _, o in folder.files:pairs() do
+		self:AddItem(o)
+	end
 	
 	if (self.curFolder ~= folder) then
 		self:SetPathButtons(folder)
@@ -399,9 +405,96 @@ function ContentPanel:OnPresetDrop(e, id, geom)
 	
 end
 
+function ContentPanel.LoadPmx(file, dir)
+	local vb = CMBuffer(1)
+	local ub = CMBuffer(1)
+	local nb = CMBuffer(1)
+	local ib = CMBuffer(1)
+	
+	g_pmxGeoInfo.vb = {vb, ub, nb}
+	g_pmxGeoInfo.ib = ib
+	g_pmxGeoInfo.dir = dir
+	g_pmxGeoInfo.meshes = {}
+	g_pmxGeoInfo.tex = {}
+	if (CLoadPmx(file, file:GetSize(), ContentPanel.OnPmxMesh, ContentPanel.OnTexture, vb, ub, nb, ib)) then
+		return Geometry(g_pmxGeoInfo)
+	end
+end
+
+function ContentPanel:AddImage(image, name)
+	local o = {}
+	o.name = name:utf8()
+	o.lname = name:lower_utf8()
+	o.type = content.IMAGE
+	o.image = image
+
+	local item = self:AddItem(o)
+	item.op = content.OP_ADD
+	self.curFolder:Add(self, item.meta)
+end
+
+function ContentPanel.OnTexture(path)
+	local f = CNewFileInput(false)
+	local s = g_pmxGeoInfo.dir .. path
+	if (f:Open(s, true)) then
+		local t = CLoadImagePng(f)
+		if (t) then
+			local p = s:rfind('\\')
+			if (p < 0) then p = s:rfind('/') end
+			g_pmxGeoInfo.content:AddImage(t, s:substr(p + 1, -1))
+			table.insert(g_pmxGeoInfo.tex, t)
+		else
+			Print(s:utf8())
+		end
+		f:Close()
+	end
+end
+
+function ContentPanel.OnPmxMesh(idx0, idxN, useSphere, moduate, texIdx, spIdx, toonIdx)
+	local m = Material(g_mtlPmxInst)
+	local pmxPsRes = ResourceHub(g_rlPmxPs)
+	m.psRes = pmxPsRes
+	if (useSphere) then
+		useSphere = 1
+	else
+		useSphere = 0
+	end
+	if (moduate) then
+		moduate = 1
+	else
+		moduate = 0
+	end
+	if (texIdx >= 0) then texIdx = texIdx + 1 end
+	if (spIdx >= 0) then spIdx = spIdx + 1 end
+	if (toonIdx >= 0) then toonIdx = toonIdx + 1 end
+	pmxPsRes.psBuf = pmxPsRes:BindResBuffer(0, SIZE_UINT1, SIZE_UINT1)
+	CMulAddUInt1(1, pmxPsRes.psBuf(), pmxPsRes.psBuf[1], useSphere)
+	CMulAddUInt1(1, pmxPsRes.psBuf(), pmxPsRes.psBuf[2], moduate)
+	pmxPsRes:BindImageWithSampler(g_pmxGeoInfo.tex[texIdx] or g_emptyImage, g_sampler, 1)
+	pmxPsRes:BindImageWithSampler(g_pmxGeoInfo.tex[spIdx] or g_emptyImage, g_sampler, 2)
+	pmxPsRes:BindImageWithSampler(g_pmxGeoInfo.tex[toonIdx] or g_emptyImage, g_sampler, 3)
+	table.insert(g_pmxGeoInfo.meshes, {idx0, idxN, m})
+end
+
 function ContentPanel:OnDropFile(e, files)
 	for _, f in pairs(files) do
 		Print(f)
+		local lf = LString(f)
+		if (lf:rfind('.pmx') >= 0) then
+			f = CNewFileInput(false)
+			if (f:Open(lf, true)) then
+				local p = lf:rfind('\\')
+				if (p < 0) then p = lf:rfind('/') end
+				g_pmxGeoInfo.content = self
+				local geom = ContentPanel.LoadPmx(f, lf:substr(0, p + 1))
+				if (geom) then
+					g_assets.Geometry[lf:utf8()] = geom
+					local name = lf:substr(p + 1, -1)
+					self:AddGeom(geom, name)
+				end
+				f:Close()
+			end
+		end
 	end
 end
 
@@ -490,8 +583,12 @@ function ContentPanel:AddItem(o)
 	
 	item.meta = o
 	item.menu = itemMenus[o.type]
-	item.icon = UiPolyIcon(icons[o.type], true)
-	item.icon:EnableWriteId(false)
+	if (o.image) then
+		item.icon = UiImage(o.image)
+	else
+		item.icon = UiPolyIcon(icons[o.type], true)
+		item.icon:EnableWriteId(false)
+	end
 	layout:AddChild(item.icon, 1, 10, 10, true, 20, 20)
 	
 	item.input = UiTextInput(0, uiFont2.maxHeight, o.name, uiFont2)
@@ -500,6 +597,7 @@ function ContentPanel:AddItem(o)
 	item.input:bind_event(EVT.FOCUS_OUT, self, self.OnTextFocusOut)
 	item.input:bind_event(EVT.KEY_DOWN, self, self.OnTextKeyDown)
 	item.input:bind_event(UiTextInput.EVT, self, self.OnText)
+	item:bind_event(EVT.LEFT_DOWN, self, ContentPanel.OnItemLeftDown)
 	item.input.item = item
 	layout:AddChild(item.input) 
 	
@@ -511,6 +609,8 @@ end
 
 function ContentPanel:OnItemMenu(e)
 	local item = EVT.obj
+	if (not item.menu) then
+	return end
 	local id = item.menu:Popup(self)
 	if (not id) then
 	return end
@@ -567,6 +667,24 @@ function ContentPanel:OnMouse(e)
 	else
 	end
 end
+
+function ContentPanel:OnItemLeftDown(e)
+	if (EVT.obj.meta.geom) then
+		self:Drag(Geometry, EVT.obj.meta.geom)
+	end
+end
+
+function ContentPanel:AddGeom(geom, name)
+	local o = {}
+	o.name = name:utf8()
+	o.lname = name:lower_utf8()
+	o.type = content.GEOM
+	o.geom = geom
+
+	local item = self:AddItem(o)
+	item.op = content.OP_ADD
+	self.curFolder:Add(self, item.meta)
+end		
 
 function ContentPanel:ScanDirectory(d)
 	local n = self.list:AddNode(nil, g_iconFolder, 'main')

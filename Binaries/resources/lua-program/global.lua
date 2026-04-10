@@ -24,6 +24,8 @@ g_innerPolyVB.offset = 0
 g_innerPolyIB = CMBuffer(1024)
 g_innerPolyIB.offset = 0
 
+g_emptyImage = CNewEmptyImage(128, 128, 255, 255, 255, 255)
+
 local function AddPolyVertex2D(o, t, i, x, y, nv, nvc)
 	local v = t[i]
 	nv = nv + 1
@@ -190,6 +192,11 @@ f:Open('Resources/shaders/'..cGI:Type()..'/object3d_id.vsc', true)
 object3d_id_vs = cGI:NewShaderModule(f)
 f:Open('Resources/shaders/'..cGI:Type()..'/object3dInst_id.vsc', true)
 object3dInst_id_vs = cGI:NewShaderModule(f)
+
+f:Open('Resources/shaders/'..cGI:Type()..'/pmxInst.vsc', true)
+pmxInst_vs = cGI:NewShaderModule(f)
+f:Open('Resources/shaders/'..cGI:Type()..'/pmx.psc', true)
+pmx_ps = cGI:NewShaderModule(f)
 
 f:Open('Resources/shaders/'..cGI:Type()..'/coord3d.vsc', true)
 coord3d_vs = cGI:NewShaderModule(f)
@@ -485,6 +492,35 @@ cParamPipeline:SetVertexInputRate(1, true)
 cParamPipeline:SetVertexInputRate(2, true)
 g_plCoord3d = cGI:NewPipeline(g_rp0, 0, 1, coord3d_vs, 'main', object3d_ps, 'main', cParamPipeline)
 
+--pmx rl
+cParamResourceLayout:Reset()
+cParamResourceLayout:Add(cGI.RESOURCE_TYPE_UNIFORM_BUFFER, 0, 1, cGI.SHADER_STAGE_FRAGMENT_BIT)
+cParamResourceLayout:Add(cGI.RESOURCE_TYPE_COMBINED_IMAGE_SAMPLER, 1, 1, cGI.SHADER_STAGE_FRAGMENT_BIT)
+cParamResourceLayout:Add(cGI.RESOURCE_TYPE_COMBINED_IMAGE_SAMPLER, 2, 1, cGI.SHADER_STAGE_FRAGMENT_BIT)
+cParamResourceLayout:Add(cGI.RESOURCE_TYPE_COMBINED_IMAGE_SAMPLER, 3, 1, cGI.SHADER_STAGE_FRAGMENT_BIT)
+g_rlPmxPs = cGI:NewResourceLayout(cParamResourceLayout)
+
+--pmx pipeline
+cParamPipeline:Reset()
+cParamPipeline:AddResourceLayout(g_rlUB)
+cParamPipeline:AddResourceLayout(g_rlPmxPs)
+cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_FILL, cGI.CULL_MODE_NONE, true, false, false, false)
+cParamPipeline:SetDethStencilStates(true, false, true, cGI.COMPARE_OP_GREATER_OR_EQUAL, false)
+cParamPipeline:SetBlendState(0, true)
+cParamPipeline:SetBsColorBlendOp(0, cGI.BLEND_FACTOR_SRC_ALPHA, cGI.BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, cGI.BLEND_OP_ADD)
+cParamPipeline:SetBsAlphaBlendOp(0, cGI.BLEND_FACTOR_SRC_ALPHA, cGI.BLEND_FACTOR_DST_ALPHA, cGI.BLEND_OP_MAX)
+cParamPipeline:AddVertexElement(0, 0, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
+cParamPipeline:AddVertexElement(1, 1, cGI.FORMAT_R32G32_SFLOAT, SIZE_FLOAT2)
+cParamPipeline:AddVertexElement(2, 2, cGI.FORMAT_R32G32B32_SFLOAT, SIZE_FLOAT3)
+cParamPipeline:AddVertexElement(3, 3, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
+cParamPipeline:AddVertexElement(3, 4, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
+cParamPipeline:AddVertexElement(3, 5, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
+cParamPipeline:AddVertexElement(3, 6, cGI.FORMAT_R32G32B32A32_SFLOAT, SIZE_FLOAT4)
+cParamPipeline:SetVertexInputRate(3, true)
+g_plPmxInst = cGI:NewPipeline(g_rp0, 0, 1, pmxInst_vs, 'main', pmx_ps, 'main', cParamPipeline)
+cParamPipeline:SetRasterizerStates(cGI.PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, cGI.POLYGON_MODE_LINE, cGI.CULL_MODE_NONE, true, false, false, false)
+g_plPmxInstL = cGI:NewPipeline(g_rp0, 0, 1, pmxInst_vs, 'main', pmx_ps, 'main', cParamPipeline)
+
 --3d material
 g_mtl3d = {inst = {}}
 g_mtl3d.vbLayout = NewVBLayout(1|2|4, true, SIZE_FLOAT3, SIZE_FLOAT2, SIZE_UINT1)
@@ -519,10 +555,10 @@ g_mtl3dInst.func = {}
 
 g_mtl3dInst.func[g_rp0[1]] = {func = function(mtl, dcList)
 	if (g_mtl3dInst.fill) then
-		dcList:SetPipeline(g_pl3dInst, g_mtl3dInst.vbLayout, 0)
+		dcList:SetPipeline(g_pl3dInst, mtl.vbLayout, 0)
 	else
 		dcList:SetLineWidth(1)
-		dcList:SetPipeline(g_pl3dInstL, g_mtl3dInst.vbLayout, 0)
+		dcList:SetPipeline(g_pl3dInstL, mtl.vbLayout, 0)
 	end
 	dcList:AddResourceSet(g_resCamera)
 	dcList:SetInstVB(g_perObjInstance.vbMtx, 3)
@@ -530,14 +566,14 @@ end, mergeType = DC_MTL_MERGED, order = g_mtl3dInst}
 
 g_mtl3dInst.func[g_rp0[2]] = {func = function(mtl, dcList)
 	dcList:AddResourceSet(g_resCamera)
-	dcList:SetPipeline(g_plId3dInst, g_mtl3dInst.vbLayout, 0)
+	dcList:SetPipeline(g_plId3dInst, mtl.vbLayout, 0)
 	dcList:SetInstVB(g_perObjInstance.vbId, 3)
 	dcList:SetInstVB(g_perObjInstance.vbMtx, 4)
 end, mergeType = DC_MTL_MERGED, order = g_mtl3dInst}
 
 g_mtl3dInst.func[g_rp0[3]] = {func = function(mtl, dcList)
 	dcList:AddResourceSet(g_resCamera)
-	dcList:SetPipeline(g_plRecId3dInst, g_mtl3dInst.vbLayout, 0)
+	dcList:SetPipeline(g_plRecId3dInst, mtl.vbLayout, 0)
 	dcList:SetInstVB(g_perObjInstance.vbId, 3)
 	dcList:SetInstVB(g_perObjInstance.vbMtx, 4)
 end, mergeType = DC_MTL_MERGED, order = g_mtl3dInst}
@@ -545,16 +581,88 @@ end, mergeType = DC_MTL_MERGED, order = g_mtl3dInst}
 g_mtl3dInst.func[g_rp1[1]] = {func = function(mtl, dcList)
 	dcList:AddResourceSet(g_resCamera)
 	dcList:AddResourceSet(g_resIdImage)
-	dcList:SetPipeline(g_plIdOutline, g_mtl3dInst.vbLayout, 0)
+	dcList:SetPipeline(g_plIdOutline, mtl.vbLayout, 0)
 	dcList:SetInstVB(g_perObjInstance.vbId, 3)
 	dcList:SetInstVB(g_perObjInstance.vbMtx, 4)
 end, mergeType = DC_MTL_MERGED, order = g_mtl3dInst}
 
 g_mtl3dInst.func[g_rpPv[1]] = {func = function(mtl, dcList)
 	dcList:AddResourceSet(g_resCamera)
-	dcList:SetPipeline(g_pl3dPvInst, g_mtl3dInst.vbLayout, 0)
+	dcList:SetPipeline(g_pl3dPvInst, mtl.vbLayout, 0)
 	dcList:SetInstVB(g_perObjInstance.vbMtx, 3)
 end, mergeType = DC_MTL_MERGED, order = g_mtl3dInst}
+
+--pmx res--
+g_pmxPsRes = ResourceHub(g_rlPmxPs)
+g_pmxPsRes.psBuf = g_pmxPsRes:BindResBuffer(0, SIZE_UINT1, SIZE_UINT1)
+CMulAddUInt1(1, g_pmxPsRes.psBuf(), g_pmxPsRes.psBuf[1], 0)
+CMulAddUInt1(1, g_pmxPsRes.psBuf(), g_pmxPsRes.psBuf[2], 0)
+g_pmxPsRes:BindImageWithSampler(g_emptyImage, g_sampler, 1)
+g_pmxPsRes:BindImageWithSampler(g_emptyImage, g_sampler, 2)
+g_pmxPsRes:BindImageWithSampler(g_emptyImage, g_sampler, 3)
+
+--pmx material--
+-- g_mtlPmxInst = Material(g_mtl3dInst)
+-- g_mtlPmxInst.vbLayout = NewVBLayout(1|2|4, false, SIZE_FLOAT3, SIZE_FLOAT2, SIZE_FLOAT3)
+-- g_mtlPmxInst.psRes = g_pmxPsRes
+
+-- g_mtlPmxInst.func[g_rp0[1]] = {func = function(mtl, dcList)
+	-- if (g_mtl3dInst.fill) then
+		-- dcList:SetPipeline(g_plPmxInst, mtl.vbLayout, 0)
+	-- else
+		-- dcList:SetLineWidth(1)
+		-- dcList:SetPipeline(g_plPmxInstL, mtl.vbLayout, 0)
+	-- end
+	-- dcList:AddResourceSet(g_resCamera)
+	-- dcList:AddResourceSet(mtl.psRes)
+	-- dcList:SetInstVB(g_perObjInstance.vbMtx, 3)
+-- end, mergeType = DC_MTL_MERGED, order = g_mtlPmxInst}
+
+g_mtlPmxInst = {inst = g_perObjInstance, fill = true}
+g_mtlPmxInst.vbLayout = NewVBLayout(1|2|4, false, SIZE_FLOAT3, SIZE_FLOAT2, SIZE_FLOAT3)
+g_mtlPmxInst.psRes = g_pmxPsRes
+
+g_mtlPmxInst.func = {}
+
+g_mtlPmxInst.func[g_rp0[1]] = {func = function(mtl, dcList)
+	if (g_mtl3dInst.fill) then
+		dcList:SetPipeline(g_plPmxInst, mtl.vbLayout, 0)
+	else
+		dcList:SetLineWidth(1)
+		dcList:SetPipeline(g_plPmxInstL, mtl.vbLayout, 0)
+	end
+	dcList:AddResourceSet(g_resCamera)
+	dcList:AddResourceSet(mtl.psRes)
+	dcList:SetInstVB(g_perObjInstance.vbMtx, 3)
+end, mergeType = DC_MTL_MERGED, order = g_mtlPmxInst}
+
+g_mtlPmxInst.func[g_rp0[2]] = {func = function(mtl, dcList)
+	dcList:AddResourceSet(g_resCamera)
+	dcList:SetPipeline(g_plId3dInst, mtl.vbLayout, 0)
+	dcList:SetInstVB(g_perObjInstance.vbId, 3)
+	dcList:SetInstVB(g_perObjInstance.vbMtx, 4)
+end, mergeType = DC_MTL_MERGED, order = g_mtlPmxInst}
+
+g_mtlPmxInst.func[g_rp0[3]] = {func = function(mtl, dcList)
+	dcList:AddResourceSet(g_resCamera)
+	dcList:SetPipeline(g_plRecId3dInst, mtl.vbLayout, 0)
+	dcList:SetInstVB(g_perObjInstance.vbId, 3)
+	dcList:SetInstVB(g_perObjInstance.vbMtx, 4)
+end, mergeType = DC_MTL_MERGED, order = g_mtlPmxInst}
+
+g_mtlPmxInst.func[g_rp1[1]] = {func = function(mtl, dcList)
+	dcList:AddResourceSet(g_resCamera)
+	dcList:AddResourceSet(g_resIdImage)
+	dcList:SetPipeline(g_plIdOutline, mtl.vbLayout, 0)
+	dcList:SetInstVB(g_perObjInstance.vbId, 3)
+	dcList:SetInstVB(g_perObjInstance.vbMtx, 4)
+end, mergeType = DC_MTL_MERGED, order = g_mtlPmxInst}
+
+g_mtlPmxInst.func[g_rpPv[1]] = {func = function(mtl, dcList)
+	dcList:AddResourceSet(g_resCamera)
+	dcList:SetPipeline(g_pl3dPvInst, mtl.vbLayout, 0)
+	dcList:SetInstVB(g_perObjInstance.vbMtx, 3)
+end, mergeType = DC_MTL_MERGED, order = g_mtlPmxInst}
 
 -----
 -- g_mtl3dInstL = Material(g_mtl3dInst)
@@ -682,6 +790,34 @@ geoInfo.ib = ib
 geoInfo.meshes = {}
 geoInfo.meshes[1] = {0, 6, g_mtl3dInst}
 g_assets.Geometry['plane'] = Geometry(geoInfo)
+
+g_pmxGeoInfo = {}
+g_pmxGeoInfo.layout = 1|2|4
+g_pmxGeoInfo.vbInfo = {}
+g_pmxGeoInfo.vbInfo[1] = {Geometry.TRANS_DEFAULT}
+g_pmxGeoInfo.vbInfo[2] = {Geometry.TRANS_NONE, SIZE_FLOAT2}
+g_pmxGeoInfo.vbInfo[3] = {Geometry.TRANS_DEFAULT, SIZE_FLOAT3}
+g_pmxGeoInfo.mIdx = 1
+
+---pmx---
+vb = CMBuffer(1)
+nb = CMBuffer(1)
+ub = CMBuffer(1)
+cb = CMBuffer(1)
+ib = CMBuffer(1)
+CAddCube(vb, 0, nb, 0, ub, 0, ib, 0)
+
+geoInfo = {}
+geoInfo.layout = 1|2|4
+geoInfo.vbInfo = {}
+geoInfo.vbInfo[1] = {Geometry.TRANS_DEFAULT}
+geoInfo.vbInfo[2] = {Geometry.TRANS_NONE, SIZE_FLOAT2}
+geoInfo.vbInfo[3] = {Geometry.TRANS_DEFAULT, SIZE_FLOAT3}
+geoInfo.vb = {vb, ub, nb}
+geoInfo.ib = ib
+geoInfo.meshes = {}
+geoInfo.meshes[1] = {0, 36, g_mtlPmxInst}
+g_assets.Geometry['pmx'] = Geometry(geoInfo)
 
 ---Grid3d---
 geoInfo = {}

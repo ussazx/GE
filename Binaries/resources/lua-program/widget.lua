@@ -237,8 +237,6 @@ function Layout:SetSize(w, h)
 		self.sized = false
 		self.upNotified = false
 		self:process_event(EVT.SIZE, w0, h0)
-		if (self.z) then Print(111111, self.rect.w, self.rect.h)
-		end
 		return true
 	end
 end
@@ -2072,6 +2070,7 @@ function Selector:Remove(item)
 	item:unbind_event(nil, self, nil)
 end
 
+local n = 1
 function Selector:OnFocus(e)
 	local cd = self.cd
 	local ch = self.ch
@@ -2084,6 +2083,8 @@ function Selector:OnFocus(e)
 			item:Refresh()
 		end
 	elseif (self.showFocusOut) then
+		--Print(1111111, n)
+		--n = n + 1
 		self.focused = nil
 		for item in pairs(self.selected) do
 			item:SetDefaultColor(cfo.r, cfo.g, cfo.b, cfo.a)
@@ -2096,7 +2097,7 @@ end
 function Selector:OnMouse(e, x, y, n)
 	local item = EVT.obj
 	if (e == EVT.LEFT_DOWN or e == EVT.RIGHT_DOWN) then
-		if (g_actWindow.keyDowns[SYS.VK_CONTROL] and self.multipleOn) then
+		if (g_actWindow and g_actWindow.keyDowns[SYS.VK_CONTROL] and self.multipleOn) then
 			if (self.selected[item]) then
 				self:Select(item, false, true)
 			else

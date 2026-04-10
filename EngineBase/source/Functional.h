@@ -196,6 +196,17 @@ public:
 		}
 		return *(T*)(m_cb.GetPtr() + m_writePos + sizeof(T) * n);
 	}
+	void Copy(void* src, size_t count)
+	{
+		if (m_max < count)
+		{
+			m_max = count;
+			size_t sizeNew = m_writePos + sizeof(T) * m_max;
+			if (sizeNew > m_cb.GetSize())
+				m_cb.Resize(sizeNew);
+		}
+		memcpy(m_cb.GetPtr() + m_writePos, src, count * sizeof(T));
+	}
 	void SkipUsed()
 	{
 		m_writePos += sizeof(T) * m_max;

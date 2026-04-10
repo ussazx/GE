@@ -13,6 +13,9 @@ cd /d %~dp0
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\object3dInst.vsc object3dInst.vert
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\object3dInst_id.vsc object3dInst_id.vert
 
+..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\pmxInst.vsc pmxInst.vert
+..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\pmx.psc pmx.frag
+
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\grid3d.vsc grid3d.vert
 ..\..\..\ThirdParty\vulkan\Bin32\glslangValidator.exe -V -o ..\..\..\Binaries\resources\shaders\vulkan\grid3d.psc grid3d.frag
 

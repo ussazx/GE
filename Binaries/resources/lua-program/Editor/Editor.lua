@@ -136,6 +136,10 @@ function LoadProjWindow:ctor()
 	
 	-- if (1) then return end
 	
+-- drop name cvt
+-- drag focus
+-- drop id
+	
 	local vLayout = VBoxLayout()
 	self:AddChild(vLayout)
 	
